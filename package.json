@@ -1,30 +1,28 @@
 {
-  "name": "pi-extension-template",
-  "version": "0.1.2",
-  "description": "Template for building Pi packages with extensions, Agent Skills, prompts, and themes.",
+  "name": "pi-multica-spine",
+  "version": "0.1.0",
+  "description": "Pi extension that keeps Multica work agents bound to issue, PR, evidence, and handoff contracts.",
   "type": "module",
   "license": "MIT",
-  "author": "YOUR_NAME",
+  "author": "Keisu",
   "keywords": [
     "pi-package",
     "pi",
-    "agent-skill",
-    "typescript"
+    "typescript",
+    "multica",
+    "agent-workflow"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OWNER/REPO.git"
+    "url": "git+https://github.com/eiei114/pi-multica-spine.git"
   },
   "bugs": {
-    "url": "https://github.com/OWNER/REPO/issues"
+    "url": "https://github.com/eiei114/pi-multica-spine/issues"
   },
-  "homepage": "https://github.com/OWNER/REPO#readme",
+  "homepage": "https://github.com/eiei114/pi-multica-spine#readme",
   "files": [
     "extensions/",
     "lib/",
-    "skills/",
-    "prompts/",
-    "themes/",
     "docs/",
     "README.md",
     "LICENSE",
@@ -39,15 +37,6 @@
   "pi": {
     "extensions": [
       "./extensions"
-    ],
-    "skills": [
-      "./skills"
-    ],
-    "prompts": [
-      "./prompts"
-    ],
-    "themes": [
-      "./themes"
     ]
   },
   "publishConfig": {

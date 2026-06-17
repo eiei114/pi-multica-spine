@@ -4,25 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
-## [0.1.2] - 2026-06-04
-
-### Changed
-
-- README and `docs/template-checklist.md` now follow the Pi OSS minimal-docs policy: `docs/` is optional, with explicit post-generation cleanup for template bootstrap docs.
-- Template bootstrap docs (`github-template.md`, `repository-settings.md`, `typescript.md`) are labeled for delete-or-merge after setup.
-
-## [0.1.1] - 2026-06-01
-
-### Changed
-
-- Publish workflow now supports npm publishing on merged package version bumps in addition to tags, releases, and manual dispatch.
-- Publish workflow now installs a current npm CLI so npm Trusted Publishing OIDC is supported.
-- CI and publish workflow commands no longer include literal trailing `\\n` text.
-
-## [0.1.0] - YYYY-MM-DD
+## [0.1.0] - 2026-06-18
 
 ### Added
 
-- Initial Pi package template.
-- Example extension, Agent Skill, prompt, and theme.
-- CI and npm Trusted Publishing workflow.
+- Initial Multica Work Agent Contract extension.
+- `multica_spine_bind`, `multica_spine_context`, `multica_spine_next`, `multica_spine_link_pr`, `multica_spine_add_evidence`, `multica_spine_handoff`, and `multica_spine_verify` tools.
+- Repo-local `.multica-spine/` state store with opaque issue identifiers and ASCII-safe task filenames.
+- State machine for `UNBOUND`, `BOUND`, `PR_LINKED`, `EVIDENCE_READY`, `HANDOFF_READY`, and `VERIFIED`.
+- PR binding checker and recommended `Multica Issue: <issue-identifier>` PR body line.
+- Tests for state storage, PR binding, next action, verification failure, extension registration, and short context injection.
