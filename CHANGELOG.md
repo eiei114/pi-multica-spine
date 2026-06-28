@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.1.2] - 2026-06-28
+
+### Added
+
+- Added git completion checks to `multica_spine_verify` so Multica work agents cannot report done while a rebase/merge is still in progress, conflict markers remain, the worktree is dirty, local commits are unpushed, or PR head SHA metadata is stale.
+- Added git next-action guidance that tells agents to run `git push --force-with-lease` after successful rebase verification instead of stopping for confirmation.
+
 ## [0.1.1] - 2026-06-27
 
 ### Changed

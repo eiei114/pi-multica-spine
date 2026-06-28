@@ -102,7 +102,8 @@ test("bind → next → link_pr → add_evidence → handoff → verify succeeds
     changed: ["extensions/index.ts", "lib/state-store.ts"],
     verification: ["npm run ci passed for https://github.com/eiei114/pi-multica-spine/pull/1"],
   }, ctx);
-  assert.equal(response.details.evaluation.status, "VERIFIED");
+  assert.equal(response.details.evaluation.status, "HANDOFF_READY");
+  assert.equal(response.details.evaluation.verified, false);
 
   response = await callTool(fake.tools, "multica_spine_verify", {}, ctx);
   assert.equal(response.details.evaluation.verified, true);

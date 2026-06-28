@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
+import { checkGitCompletion } from "./git-completion-checker.ts";
 import { evaluateSpine } from "./state-machine.ts";
 import {
   SPINE_STATE_ROOT,
@@ -191,13 +192,22 @@ export class SpineStateStore {
 
   async verify(): Promise<SpineContextSnapshot> {
     const task = await this.loadActiveTask();
-    const evaluation = evaluateSpine(task);
-    if (task && evaluation.verified) {
+    const gitCompletion = checkGitCompletion(this.cwd, task);
+    const evaluation = evaluateSpine(task, gitCompletion);
+    if (task && evaluation.missing.length === 0) {
       task.verifiedAt = new Date().toISOString();
       task.updatedAt = task.verifiedAt;
       await this.writeActiveTask(task);
     }
-    return this.context();
+    const verifiedTask = await this.loadActiveTask();
+    const verifiedEvaluation = evaluateSpine(verifiedTask, gitCompletion);
+    const current = await this.loadCurrent();
+    return {
+      root: relative(this.cwd, this.root) || SPINE_STATE_ROOT,
+      current,
+      task: verifiedTask,
+      evaluation: verifiedEvaluation,
+    };
   }
 
   private async requireActiveTask(): Promise<SpineTaskState> {
