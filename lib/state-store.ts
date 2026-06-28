@@ -194,17 +194,19 @@ export class SpineStateStore {
     const task = await this.loadActiveTask();
     const gitCompletion = checkGitCompletion(this.cwd, task);
     const evaluation = evaluateSpine(task, gitCompletion);
-    if (task && evaluation.verified) {
+    if (task && evaluation.missing.length === 0) {
       task.verifiedAt = new Date().toISOString();
       task.updatedAt = task.verifiedAt;
       await this.writeActiveTask(task);
     }
+    const verifiedTask = await this.loadActiveTask();
+    const verifiedEvaluation = evaluateSpine(verifiedTask, gitCompletion);
     const current = await this.loadCurrent();
     return {
       root: relative(this.cwd, this.root) || SPINE_STATE_ROOT,
       current,
-      task: current ? await this.loadActiveTask() : undefined,
-      evaluation,
+      task: verifiedTask,
+      evaluation: verifiedEvaluation,
     };
   }
 

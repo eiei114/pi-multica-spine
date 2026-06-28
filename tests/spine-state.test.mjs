@@ -90,6 +90,7 @@ test("verified state requires issue, PR reference, writeback, evidence, and hand
       verification: ["npm run ci passed for https://github.com/eiei114/pi-multica-spine/pull/1"],
       timestamp: "2026-01-01T00:00:00.000Z",
     },
+    verifiedAt: "2026-01-01T00:00:01.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
   };
 
@@ -146,12 +147,16 @@ test("checkGitCompletion ignores spine state files but detects dirty worktree", 
   const cwd = await mkdtemp(join(tmpdir(), "spine-git-check-"));
   const { mkdir, writeFile } = await import("node:fs/promises");
   const { execFileSync } = await import("node:child_process");
+  const remote = await mkdtemp(join(tmpdir(), "spine-git-remote-"));
+  execFileSync("git", ["init", "--bare"], { cwd: remote, stdio: "ignore" });
   execFileSync("git", ["init"], { cwd, stdio: "ignore" });
   execFileSync("git", ["config", "user.email", "test@example.com"], { cwd });
   execFileSync("git", ["config", "user.name", "Test User"], { cwd });
   await writeFile(join(cwd, "README.md"), "# test\n");
   execFileSync("git", ["add", "README.md"], { cwd });
   execFileSync("git", ["commit", "-m", "init"], { cwd, stdio: "ignore" });
+  execFileSync("git", ["remote", "add", "origin", remote], { cwd });
+  execFileSync("git", ["push", "-u", "origin", "HEAD"], { cwd, stdio: "ignore" });
 
   await mkdir(join(cwd, ".multica-spine", "tasks"), { recursive: true });
   await writeFile(join(cwd, ".multica-spine", "current.json"), "{}\n");
@@ -159,4 +164,33 @@ test("checkGitCompletion ignores spine state files but detects dirty worktree", 
 
   await writeFile(join(cwd, "changed.ts"), "const value = 1;\n");
   assert.ok(checkGitCompletion(cwd).blockers.some((item) => item.startsWith("git: working tree")));
+});
+
+test("checkGitCompletion blocks branches without upstream", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "spine-git-no-upstream-"));
+  const { writeFile } = await import("node:fs/promises");
+  const { execFileSync } = await import("node:child_process");
+  execFileSync("git", ["init"], { cwd, stdio: "ignore" });
+  execFileSync("git", ["config", "user.email", "test@example.com"], { cwd });
+  execFileSync("git", ["config", "user.name", "Test User"], { cwd });
+  await writeFile(join(cwd, "README.md"), "# test\n");
+  execFileSync("git", ["add", "README.md"], { cwd });
+  execFileSync("git", ["commit", "-m", "init"], { cwd, stdio: "ignore" });
+
+  assert.ok(checkGitCompletion(cwd).blockers.includes("git: local commits not pushed to remote"));
+});
+
+test("checkGitCompletion detects leftover conflict markers from git diff --check output", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "spine-git-conflict-marker-"));
+  const { writeFile } = await import("node:fs/promises");
+  const { execFileSync } = await import("node:child_process");
+  execFileSync("git", ["init"], { cwd, stdio: "ignore" });
+  execFileSync("git", ["config", "user.email", "test@example.com"], { cwd });
+  execFileSync("git", ["config", "user.name", "Test User"], { cwd });
+  await writeFile(join(cwd, "file.txt"), "base\n");
+  execFileSync("git", ["add", "file.txt"], { cwd });
+  execFileSync("git", ["commit", "-m", "init"], { cwd, stdio: "ignore" });
+  await writeFile(join(cwd, "file.txt"), "<<<<<<< HEAD\na\n=======\nb\n>>>>>>> branch\n");
+
+  assert.ok(checkGitCompletion(cwd).blockers.includes("git: leftover conflict markers"));
 });

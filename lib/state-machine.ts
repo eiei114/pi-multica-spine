@@ -93,9 +93,9 @@ export function evaluateSpine(task?: SpineTaskState, gitCompletion?: GitCompleti
 
   if (gitCompletion?.blockers.length) missing.push(...gitCompletion.blockers);
 
-  const verified = missing.length === 0;
+  const verified = missing.length === 0 && Boolean(task.verifiedAt);
   return {
-    status: verified ? "VERIFIED" : computeStatus(task, missing),
+    status: computeStatus(task, missing),
     verified,
     missing,
     nextAction: verified

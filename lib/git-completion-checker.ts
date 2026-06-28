@@ -11,10 +11,23 @@ export interface GitCompletionCheck {
   headSha?: string;
 }
 
+function isDiffCheckCommand(args: string[]): boolean {
+  return args[0] === "diff" && args.includes("--check");
+}
+
+function outputFromFailedGit(error: unknown): string | undefined {
+  const candidate = error as { stdout?: Buffer | string; stderr?: Buffer | string };
+  const stdout = candidate.stdout?.toString() ?? "";
+  const stderr = candidate.stderr?.toString() ?? "";
+  const output = `${stdout}\n${stderr}`.trim();
+  return output || undefined;
+}
+
 function git(cwd: string, args: string[]): string | undefined {
   try {
     return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 2000 }).trim();
-  } catch {
+  } catch (error) {
+    if (isDiffCheckCommand(args)) return outputFromFailedGit(error);
     return undefined;
   }
 }
@@ -56,8 +69,11 @@ function hasLeftoverConflictMarkers(cwd: string): boolean {
   return `${unstaged ?? ""}\n${staged ?? ""}`.includes("leftover conflict marker");
 }
 
-function branchHasUnpushedCommits(branchStatus?: string): boolean {
-  return Boolean(branchStatus && /\[(?:[^\]]*,\s*)?ahead \d+/.test(branchStatus));
+function branchHasUnpushedCommits(branchStatus?: string, upstream?: string): boolean {
+  if (!branchStatus) return false;
+  if (/\[(?:[^\]]*,\s*)?ahead \d+/.test(branchStatus)) return true;
+  if (branchStatus.startsWith("## ") && !branchStatus.includes("...") && !branchStatus.includes("HEAD (no branch)")) return true;
+  return !upstream;
 }
 
 export function checkGitCompletion(cwd: string, task?: SpineTaskState): GitCompletionCheck {
@@ -69,6 +85,7 @@ export function checkGitCompletion(cwd: string, task?: SpineTaskState): GitCompl
   const branchStatus = git(cwd, ["status", "--short", "--branch"])
     ?.split(/\r?\n/)[0]
     ?.trim();
+  const upstream = git(cwd, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
   const headSha = git(cwd, ["rev-parse", "HEAD"]);
 
   if (hasGitState(cwd, dir, "rebase-merge") || hasGitState(cwd, dir, "rebase-apply")) {
@@ -80,7 +97,7 @@ export function checkGitCompletion(cwd: string, task?: SpineTaskState): GitCompl
   const dirty = dirtyLines(cwd);
   if (dirty.length > 0) blockers.push(`git: working tree has uncommitted changes (${dirty.length})`);
 
-  if (branchHasUnpushedCommits(branchStatus)) blockers.push("git: local commits not pushed to remote");
+  if (branchHasUnpushedCommits(branchStatus, upstream)) blockers.push("git: local commits not pushed to remote");
 
   if (task?.pr?.prHeadSha && headSha && task.pr.prHeadSha !== headSha) {
     blockers.push("git: PR head SHA metadata is stale");
