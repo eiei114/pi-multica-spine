@@ -9,6 +9,8 @@ export const GIT_NETWORK_WALL_CLOCK_TIMEOUT_MS = 600_000;
 
 export const GIT_TRANSPORT_HANG_MARKER = "[multica-spine] git transport hang detected";
 
+export const GIT_TRANSPORT_FAILURE_MARKER = "[multica-spine] git transport failure";
+
 export type GitTransportFailureKind =
   | "idle_hang"
   | "auth"
@@ -49,7 +51,7 @@ export function classifyGitTransportFailure(
   const text = output.trim();
   const lower = text.toLowerCase();
 
-  if (options.idleHang || (!text && options.idleTimeoutMs > 0)) {
+  if (options.idleHang) {
     return {
       kind: "idle_hang",
       summary: "Git network command produced no output for the idle watchdog interval.",
@@ -58,25 +60,6 @@ export function classifyGitTransportFailure(
         "Check remote URL (`git remote -v`), VPN/firewall, and whether SSH or HTTPS auth is configured for non-interactive runs.",
         "For HTTPS, ensure a credential helper or token is available; for SSH, ensure ssh-agent has the right key loaded.",
         "Retry with `GIT_TRACE=1 GIT_CURL_VERBOSE=1` on a short command like `git ls-remote origin HEAD` to see where transport stalls.",
-      ],
-      command,
-      idleTimeoutMs: options.idleTimeoutMs,
-      partialOutput: text || undefined,
-    };
-  }
-
-  if (
-    /terminal prompts disabled|device not configured|could not read username|invalid credentials|authentication failed|403|401 forbidden|permission denied \(publickey\)/i.test(
-      text,
-    )
-  ) {
-    return {
-      kind: "auth",
-      summary: "Git transport failed with an authentication error.",
-      hints: [
-        "Verify the remote URL and that credentials are available in this non-interactive agent runtime.",
-        "For GitHub HTTPS, use a PAT via credential helper or `gh auth setup-git`.",
-        "For SSH remotes, confirm `ssh -T git@github.com` works in the same environment.",
       ],
       command,
       idleTimeoutMs: options.idleTimeoutMs,
@@ -95,6 +78,26 @@ export function classifyGitTransportFailure(
       ],
       command,
       idleTimeoutMs: options.idleTimeoutMs,
+      partialOutput: text || undefined,
+    };
+  }
+
+  if (
+    /device not configured|could not read username|invalid credentials|authentication failed|403|401 forbidden|permission denied \(publickey\)/i.test(
+      text,
+    )
+  ) {
+    return {
+      kind: "auth",
+      summary: "Git transport failed with an authentication error.",
+      hints: [
+        "Verify the remote URL and that credentials are available in this non-interactive agent runtime.",
+        "For GitHub HTTPS, use a PAT via credential helper or `gh auth setup-git`.",
+        "For SSH remotes, confirm `ssh -T git@github.com` works in the same environment.",
+      ],
+      command,
+      idleTimeoutMs: options.idleTimeoutMs,
+
       partialOutput: text || undefined,
     };
   }
@@ -162,12 +165,20 @@ export function classifyGitTransportFailure(
   };
 }
 
+export function redactGitCommand(command: string): string {
+  return command
+    .replace(/(https?:\/\/)([^/@\s]+@)/gi, "$1***@")
+    .replace(/\bghp_[A-Za-z0-9]{20,}\b/g, "ghp_***")
+    .replace(/\bgithub_pat_[A-Za-z0-9_]+\b/g, "github_pat_***");
+}
+
 export function formatGitTransportFailure(failure: GitTransportFailure): string {
+  const marker = failure.kind === "idle_hang" ? GIT_TRANSPORT_HANG_MARKER : GIT_TRANSPORT_FAILURE_MARKER;
   const lines = [
-    GIT_TRANSPORT_HANG_MARKER,
+    marker,
     `kind: ${failure.kind}`,
     `summary: ${failure.summary}`,
-    `command: ${failure.command}`,
+    `command: ${redactGitCommand(failure.command)}`,
     `idle_timeout_ms: ${failure.idleTimeoutMs}`,
     "next_steps:",
     ...failure.hints.map((hint) => `- ${hint}`),
@@ -249,6 +260,7 @@ export async function runGuardedGitNetworkShellCommand(
             env: options.env ?? process.env,
             stdio: ["ignore", "pipe", "pipe"],
             windowsHide: true,
+            detached: true,
           });
 
     const chunks: string[] = [];
@@ -292,7 +304,10 @@ export async function runGuardedGitNetworkShellCommand(
       resolve({ exitCode, output, failure, idleHang });
     };
 
-    child.on("error", () => finish(1));
+    child.on("error", (error) => {
+      chunks.push(error instanceof Error ? error.message : String(error));
+      finish(1);
+    });
     child.on("close", (code) => finish(code ?? 1));
   });
 }

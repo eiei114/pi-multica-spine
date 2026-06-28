@@ -3,11 +3,13 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import {
+  GIT_TRANSPORT_FAILURE_MARKER,
   GIT_TRANSPORT_HANG_MARKER,
   buildGuardedGitNetworkBashCommand,
   classifyGitTransportFailure,
   formatGitTransportFailure,
   isGitNetworkShellCommand,
+  redactGitCommand,
   runGuardedGitNetworkShellCommand,
 } from "../lib/git-network-guard.ts";
 
@@ -34,16 +36,44 @@ test("classifyGitTransportFailure distinguishes idle hang from auth errors", () 
     { idleTimeoutMs: 180_000 },
   );
   assert.equal(auth.kind, "auth");
+  assert.match(formatGitTransportFailure(auth), new RegExp(GIT_TRANSPORT_FAILURE_MARKER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(formatGitTransportFailure(auth), new RegExp(GIT_TRANSPORT_HANG_MARKER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+
+  const credentialPrompt = classifyGitTransportFailure(
+    "git push origin HEAD",
+    "fatal: terminal prompts disabled",
+    { idleTimeoutMs: 180_000 },
+  );
+  assert.equal(credentialPrompt.kind, "credential_prompt");
+
+  const emptyNonHang = classifyGitTransportFailure("git push origin HEAD", "", {
+    idleTimeoutMs: 180_000,
+    idleHang: false,
+  });
+  assert.notEqual(emptyNonHang.kind, "idle_hang");
 });
 
-test("formatGitTransportFailure includes marker and next steps", () => {
-  const failure = classifyGitTransportFailure("git ls-remote origin", "", {
+test("formatGitTransportFailure redacts credentials in command output", () => {
+  const redacted = redactGitCommand("git push https://user:ghp_secretToken12345678901234567890@github.com/org/repo.git HEAD");
+  assert.doesNotMatch(redacted, /ghp_secretToken/);
+  assert.match(redacted, /\*\*\*@github\.com/);
+
+  const failure = classifyGitTransportFailure(
+    "git push https://token@github.com/org/repo.git HEAD",
+    "",
+    { idleTimeoutMs: 180_000, idleHang: true },
+  );
+  const formatted = formatGitTransportFailure(failure);
+  assert.doesNotMatch(formatted, /token@github/);
+  assert.match(formatted, /\*\*\*@github/);
+
+  const hangFailure = classifyGitTransportFailure("git ls-remote origin", "", {
     idleTimeoutMs: 180_000,
     idleHang: true,
   });
-  const formatted = formatGitTransportFailure(failure);
-  assert.match(formatted, new RegExp(GIT_TRANSPORT_HANG_MARKER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(formatted, /next_steps:/);
+  const hangFormatted = formatGitTransportFailure(hangFailure);
+  assert.match(hangFormatted, new RegExp(GIT_TRANSPORT_HANG_MARKER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(hangFormatted, /next_steps:/);
 });
 
 test("runGuardedGitNetworkShellCommand aborts silent subprocesses", async () => {
