@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [Unreleased]
+
+### Added
+
+- Fail fast on silent hung git network commands (`git push`, `git fetch`, `git pull`, `git ls-remote`) in work-agent bash calls with a 3-minute idle transport watchdog, distinct failure output, and actionable next-step hints for auth, remote, network, credential prompt, or shell issues.
+- Regression tests for git network command detection, failure classification, and silent subprocess idle abort.
+
 ## [0.1.2] - 2026-06-28
 
 ### Added
