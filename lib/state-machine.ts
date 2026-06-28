@@ -1,5 +1,6 @@
 import { checkPrBinding } from "./pr-binding-checker.ts";
 import type { NextAction, SpineEvaluation, SpineStatus, SpineTaskState } from "./types.ts";
+import type { GitCompletionCheck } from "./git-completion-checker.ts";
 
 const ACTIONS = {
   bind: {
@@ -22,6 +23,10 @@ const ACTIONS = {
     tool: "multica_spine_verify",
     instruction: "Run the completion check before reporting done.",
   },
+  fixGit: {
+    tool: "git",
+    instruction: "Finish git cleanup/push. If rebase rewrote history and CI passed, run `git push --force-with-lease` without asking the user.",
+  },
   done: {
     tool: "none",
     instruction: "Spine verified. You may report done and hand off the PR.",
@@ -38,6 +43,7 @@ function computeStatus(task?: SpineTaskState, missing: string[] = []): SpineStat
 }
 
 function nextActionForMissing(missing: string[]): NextAction {
+  if (missing.some((item) => item.startsWith("git:"))) return ACTIONS.fixGit;
   if (missing.includes("active issue identifier")) return ACTIONS.bind;
   if (
     missing.includes("PR URL") ||
@@ -54,7 +60,7 @@ function nextActionForMissing(missing: string[]): NextAction {
   return ACTIONS.verify;
 }
 
-export function evaluateSpine(task?: SpineTaskState): SpineEvaluation {
+export function evaluateSpine(task?: SpineTaskState, gitCompletion?: GitCompletionCheck): SpineEvaluation {
   if (!task) {
     return {
       status: "UNBOUND",
@@ -85,12 +91,19 @@ export function evaluateSpine(task?: SpineTaskState): SpineEvaluation {
     if (task.pr?.prUrl && !handoffText.includes(task.pr.prUrl)) missing.push("handoff PR URL");
   }
 
+  if (gitCompletion?.blockers.length) missing.push(...gitCompletion.blockers);
+
   const verified = missing.length === 0;
   return {
     status: verified ? "VERIFIED" : computeStatus(task, missing),
     verified,
     missing,
-    nextAction: verified ? ACTIONS.done : nextActionForMissing(missing),
+    nextAction: verified
+      ? ACTIONS.done
+      : gitCompletion?.nextAction
+        ? { tool: "git", instruction: gitCompletion.nextAction }
+        : nextActionForMissing(missing),
     prRecommendation: prCheck.recommendation,
+    gitCompletion,
   };
 }

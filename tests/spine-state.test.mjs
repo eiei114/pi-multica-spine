@@ -106,3 +106,57 @@ test("PrBindingChecker accepts issue identifier in branch, title, body, or metad
   assert.equal(checkPrBinding("ABC-9", { prUrl: "u", metadata: { source: "ABC-9" }, linkedAt: "t" }).ok, true);
   assert.equal(checkPrBinding("TASK-45", { prUrl: "u", prBranch: "feature/nope", linkedAt: "t" }).ok, false);
 });
+
+const { checkGitCompletion } = await import("../lib/git-completion-checker.ts");
+
+test("evaluateSpine blocks verified state when git completion blockers exist", () => {
+  const task = {
+    issue: { identifier: "TASK-45", boundAt: "2026-01-01T00:00:00.000Z" },
+    pr: {
+      prUrl: "https://github.com/eiei114/pi-multica-spine/pull/1",
+      prNumber: 1,
+      prHeadSha: "abc123",
+      prBranch: "TASK-45-work-agent-contract",
+      writebackRecorded: true,
+      linkedAt: "2026-01-01T00:00:00.000Z",
+    },
+    evidence: [{ kind: "command", command: "npm run ci", exitCode: 0, summary: "passed", timestamp: "2026-01-01T00:00:00.000Z" }],
+    handoff: {
+      done: ["Implemented TASK-45"],
+      changed: ["lib and extension tools"],
+      verification: ["npm run ci passed for https://github.com/eiei114/pi-multica-spine/pull/1"],
+      timestamp: "2026-01-01T00:00:00.000Z",
+    },
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+
+  const evaluation = evaluateSpine(task, {
+    checked: true,
+    blockers: ["git: local commits not pushed to remote"],
+    nextAction: "Push with git push --force-with-lease.",
+  });
+
+  assert.equal(evaluation.verified, false);
+  assert.equal(evaluation.status, "HANDOFF_READY");
+  assert.ok(evaluation.missing.includes("git: local commits not pushed to remote"));
+  assert.equal(evaluation.nextAction.tool, "git");
+});
+
+test("checkGitCompletion ignores spine state files but detects dirty worktree", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "spine-git-check-"));
+  const { mkdir, writeFile } = await import("node:fs/promises");
+  const { execFileSync } = await import("node:child_process");
+  execFileSync("git", ["init"], { cwd, stdio: "ignore" });
+  execFileSync("git", ["config", "user.email", "test@example.com"], { cwd });
+  execFileSync("git", ["config", "user.name", "Test User"], { cwd });
+  await writeFile(join(cwd, "README.md"), "# test\n");
+  execFileSync("git", ["add", "README.md"], { cwd });
+  execFileSync("git", ["commit", "-m", "init"], { cwd, stdio: "ignore" });
+
+  await mkdir(join(cwd, ".multica-spine", "tasks"), { recursive: true });
+  await writeFile(join(cwd, ".multica-spine", "current.json"), "{}\n");
+  assert.deepEqual(checkGitCompletion(cwd).blockers, []);
+
+  await writeFile(join(cwd, "changed.ts"), "const value = 1;\n");
+  assert.ok(checkGitCompletion(cwd).blockers.some((item) => item.startsWith("git: working tree")));
+});

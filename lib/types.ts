@@ -74,6 +74,13 @@ export interface SpineEvaluation {
   missing: string[];
   nextAction: NextAction;
   prRecommendation?: string;
+  gitCompletion?: {
+    checked: boolean;
+    blockers: string[];
+    nextAction?: string;
+    branchStatus?: string;
+    headSha?: string;
+  };
 }
 
 export interface SpineContextSnapshot {
