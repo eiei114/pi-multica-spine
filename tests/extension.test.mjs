@@ -54,6 +54,42 @@ test("extension registers MVP tools", () => {
   ]);
 });
 
+test("extension wraps git network bash commands with transport guard", async () => {
+  const fake = createFakePi();
+  extension(fake.api);
+
+  const handler = fake.handlers.get("tool_call");
+  assert.ok(handler);
+
+  const event = {
+    toolName: "bash",
+    toolCallId: "call-1",
+    input: { command: "git push origin HEAD" },
+  };
+  await handler(event, fakeCtx("/tmp"));
+
+  assert.match(event.input.command, /git-network-guard-cli\.mjs/);
+  assert.equal(event.input.timeout, 600);
+});
+
+test("extension preserves existing bash timeout for git network commands", async () => {
+  const fake = createFakePi();
+  extension(fake.api);
+
+  const handler = fake.handlers.get("tool_call");
+  assert.ok(handler);
+
+  const event = {
+    toolName: "bash",
+    toolCallId: "call-2",
+    input: { command: "git fetch origin", timeout: 120 },
+  };
+  await handler(event, fakeCtx("/tmp"));
+
+  assert.match(event.input.command, /git-network-guard-cli\.mjs/);
+  assert.equal(event.input.timeout, 120);
+});
+
 test("extension injects short Multica Work Agent Contract only", async () => {
   const fake = createFakePi();
   extension(fake.api);

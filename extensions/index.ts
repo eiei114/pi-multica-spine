@@ -4,6 +4,11 @@ import { resolve } from "node:path";
 import { Type } from "typebox";
 import { StringEnum } from "../lib/schema.ts";
 import {
+  buildGuardedGitNetworkBashCommand,
+  gitNetworkWallClockTimeoutSeconds,
+  isGitNetworkShellCommand,
+} from "../lib/git-network-guard.ts";
+import {
   SpineStateStore,
   type BindInput,
   type EvidenceInput,
@@ -119,6 +124,21 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
 
   pi.on("before_agent_start", async (event) => {
     return { systemPrompt: `${event.systemPrompt}\n\n${CONTRACT}` };
+  });
+
+  pi.on("tool_call", async (event) => {
+    if (event.toolName !== "bash" || typeof event.input.command !== "string") {
+      return undefined;
+    }
+    if (!isGitNetworkShellCommand(event.input.command)) {
+      return undefined;
+    }
+
+    event.input.command = buildGuardedGitNetworkBashCommand(event.input.command);
+    if (event.input.timeout === undefined) {
+      event.input.timeout = gitNetworkWallClockTimeoutSeconds();
+    }
+    return undefined;
   });
 
   pi.registerTool({
