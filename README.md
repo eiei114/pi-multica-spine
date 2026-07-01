@@ -22,7 +22,7 @@ It does not replace Multica controllers, Todo Runner, Review Sentinel, or PR cre
 - Repo-local `.multica-spine/` state store with opaque issue identifiers and ASCII-safe task filenames.
 - Work-agent contract injected into Pi sessions so agents see the bind → PR → evidence → handoff flow up front.
 - PR binding checker with a recommended `Multica Issue: <issue-identifier>` PR body line.
-- Done gate via `multica_spine_verify` — fails until issue binding, PR writeback, evidence, and handoff are complete.
+- Done gate via `multica_spine_verify` — fails until issue binding, PR writeback, evidence, handoff, and git completion (clean worktree, no conflict markers, pushed commits, current PR head SHA) are complete.
 
 ### Tools
 
@@ -34,7 +34,7 @@ It does not replace Multica controllers, Todo Runner, Review Sentinel, or PR cre
 | `multica_spine_link_pr` | Record PR URL and metadata (`prNumber`, `prHeadSha`, `prBranch`, etc.). |
 | `multica_spine_add_evidence` | Record verification command/manual/test/lint/typecheck evidence. |
 | `multica_spine_handoff` | Record structured done/changed/verification/blockers/next handoff. |
-| `multica_spine_verify` | Completion check. Fails until issue, PR binding, writeback, evidence, and handoff are complete. |
+| `multica_spine_verify` | Completion check. Fails until issue, PR binding, writeback, evidence, handoff, and git completion blockers are resolved. |
 
 ## Install
 
@@ -47,7 +47,7 @@ pi install npm:pi-multica-spine
 Pin a specific version when you want reproducible installs:
 
 ```bash
-pi install npm:pi-multica-spine@0.1.1
+pi install npm:pi-multica-spine@0.1.2
 ```
 
 Install into the current project instead of your user Pi settings:
@@ -123,7 +123,7 @@ Issue identifiers are stored canonically as opaque strings. Filenames are ASCII-
 | Path | Purpose |
 |---|---|
 | `extensions/` | Pi TypeScript extension entrypoint (`index.ts`) |
-| `lib/` | Spine state store, state machine, PR binding checker, and schemas |
+| `lib/` | Spine state store, state machine, PR binding checker, git completion checker, and schemas |
 | `docs/` | Release and maintainer docs (`release.md`) |
 | `README.md` | Public entrypoint (this file) |
 | `LICENSE` | MIT license |
