@@ -9,6 +9,16 @@ npm install
 npm run ci
 ```
 
+### Coverage
+
+```bash
+npm run test:coverage
+```
+
+Prints line, branch, and function coverage for `lib/` and `extensions/` using Node's built-in `--experimental-test-coverage` reporter (no extra dependencies).
+
+Baseline (Node 24, report-only): ~93% lines, ~77% branches, ~93% functions. CI runs the same coverage step in report-only mode; thresholds are not enforced yet.
+
 ## Local Pi testing
 
 ```bash
