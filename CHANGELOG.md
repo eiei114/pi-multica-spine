@@ -6,6 +6,8 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+- Add Buy Me a Coffee sponsor button to README and native GitHub funding link via `.github/FUNDING.yml`.
+
 ### Added
 
 - `npm run test:coverage` using Node's built-in `--experimental-test-coverage` reporter; CI runs coverage in report-only mode (no enforced thresholds yet).
@@ -35,3 +37,4 @@ This project follows semantic versioning.
 - State machine for `UNBOUND`, `BOUND`, `PR_LINKED`, `EVIDENCE_READY`, `HANDOFF_READY`, and `VERIFIED`.
 - PR binding checker and recommended `Multica Issue: <issue-identifier>` PR body line.
 - Tests for state storage, PR binding, next action, verification failure, extension registration, and short context injection.
+
