@@ -6,6 +6,18 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-07-07
+
+### Added
+
+- `multica_spine_verify` now checks linked local issue markdown for `ready_for_multica: false` before completion.
+- Optional `localIssuePath` on `multica_spine_bind` and auto-discovery under `Issues/` / vault import folders.
+- Work-agent contract prompt now reminds agents to close local import issues before reporting done.
+
+## [0.1.3] - 2026-07-04
+
+### Added
+
 - Add Buy Me a Coffee sponsor button to README and native GitHub funding link via `.github/FUNDING.yml`.
 
 ### Added

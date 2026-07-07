@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { checkGitCompletion } from "./git-completion-checker.ts";
+import { checkLocalImportClosure } from "./local-import-closure-checker.ts";
 import { evaluateSpine } from "./state-machine.ts";
 import {
   SPINE_STATE_ROOT,
@@ -18,6 +19,7 @@ export interface BindInput {
   issueIdentifier: string;
   issueUrl?: string;
   issueTitle?: string;
+  localIssuePath?: string;
 }
 
 export interface LinkPrInput {
@@ -108,11 +110,14 @@ export class SpineStateStore {
   async context(): Promise<SpineContextSnapshot> {
     const current = await this.loadCurrent();
     const task = current ? await this.loadActiveTask() : undefined;
+    const localImportClosure = task
+      ? await checkLocalImportClosure(this.cwd, task.issue.identifier, task.issue.localIssuePath)
+      : undefined;
     return {
       root: relative(this.cwd, this.root) || SPINE_STATE_ROOT,
       current,
       task,
-      evaluation: evaluateSpine(task),
+      evaluation: evaluateSpine(task, undefined, localImportClosure),
     };
   }
 
@@ -127,6 +132,7 @@ export class SpineStateStore {
       identifier: issueIdentifier,
       url: input.issueUrl,
       title: input.issueTitle,
+      localIssuePath: input.localIssuePath?.trim() || existing?.issue.localIssuePath,
       boundAt: existing?.issue.boundAt ?? now,
     };
     const task: SpineTaskState = {
@@ -193,14 +199,17 @@ export class SpineStateStore {
   async verify(): Promise<SpineContextSnapshot> {
     const task = await this.loadActiveTask();
     const gitCompletion = checkGitCompletion(this.cwd, task);
-    const evaluation = evaluateSpine(task, gitCompletion);
+    const localImportClosure = task
+      ? await checkLocalImportClosure(this.cwd, task.issue.identifier, task.issue.localIssuePath)
+      : undefined;
+    const evaluation = evaluateSpine(task, gitCompletion, localImportClosure);
     if (task && evaluation.missing.length === 0) {
       task.verifiedAt = new Date().toISOString();
       task.updatedAt = task.verifiedAt;
       await this.writeActiveTask(task);
     }
     const verifiedTask = await this.loadActiveTask();
-    const verifiedEvaluation = evaluateSpine(verifiedTask, gitCompletion);
+    const verifiedEvaluation = evaluateSpine(verifiedTask, gitCompletion, localImportClosure);
     const current = await this.loadCurrent();
     return {
       root: relative(this.cwd, this.root) || SPINE_STATE_ROOT,

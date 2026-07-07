@@ -143,6 +143,38 @@ test("evaluateSpine blocks verified state when git completion blockers exist", (
   assert.equal(evaluation.nextAction.tool, "git");
 });
 
+test("SpineStateStore verify blocks when linked local issue still has ready_for_multica: true", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "spine-verify-local-import-"));
+  const { mkdir, writeFile } = await import("node:fs/promises");
+  await mkdir(join(cwd, "Issues"), { recursive: true });
+  await writeFile(
+    join(cwd, "Issues", "01-example.md"),
+    `---\ntitle: Example\nready_for_multica: true\nmultica_issue: TASK-45\n---\n# Example\n`,
+    "utf8",
+  );
+
+  const store = new SpineStateStore(cwd);
+  await store.bind({ issueIdentifier: "TASK-45" });
+  await store.linkPr({
+    prUrl: "https://github.com/eiei114/pi-multica-spine/pull/1",
+    prNumber: 1,
+    prHeadSha: "abc123",
+    prBranch: "TASK-45-work-agent-contract",
+    prBody: "Multica Issue: TASK-45",
+    writebackRecorded: true,
+  });
+  await store.addEvidence({ kind: "test", summary: "tests passed" });
+  await store.handoff({
+    done: ["Implemented TASK-45"],
+    changed: ["Issues/01-example.md"],
+    verification: ["npm run ci passed"],
+  });
+
+  const snapshot = await store.verify();
+  assert.equal(snapshot.evaluation.verified, false);
+  assert.ok(snapshot.evaluation.missing.includes("local import closure"));
+});
+
 test("checkGitCompletion ignores spine state files but detects dirty worktree", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "spine-git-check-"));
   const { mkdir, writeFile } = await import("node:fs/promises");

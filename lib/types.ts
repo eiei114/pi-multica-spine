@@ -6,6 +6,7 @@ export interface IssueBinding {
   identifier: string;
   url?: string;
   title?: string;
+  localIssuePath?: string;
   boundAt: string;
 }
 
@@ -80,6 +81,13 @@ export interface SpineEvaluation {
     nextAction?: string;
     branchStatus?: string;
     headSha?: string;
+  };
+  localImportClosure?: {
+    checked: boolean;
+    localIssuePath?: string;
+    readyForMultica?: boolean;
+    closed: boolean;
+    instruction?: string;
   };
 }
 
