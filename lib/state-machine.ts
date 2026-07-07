@@ -1,4 +1,5 @@
 import { checkPrBinding } from "./pr-binding-checker.ts";
+import type { LocalImportClosureCheck } from "./local-import-closure-checker.ts";
 import type { NextAction, SpineEvaluation, SpineStatus, SpineTaskState } from "./types.ts";
 import type { GitCompletionCheck } from "./git-completion-checker.ts";
 
@@ -17,7 +18,8 @@ const ACTIONS = {
   },
   handoff: {
     tool: "multica_spine_handoff",
-    instruction: "Write a structured handoff with done, changed, verification, blockers/risks, and next steps.",
+    instruction:
+      "Write a structured handoff with done, changed, verification, blockers/risks, and next steps. If a local issue markdown exists, set ready_for_multica: false before verify.",
   },
   verify: {
     tool: "multica_spine_verify",
@@ -42,9 +44,15 @@ function computeStatus(task?: SpineTaskState, missing: string[] = []): SpineStat
   return "BOUND";
 }
 
-function nextActionForMissing(missing: string[]): NextAction {
+function nextActionForMissing(missing: string[], localImportClosure?: LocalImportClosureCheck): NextAction {
   if (missing.some((item) => item.startsWith("git:"))) return ACTIONS.fixGit;
   if (missing.includes("active issue identifier")) return ACTIONS.bind;
+  if (missing.includes("local import closure")) {
+    return {
+      tool: "edit",
+      instruction: localImportClosure?.instruction ?? "Set ready_for_multica: false on the linked local issue markdown.",
+    };
+  }
   if (
     missing.includes("PR URL") ||
     missing.includes("PR metadata: prNumber") ||
@@ -60,7 +68,11 @@ function nextActionForMissing(missing: string[]): NextAction {
   return ACTIONS.verify;
 }
 
-export function evaluateSpine(task?: SpineTaskState, gitCompletion?: GitCompletionCheck): SpineEvaluation {
+export function evaluateSpine(
+  task?: SpineTaskState,
+  gitCompletion?: GitCompletionCheck,
+  localImportClosure?: LocalImportClosureCheck,
+): SpineEvaluation {
   if (!task) {
     return {
       status: "UNBOUND",
@@ -91,6 +103,10 @@ export function evaluateSpine(task?: SpineTaskState, gitCompletion?: GitCompleti
     if (task.pr?.prUrl && !handoffText.includes(task.pr.prUrl)) missing.push("handoff PR URL");
   }
 
+  if (localImportClosure?.checked && !localImportClosure.closed) {
+    missing.push("local import closure");
+  }
+
   if (gitCompletion?.blockers.length) missing.push(...gitCompletion.blockers);
 
   const verified = missing.length === 0 && Boolean(task.verifiedAt);
@@ -102,8 +118,9 @@ export function evaluateSpine(task?: SpineTaskState, gitCompletion?: GitCompleti
       ? ACTIONS.done
       : gitCompletion?.nextAction
         ? { tool: "git", instruction: gitCompletion.nextAction }
-        : nextActionForMissing(missing),
+        : nextActionForMissing(missing, localImportClosure),
     prRecommendation: prCheck.recommendation,
     gitCompletion,
+    localImportClosure,
   };
 }

@@ -23,12 +23,14 @@ For Multica implementation or PR-producing work:
 1. Bind the active issue identifier with multica_spine_bind.
 2. Use multica_spine_next to see the required next action.
 3. Ensure PRs reference the bound issue identifier.
-4. Do not report done until multica_spine_verify passes.`;
+4. If a linked local issue markdown exists, set ready_for_multica: false before reporting done so import does not re-queue completed work.
+5. Do not report done until multica_spine_verify passes.`;
 
 const bindParameters = Type.Object({
   issueIdentifier: Type.String({ description: "Opaque Multica issue identifier. Do not assume DOT format." }),
   issueUrl: Type.Optional(Type.String({ description: "Optional source issue URL." })),
   issueTitle: Type.Optional(Type.String({ description: "Optional source issue title." })),
+  localIssuePath: Type.Optional(Type.String({ description: "Optional relative path to the linked local issue markdown." })),
 });
 
 const linkPrParameters = Type.Object({
@@ -99,6 +101,7 @@ function normalizeBindArgs(args: unknown): BindInput {
     issueIdentifier: input.issueIdentifier ?? input.issue_identifier,
     issueUrl: input.issueUrl ?? input.issue_url,
     issueTitle: input.issueTitle ?? input.issue_title,
+    localIssuePath: input.localIssuePath ?? input.local_issue_path,
   } as BindInput;
 }
 
