@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-const { default: extension } = await import("../extensions/index.ts");
+const { default: extension, _setMetadataClientForTests } = await import("../extensions/index.ts");
 
 function createFakePi() {
   const tools = new Map();
@@ -49,6 +49,9 @@ test("extension registers MVP tools", () => {
     "multica_spine_context",
     "multica_spine_handoff",
     "multica_spine_link_pr",
+    "multica_spine_metadata_delete",
+    "multica_spine_metadata_list",
+    "multica_spine_metadata_set",
     "multica_spine_next",
     "multica_spine_verify",
   ]);
@@ -144,4 +147,120 @@ test("bind → next → link_pr → add_evidence → handoff → verify succeeds
   response = await callTool(fake.tools, "multica_spine_verify", {}, ctx);
   assert.equal(response.details.evaluation.verified, true);
   assert.equal(response.details.evaluation.status, "VERIFIED");
+});
+
+function fakeMetadataClient() {
+  const calls = [];
+  const canned = { pr_url: "https://example/pr/9", count: 3 };
+  return {
+    calls,
+    client: {
+      async list(issueIdentifier) {
+        calls.push({ method: "list", issueIdentifier });
+        return { ...canned };
+      },
+      async set(issueIdentifier, key, value, type) {
+        calls.push({ method: "set", issueIdentifier, key, value, type });
+        return { ...canned, [key]: value };
+      },
+      async delete(issueIdentifier, key) {
+        calls.push({ method: "delete", issueIdentifier, key });
+        const next = { ...canned };
+        delete next[key];
+        return next;
+      },
+    },
+  };
+}
+
+test("metadata_list uses explicit issueIdentifier and returns parsed metadata", async () => {
+  const fake = createFakePi();
+  extension(fake.api);
+  const cwd = await mkdtemp(join(tmpdir(), "spine-metadata-"));
+  const ctx = fakeCtx(cwd);
+  const { calls, client } = fakeMetadataClient();
+  _setMetadataClientForTests(client);
+
+  const response = await callTool(fake.tools, "multica_spine_metadata_list", { issueIdentifier: "DOT-42" }, ctx);
+
+  assert.equal(calls[0].method, "list");
+  assert.equal(calls[0].issueIdentifier, "DOT-42");
+  assert.equal(response.details.action, "metadata_list");
+  assert.equal(response.details.issueIdentifier, "DOT-42");
+  assert.equal(response.details.metadata.pr_url, "https://example/pr/9");
+  assert.match(response.content[0].text, /issue: DOT-42/);
+  assert.match(response.content[0].text, /keys: 2/);
+});
+
+test("metadata tools fall back to the bound issue identifier", async () => {
+  const fake = createFakePi();
+  extension(fake.api);
+  const cwd = await mkdtemp(join(tmpdir(), "spine-metadata-fallback-"));
+  const ctx = fakeCtx(cwd);
+  const { calls, client } = fakeMetadataClient();
+  _setMetadataClientForTests(client);
+
+  await callTool(fake.tools, "multica_spine_bind", { issue_identifier: "DOT-777" }, ctx);
+  await callTool(fake.tools, "multica_spine_metadata_list", {}, ctx);
+
+  assert.equal(calls[0].method, "list");
+  assert.equal(calls[0].issueIdentifier, "DOT-777");
+});
+
+test("metadata_list rejects when no issue is bound and none is passed", async () => {
+  const fake = createFakePi();
+  extension(fake.api);
+  const cwd = await mkdtemp(join(tmpdir(), "spine-metadata-unbound-"));
+  const ctx = fakeCtx(cwd);
+  const { client } = fakeMetadataClient();
+  _setMetadataClientForTests(client);
+
+  await assert.rejects(
+    () => callTool(fake.tools, "multica_spine_metadata_list", {}, ctx),
+    /issueIdentifier is required/,
+  );
+});
+
+test("metadata_set forwards key/value/type to the client", async () => {
+  const fake = createFakePi();
+  extension(fake.api);
+  const cwd = await mkdtemp(join(tmpdir(), "spine-metadata-set-"));
+  const ctx = fakeCtx(cwd);
+  const { calls, client } = fakeMetadataClient();
+  _setMetadataClientForTests(client);
+
+  const response = await callTool(
+    fake.tools,
+    "multica_spine_metadata_set",
+    { issue_identifier: "DOT-42", key: "deploy_url", value: "https://x", type: "string" },
+    ctx,
+  );
+
+  assert.equal(calls[0].method, "set");
+  assert.equal(calls[0].issueIdentifier, "DOT-42");
+  assert.equal(calls[0].key, "deploy_url");
+  assert.equal(calls[0].value, "https://x");
+  assert.equal(calls[0].type, "string");
+  assert.equal(response.details.metadata.deploy_url, "https://x");
+});
+
+test("metadata_delete forwards key to the client", async () => {
+  const fake = createFakePi();
+  extension(fake.api);
+  const cwd = await mkdtemp(join(tmpdir(), "spine-metadata-delete-"));
+  const ctx = fakeCtx(cwd);
+  const { calls, client } = fakeMetadataClient();
+  _setMetadataClientForTests(client);
+
+  const response = await callTool(
+    fake.tools,
+    "multica_spine_metadata_delete",
+    { issueIdentifier: "DOT-42", key: "stale_key" },
+    ctx,
+  );
+
+  assert.equal(calls[0].method, "delete");
+  assert.equal(calls[0].issueIdentifier, "DOT-42");
+  assert.equal(calls[0].key, "stale_key");
+  assert.equal(response.details.action, "metadata_delete");
 });
