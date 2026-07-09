@@ -28,6 +28,46 @@ test("safeIssueIdentifier creates ASCII filenames without changing stored IDs", 
   assert.match(safeIssueIdentifier("課題/45"), /^45-[a-f0-9]{8}$|^issue-[a-f0-9]{8}$/);
 });
 
+test("SpineStateStore addEvidence dedups repeated kind+command+exitCode to one record", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "spine-evidence-dedup-"));
+  const store = new SpineStateStore(cwd);
+  await store.bind({ issueIdentifier: "DOT-752" });
+
+  const evidence = { kind: "command", command: "npm run ci", exitCode: 0, summary: "first run" };
+  await store.addEvidence(evidence);
+  await store.addEvidence({ ...evidence, summary: "second run" });
+  await store.addEvidence({ ...evidence, summary: "third run" });
+
+  const snapshot = await store.context();
+  assert.equal(snapshot.task.evidence.length, 1);
+  assert.equal(snapshot.task.evidence[0].kind, "command");
+  assert.equal(snapshot.task.evidence[0].command, "npm run ci");
+  assert.equal(snapshot.task.evidence[0].exitCode, 0);
+  assert.equal(snapshot.task.evidence[0].summary, "third run");
+  assert.match(snapshot.task.evidence[0].timestamp, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test("SpineStateStore addEvidence keeps distinct records when kind, command, or exitCode differ", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "spine-evidence-distinct-"));
+  const store = new SpineStateStore(cwd);
+  await store.bind({ issueIdentifier: "DOT-752" });
+
+  await store.addEvidence({ kind: "command", command: "npm run ci", exitCode: 0, summary: "ci passed" });
+  // Different command -> distinct record.
+  await store.addEvidence({ kind: "command", command: "npm run typecheck", exitCode: 0, summary: "typecheck passed" });
+  // Different exitCode -> distinct record.
+  await store.addEvidence({ kind: "command", command: "npm run ci", exitCode: 1, summary: "ci failed" });
+  // Different kind -> distinct record.
+  await store.addEvidence({ kind: "manual", summary: "manual check" });
+  // Manual evidence without command dedups against itself.
+  await store.addEvidence({ kind: "manual", summary: "manual check again" });
+
+  const snapshot = await store.context();
+  assert.equal(snapshot.task.evidence.length, 4);
+  const manualRecords = snapshot.task.evidence.filter((record) => record.kind === "manual");
+  assert.equal(manualRecords.length, 1);
+});
+
 test("SpineStateMachine returns actionable missing items", () => {
   assert.deepEqual(evaluateSpine(undefined).missing, ["active issue identifier"]);
 

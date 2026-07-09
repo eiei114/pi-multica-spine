@@ -6,6 +6,10 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- `multica_spine_add_evidence` now dedups evidence: repeated calls with the same `kind`, `command`, and `exitCode` refresh the existing record instead of appending a duplicate, keeping at most one entry per verification step.
+
 ## [0.1.4] - 2026-07-07
 
 ### Added
