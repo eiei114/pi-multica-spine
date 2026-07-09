@@ -16,6 +16,23 @@ import {
   type LinkPrInput,
 } from "../lib/state-store.ts";
 import type { SpineContextSnapshot } from "../lib/types.ts";
+import {
+  createMetadataClient,
+  runMultica,
+  type MetadataClient,
+  type MetadataMap,
+  type MetadataValue,
+  type MetadataValueType,
+} from "../lib/multica-cli.ts";
+
+// Metadata CLI client. Overridable via _setMetadataClientForTests for unit tests;
+// production uses the real `multica` CLI-backed client.
+let metadataClient: MetadataClient = createMetadataClient(runMultica);
+
+/** @internal Test seam to inject a fake metadata client without spawning the CLI. */
+export function _setMetadataClientForTests(client: MetadataClient): void {
+  metadataClient = client;
+}
 
 const CONTRACT = `You are acting as a Multica Work Agent.
 
@@ -59,6 +76,34 @@ const handoffParameters = Type.Object({
   blockers: Type.Optional(Type.Array(Type.String({ description: "Known blocker." }))),
   next: Type.Optional(Type.Array(Type.String({ description: "Next action." }))),
   risks: Type.Optional(Type.Array(Type.String({ description: "Residual risk." }))),
+});
+
+const metadataIssueIdentifier = Type.Optional(
+  Type.String({
+    description: "Opaque Multica issue identifier (UUID or key like DOT-762). Defaults to the bound issue.",
+  }),
+);
+
+const metadataListParameters = Type.Object({
+  issueIdentifier: metadataIssueIdentifier,
+});
+
+const metadataSetParameters = Type.Object({
+  issueIdentifier: metadataIssueIdentifier,
+  key: Type.String({ description: "Metadata key (snake_case ASCII recommended, e.g. pr_url)." }),
+  value: Type.Union([Type.String(), Type.Number(), Type.Boolean()], {
+    description: "Metadata value. Stored type matches the JS type by default; pass `type` to override.",
+  }),
+  type: Type.Optional(
+    StringEnum(["string", "number", "bool"], {
+      description: "Force value type: string, number, or bool. Defaults to the JS type of `value`.",
+    }),
+  ),
+});
+
+const metadataDeleteParameters = Type.Object({
+  issueIdentifier: metadataIssueIdentifier,
+  key: Type.String({ description: "Metadata key to remove. Deleting a missing key is a no-op." }),
 });
 
 function storeFor(ctx: ExtensionContext): SpineStateStore {
@@ -118,6 +163,43 @@ function normalizeLinkPrArgs(args: unknown): LinkPrInput {
     prBody: input.prBody ?? input.pr_body,
     writebackRecorded: input.writebackRecorded ?? input.writeback_recorded,
   } as LinkPrInput;
+}
+
+function normalizeMetadataArgs<T>(args: unknown): T {
+  if (!args || typeof args !== "object") return (args ?? {}) as T;
+  const input = args as Record<string, unknown>;
+  return {
+    ...input,
+    issueIdentifier: input.issueIdentifier ?? input.issue_identifier,
+  } as T;
+}
+
+async function resolveIssueIdentifier(ctx: ExtensionContext, provided: unknown): Promise<string> {
+  const trimmed = typeof provided === "string" ? provided.trim() : "";
+  if (trimmed) return trimmed;
+  const current = await storeFor(ctx).loadCurrent();
+  if (!current) {
+    throw new Error(
+      "issueIdentifier is required (no bound issue found; call multica_spine_bind first, or pass issueIdentifier explicitly).",
+    );
+  }
+  return current.issueIdentifier;
+}
+
+function summarizeMetadata(action: string, issueIdentifier: string, metadata: MetadataMap): string {
+  const entries = Object.entries(metadata);
+  const lines = [`issue: ${issueIdentifier}`, `action: ${action}`, `keys: ${entries.length}`];
+  for (const [key, value] of entries) {
+    lines.push(`${key}: ${JSON.stringify(value)}`);
+  }
+  return lines.join("\n");
+}
+
+function metadataResult(action: string, issueIdentifier: string, metadata: MetadataMap) {
+  return {
+    content: [{ type: "text" as const, text: summarizeMetadata(action, issueIdentifier, metadata) }],
+    details: { action, issueIdentifier, metadata },
+  };
 }
 
 export default function multicaSpineExtension(pi: ExtensionAPI) {
@@ -233,6 +315,53 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
     async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
       const snapshot = await mutateSpine(ctx, () => storeFor(ctx).verify());
       return result(snapshot);
+    },
+  });
+
+  pi.registerTool({
+    name: "multica_spine_metadata_list",
+    label: "Multica Spine Metadata List",
+    description: "List all metadata keys on a Multica issue via `multica issue metadata list --output json`.",
+    promptSnippet: "multica_spine_metadata_list: read all per-issue metadata keys from Multica",
+    parameters: metadataListParameters,
+    prepareArguments: normalizeMetadataArgs,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const issueIdentifier = await resolveIssueIdentifier(ctx, (params as { issueIdentifier?: string }).issueIdentifier);
+      const metadata = await metadataClient.list(issueIdentifier);
+      return metadataResult("metadata_list", issueIdentifier, metadata);
+    },
+  });
+
+  pi.registerTool({
+    name: "multica_spine_metadata_set",
+    label: "Multica Spine Metadata Set",
+    description: "Set a single metadata key on a Multica issue via `multica issue metadata set --output json`.",
+    promptSnippet: "multica_spine_metadata_set: write one per-issue metadata key/value on Multica",
+    promptGuidelines: [
+      "Prefer snake_case ASCII metadata keys. The stored type matches the JS type of `value` unless `type` overrides it.",
+    ],
+    parameters: metadataSetParameters,
+    prepareArguments: normalizeMetadataArgs,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const args = params as { issueIdentifier?: string; key: string; value: MetadataValue; type?: MetadataValueType };
+      const issueIdentifier = await resolveIssueIdentifier(ctx, args.issueIdentifier);
+      const metadata = await metadataClient.set(issueIdentifier, args.key, args.value, args.type);
+      return metadataResult("metadata_set", issueIdentifier, metadata);
+    },
+  });
+
+  pi.registerTool({
+    name: "multica_spine_metadata_delete",
+    label: "Multica Spine Metadata Delete",
+    description: "Delete a single metadata key on a Multica issue via `multica issue metadata delete --output json`.",
+    promptSnippet: "multica_spine_metadata_delete: remove one per-issue metadata key on Multica",
+    parameters: metadataDeleteParameters,
+    prepareArguments: normalizeMetadataArgs,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const args = params as { issueIdentifier?: string; key: string };
+      const issueIdentifier = await resolveIssueIdentifier(ctx, args.issueIdentifier);
+      const metadata = await metadataClient.delete(issueIdentifier, args.key);
+      return metadataResult("metadata_delete", issueIdentifier, metadata);
     },
   });
 }

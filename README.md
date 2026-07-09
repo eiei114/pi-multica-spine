@@ -19,7 +19,7 @@ It does not replace Multica controllers, Todo Runner, Review Sentinel, or PR cre
 
 ## Features
 
-- Seven typed spine tools: bind, context, next, link PR, add evidence, handoff, and verify.
+- Ten typed spine tools: bind, context, next, link PR, add evidence, handoff, verify, and metadata list/set/delete CLI wrappers.
 - Repo-local `.multica-spine/` state store with opaque issue identifiers and ASCII-safe task filenames.
 - Work-agent contract injected into Pi sessions so agents see the bind → PR → evidence → handoff flow up front.
 - PR binding checker with a recommended `Multica Issue: <issue-identifier>` PR body line.
@@ -37,6 +37,11 @@ It does not replace Multica controllers, Todo Runner, Review Sentinel, or PR cre
 | `multica_spine_add_evidence` | Record verification command/manual/test/lint/typecheck evidence. |
 | `multica_spine_handoff` | Record structured done/changed/verification/blockers/next handoff. |
 | `multica_spine_verify` | Completion check. Fails until issue, PR binding, writeback, evidence, handoff, local import closure, and git completion blockers are resolved. |
+| `multica_spine_metadata_list` | Read all per-issue metadata keys via `multica issue metadata list --output json`. Defaults to the bound issue. |
+| `multica_spine_metadata_set` | Write one metadata key/value via `multica issue metadata set --output json`. Stored type matches the JS `value` type unless `type` overrides it. |
+| `multica_spine_metadata_delete` | Remove one metadata key via `multica issue metadata delete --output json`. Deleting a missing key is a no-op. |
+
+The `multica_spine_metadata_*` tools are CLI wrappers around the `multica` CLI. They always pass `--output json` and return the parsed key/value map. Each accepts an optional `issueIdentifier` (UUID or key like `DOT-123`) and falls back to the currently bound issue when omitted. They are independent of the bind → PR → evidence → handoff → verify completion gate, so reading or writing metadata does not affect `multica_spine_verify`.
 
 ## Install
 
