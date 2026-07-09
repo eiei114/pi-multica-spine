@@ -41,6 +41,17 @@ export interface EvidenceInput {
   outputExcerpt?: string;
 }
 
+/**
+ * Two evidence records are duplicates when they share the same `kind`,
+ * `command`, and `exitCode`. These three fields identify a verification step;
+ * re-running the same step refreshes the existing record instead of adding a
+ * duplicate. `summary`, `outputExcerpt`, and `timestamp` are not part of the
+ * key, so a fresh run updates the most recent outcome in place.
+ */
+function isDuplicateEvidence(existing: EvidenceRecord, incoming: EvidenceInput): boolean {
+  return existing.kind === incoming.kind && existing.command === incoming.command && existing.exitCode === incoming.exitCode;
+}
+
 export interface HandoffInput {
   done: string[];
   changed: string[];
@@ -179,7 +190,16 @@ export class SpineStateStore {
     if (!input.summary.trim()) throw new Error("summary is required");
     const task = await this.requireActiveTask();
     const now = new Date().toISOString();
-    task.evidence.push({ ...input, summary: input.summary.trim(), timestamp: now });
+    const incoming: EvidenceRecord = { ...input, summary: input.summary.trim(), timestamp: now };
+    const duplicateIndex = task.evidence.findIndex((record) => isDuplicateEvidence(record, input));
+    if (duplicateIndex >= 0) {
+      // Idempotent: refresh the matching record in place so repeated calls for
+      // the same verification step (kind + command + exitCode) keep at most one
+      // evidence entry instead of appending duplicates.
+      task.evidence[duplicateIndex] = { ...task.evidence[duplicateIndex], ...incoming };
+    } else {
+      task.evidence.push(incoming);
+    }
     task.updatedAt = now;
     task.verifiedAt = undefined;
     await this.writeActiveTask(task);
