@@ -6,6 +6,10 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- Align package metadata and extension patterns with pi-extension-template 0.80.x baseline (DOT-823)
+
 ### Added
 
 - `multica_spine_metadata_list`, `multica_spine_metadata_set`, and `multica_spine_metadata_delete` tools: CLI wrappers around `multica issue metadata list|set|delete` that force `--output json` and return the parsed key/value map. Each tool defaults to the bound issue when `issueIdentifier` is omitted, and `set` preserves the JS value type by default (overridable via `type`). These tools are independent of the `multica_spine_verify` completion gate.

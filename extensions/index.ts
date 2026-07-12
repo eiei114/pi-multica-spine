@@ -203,8 +203,12 @@ function metadataResult(action: string, issueIdentifier: string, metadata: Metad
 }
 
 export default function multicaSpineExtension(pi: ExtensionAPI) {
+  pi.on("session_shutdown", async () => {});
+
   pi.on("session_start", async (_event, ctx) => {
-    ctx.ui.setStatus("multica-spine", "Multica spine ready");
+    if (ctx.hasUI) {
+      ctx.ui.setStatus("multica-spine", "Multica spine ready");
+    }
   });
 
   pi.on("before_agent_start", async (event) => {

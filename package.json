@@ -44,17 +44,22 @@
     "access": "public"
   },
   "peerDependencies": {
+    "@earendil-works/pi-agent-core": "*",
     "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*",
     "typebox": "*"
   },
   "devDependencies": {
+    "@earendil-works/pi-agent-core": "^0.80.6",
     "@earendil-works/pi-ai": "^0.80.6",
     "@earendil-works/pi-coding-agent": "^0.80.6",
-    "@earendil-works/pi-tui": "latest",
+    "@earendil-works/pi-tui": "^0.80.6",
     "@types/node": "^26.0.0",
-    "typebox": "^1.3.0",
+    "typebox": "latest",
     "typescript": "^6.0.3"
+  },
+  "overrides": {
+    "protobufjs": ">=7.6.3 <8.0.0"
   }
 }
