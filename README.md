@@ -190,6 +190,7 @@ See [`docs/release.md`](docs/release.md) for setup details.
 `docs/` is optional supporting documentation. README stays the GitHub/npm entrypoint.
 
 - [`docs/release.md`](docs/release.md) — Trusted Publishing details (README Release summarizes the flow)
+- [`ROADMAP.md`](ROADMAP.md) — maintenance context, current release status, and bounded 30–90 minute seed candidates (repo-only, not packaged)
 
 ## Security
 
