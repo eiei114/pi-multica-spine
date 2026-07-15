@@ -22,7 +22,7 @@ a narrow spine for work agents.
 | --- | --- | --- |
 | Published version | **0.1.4** (2026-07-07) | `npm view pi-multica-spine version`, GitHub Release `v0.1.4` |
 | Working-tree version | `0.1.4` | `package.json` |
-| `[Unreleased]` on `main` | metadata CLI wrappers (DOT-762), `add_evidence` dedup (DOT-752), template alignment 0.80.x (DOT-823) | `CHANGELOG.md` |
+| `[Unreleased]` on `main` | `add_evidence` dedup (DOT-752) + template alignment 0.80.x (DOT-823) → **0.1.5**; metadata CLI wrappers (DOT-762) → **0.2.0** | `CHANGELOG.md` |
 | Tool surface | 10 typed tools | `extensions/index.ts`, README "Tools" table |
 | CI baseline | green: `typecheck` + `test:coverage` + `pack:check`; 7 test files, 18 files in tarball | `npm run ci` |
 | Coverage (report-only) | ~93% lines / ~77% branches / ~93% functions | `CONTRIBUTING.md` |
@@ -37,12 +37,12 @@ See [`docs/release.md`](docs/release.md).
 
 ## Short-term maintenance goals (next 2–3 releases)
 
-- **Next patch (0.1.5)** — Cut a release for the `[Unreleased]` entries already on `main`
-  (metadata CLI wrappers, evidence dedup, template alignment). Pair it with **R-MNT-1**
+- **Next patch (0.1.5)** — Cut a release for the patch-level `[Unreleased]` entries on
+  `main` (evidence dedup DOT-752, template alignment DOT-823). Pair it with **R-MNT-1**
   (single publish trigger) so the release itself does not re-trigger the DOT-881 race.
-- **Next minor (0.2.0, if justified)** — The metadata CLI wrapper tools (DOT-762) are
-  additive tool surface; decide whether to signal that with a minor bump. Bundle with
-  onboarding polish: **R-MNT-4** (examples) and **R-MNT-3** (coverage gate).
+- **Next minor (0.2.0)** — Ship the metadata CLI wrapper tools (DOT-762); additive tool
+  surface warrants a minor bump. Bundle with onboarding polish: **R-MNT-4** (examples) and
+  **R-MNT-3** (coverage gate).
 - **Following release** — Defense-in-depth release hardening (**R-MNT-2**) plus repo hygiene
   seeds (**R-MNT-5**, **R-MNT-6**).
 
@@ -73,20 +73,19 @@ not commitments — re-scope or retire as the codebase changes.
 | R-MNT-3 | Enforce coverage thresholds in CI | ~45–75 min | Coverage regressions fail CI |
 | R-MNT-4 | Add `examples/` walkthrough with fixture spine state | ~60–90 min | Runnable offline onboarding |
 | R-MNT-5 | Keep-a-changelog lint script | ~30–45 min | Block undated/missing changelog releases |
-| R-MNT-6 | README package-contents accuracy pass | ~20–30 min | Docs match published tarball |
+| R-MNT-6 | README package-contents accuracy pass | ~30–45 min | Docs match published tarball |
 
 ### R-MNT-1 — Collapse `publish.yml` to a single trigger
 
 Implement **Option A** from `docs/investigations/2026-07-07-duplicate-publish-guard-e403.md`.
-Remove the redundant direct `push.branches: [main]` block (or its `package*.json` `paths`)
-from `publish.yml` `on:` so a version bump publishes through one path only — the
-`auto-release.yml` → `workflow_dispatch` handoff that `docs/release.md` already calls the
-"reliable" path.
+Remove the entire `push` event from `publish.yml` `on:` (not merely its `package*.json`
+`paths`) so a version bump publishes through one path only — the `auto-release.yml` →
+`workflow_dispatch` handoff that `docs/release.md` already calls the "reliable" path.
 
 **Files:** `.github/workflows/publish.yml`, `docs/release.md` (note single-trigger design).
 
 **Acceptance criteria:**
-- [ ] `publish.yml` `on:` has no `push.branches: [main]` trigger that fires on `package*.json`.
+- [ ] `publish.yml` `on:` has no `push` event (no publish-triggering push to `main`).
 - [ ] `docs/release.md` documents the single-trigger intent and why the duplicate was removed.
 - [ ] `npm run ci` passes.
 - [ ] Verification invokes **no** real `npm publish` (static inspection of `on:` + the
@@ -174,7 +173,10 @@ repo-only where appropriate, and fix any drift.
 
 - When a release ships: move `[Unreleased]` entries into a dated section, refresh
   "Current release status," and retire/promote any seed that landed.
-- When a seed becomes an issue: leave the row here until the PR merges, then mark it done.
+- When a seed becomes an issue: add `Status: in progress (<issue-link>)` to the seed
+  subsection header. When the PR merges, strike through the table row (`~~R-MNT-N~~`) and
+  add `Status: done (<issue-link>)` to the subsection, or remove the row and subsection
+  entirely if the seed is fully absorbed.
 - When new technical debt is found: add a row to "Known technical debt" with a pointer to
   evidence (investigation doc, failing run, code path).
 - Keep each seed at 30–90 minutes. If a seed grows past that, split it or move it to a
