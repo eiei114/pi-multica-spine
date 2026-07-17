@@ -8,6 +8,7 @@ This project follows semantic versioning.
 
 ### Changed
 
+- Remove the `push` trigger from `.github/workflows/publish.yml` so version bumps publish through the `auto-release.yml` → `workflow_dispatch` handoff only, preventing the duplicate-publish TOCTOU race (DOT-881).
 - Align package metadata and extension patterns with pi-extension-template 0.80.x baseline (DOT-823)
 - Bump package version to `0.1.5` for the next patch release.
 

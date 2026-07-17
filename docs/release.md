@@ -21,8 +21,9 @@ git push
 
 On `main`, `.github/workflows/auto-release.yml` checks `package.json` version. If `v<version>` does not exist yet, it creates the tag, creates the GitHub Release, then explicitly dispatches `.github/workflows/publish.yml` for that tag.
 
-The `v*.*.*` tag also triggers `.github/workflows/publish.yml`, which runs CI and publishes to npm when tags are pushed manually.
 Publishing also runs when a GitHub Release is published, and can be run manually from GitHub Actions with `workflow_dispatch`.
+
+`publish.yml` intentionally has **no** `push` trigger. A version-bump push to `main` used to fire publish directly *and* via the `auto-release.yml` dispatch, which caused a TOCTOU race (DOT-881 / `docs/investigations/2026-07-07-duplicate-publish-guard-e403.md`). The single handoff path is `auto-release.yml` → `workflow_dispatch`.
 
 The workflow skips `name@version` if that exact package version already exists on npm.
 
