@@ -9,6 +9,7 @@ This project follows semantic versioning.
 ### Changed
 
 - Align package metadata and extension patterns with pi-extension-template 0.80.x baseline (DOT-823)
+- Bump package version to `0.1.5` for the next patch release.
 
 ### Added
 
