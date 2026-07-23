@@ -20,14 +20,15 @@ a narrow spine for work agents.
 
 | Item | Value | Source |
 | --- | --- | --- |
-| Published version | **0.6.0** (in progress) | `npm view pi-multica-spine version` after release |
+| Published version | **0.6.0** (2026-07-24) | `npm view pi-multica-spine version`, GitHub Release `v0.6.0` |
 | Working-tree version | `0.6.0` | `package.json` |
 | `[Unreleased]` on `main` | — | `CHANGELOG.md` |
 | Tool surface | 35 typed tools (10 spine + 25 workflow-adapter) | `extensions/index.ts`, README |
 | Workflow ops | JSONL digest, sandbox canary, production binding, production run CLIs | `scripts/`, `dist/`, `docs/` |
 | CI baseline | green: `build` + `typecheck` + coverage gate + changelog lint + `pack:check` | `npm run ci` |
-| Live lanes | Sandbox canary DOT-1123; Production run DOT-1137 | investigation docs |
-| Maintenance seeds | ~~R-MNT-1..6~~ absorbed in v0.6.0 Maintenance Bundle | ADR-0001 |
+| Live lanes | Sandbox DOT-1123; Production DOT-1137 | investigation docs |
+| Master plan DOT-1116 | **completed** 2026-07-24 | Obsidian master plan + closeout doc |
+| Maintenance seeds | ~~R-MNT-1..6~~ done in v0.6.0 | ADR-0001 |
 
 ### Release flow reminder
 
@@ -35,6 +36,10 @@ Releases use npm Trusted Publishing (no `NPM_TOKEN`). A version-bump push to `ma
 `.github/workflows/auto-release.yml` create the `v<version>` tag + GitHub Release and then
 dispatch `.github/workflows/publish.yml`. Human-owned: release/publish, secrets, billing.
 See [`docs/release.md`](docs/release.md).
+
+## Workflow Adapter Completion (DOT-1116)
+
+**Status: completed** (2026-07-24). See `docs/investigations/2026-07-24-workflow-adapter-completion-closeout.md`.
 
 ## Short-term maintenance goals (next 2–3 releases)
 
