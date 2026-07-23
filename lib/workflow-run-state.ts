@@ -7,6 +7,8 @@ import { safeIssueIdentifier } from "./state-store.ts";
 import { SPINE_STATE_ROOT } from "./types.ts";
 import { assertValid, validateSchema } from "./validation.ts";
 import type { WorkflowExecutionMode } from "./project-workflow-binding.ts";
+import { WorkflowRouteDecisionRecordSchema } from "./workflow-routing.ts";
+import type { WorkflowRouteDecisionRecord } from "./workflow-routing.ts";
 
 const Sha256Hex = Type.String({ pattern: "^[a-f0-9]{64}$" });
 
@@ -93,6 +95,16 @@ export const WorkflowReviewRecordSchema = Type.Object({
 });
 export type WorkflowReviewRecord = Static<typeof WorkflowReviewRecordSchema>;
 
+export const WorkflowMigrationStatusSchema = StringEnum(["idle", "preparing", "committed", "rolled_back"]);
+export type WorkflowMigrationStatus = Static<typeof WorkflowMigrationStatusSchema>;
+
+export const WorkflowRunMigrationStateSchema = Type.Object({
+  status: WorkflowMigrationStatusSchema,
+  snapshotId: Type.Optional(Type.String({ pattern: "^[a-f0-9]{64}$" })),
+  updatedAt: Type.String({ minLength: 1 }),
+});
+export type WorkflowRunMigrationState = Static<typeof WorkflowRunMigrationStateSchema>;
+
 export const WorkflowRunStateLedgerSchema = Type.Object({
   schemaVersion: Type.Integer({ minimum: 1 }),
   workflowRunId: Type.String({ minLength: 1 }),
@@ -111,6 +123,8 @@ export const WorkflowRunStateLedgerSchema = Type.Object({
   events: Type.Array(WorkflowEventSchema),
   questions: Type.Array(WorkflowQuestionRecordSchema),
   reviews: Type.Optional(Type.Array(WorkflowReviewRecordSchema)),
+  routeDecisions: Type.Optional(Type.Array(WorkflowRouteDecisionRecordSchema)),
+  migration: Type.Optional(WorkflowRunMigrationStateSchema),
 });
 export type WorkflowRunStateLedger = Static<typeof WorkflowRunStateLedgerSchema>;
 
@@ -418,6 +432,43 @@ export class WorkflowRunStateStore {
         timestamp: review.recordedAt,
         details: { verdict: review.verdict, terminal: review.terminal, findingIds: review.findingIds },
       });
+      return this.saveUnlocked(ledger);
+    });
+  }
+
+  async recordRouteDecision(workflowRunId: string, decision: WorkflowRouteDecisionRecord): Promise<WorkflowRunStateLedger> {
+    return withFileLock(this.ledgerPath(workflowRunId), async () => {
+      const ledger = await this.requireLedger(workflowRunId);
+      const decisions = ledger.routeDecisions ?? (ledger.routeDecisions = []);
+      const existing = decisions.find((item) =>
+        item.stageId === decision.stageId &&
+        item.attempt === decision.attempt &&
+        item.inputHash === decision.inputHash,
+      );
+      if (existing) return ledger;
+      decisions.push(assertValid(validateSchema(WorkflowRouteDecisionRecordSchema, decision), "Invalid route decision"));
+      ledger.updatedAt = nowIso();
+      ledger.stateVersion += 1;
+      ledger.events.push({
+        eventId: `${workflowRunId}:route:${decision.stageId}:${decision.attempt}:${decision.inputHash.slice(0, 12)}`,
+        eventType: "stage_updated",
+        stageId: decision.stageId,
+        timestamp: ledger.updatedAt,
+        details: { routeDecision: decision.selectionReason, attempt: decision.attempt },
+      });
+      return this.saveUnlocked(ledger);
+    });
+  }
+
+  async setMigrationState(
+    workflowRunId: string,
+    migration: WorkflowRunMigrationState,
+  ): Promise<WorkflowRunStateLedger> {
+    return withFileLock(this.ledgerPath(workflowRunId), async () => {
+      const ledger = await this.requireLedger(workflowRunId);
+      ledger.migration = assertValid(validateSchema(WorkflowRunMigrationStateSchema, migration), "Invalid migration state");
+      ledger.updatedAt = nowIso();
+      ledger.stateVersion += 1;
       return this.saveUnlocked(ledger);
     });
   }

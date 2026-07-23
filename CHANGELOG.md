@@ -6,6 +6,26 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-23
+
+### Added
+
+- Provider telemetry snapshots with deterministic refresh jitter, allowlisted header observation, and preflight decisions (`lib/provider-telemetry.ts`).
+- Fixed capability pool routing with route decision ledger records (`lib/workflow-routing.ts`).
+- Controller-owned Agent Factory with lease revalidation and idempotent provisioning (`lib/workflow-agent-factory.ts`).
+- Audited adapter migration dry-run, apply, and rollback helpers (`lib/workflow-adapter-migration.ts`).
+- Controller tick actions for migration recovery, telemetry refresh, route recording, and agent provisioning.
+- Typed Multica CLI clients for `runtime list/usage` and `agent list/get/create/skills`.
+- Experimental tools: `multica_workflow_telemetry_record`, `multica_workflow_route_preflight`, `multica_workflow_adapter_migration_dry_run`, `multica_workflow_adapter_migration_apply`, `multica_workflow_adapter_migration_rollback`.
+- Sandbox canary harness (`scripts/workflow-sandbox-canary.mjs`) and runbook (`docs/workflow-sandbox-canary-runbook.md`).
+- Workflow stage activation model (`always`, `binding_optional`, `controller_conditional`).
+
+### Changed
+
+- Hermes `spec_fix` is controller-conditional; `ui_design_brief` remains binding-optional.
+- Catalog `compatibleFrom` accepts canonical adapter identity strings.
+- Package version advances to `0.4.0`.
+
 ## [0.3.0] - 2026-07-23
 
 ### Added

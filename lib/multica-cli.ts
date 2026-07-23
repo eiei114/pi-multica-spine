@@ -266,6 +266,154 @@ export function buildAutopilotTriggerArgs(autopilotId: string): string[] {
   return ["autopilot", "trigger", autopilotId, "--output", "json"];
 }
 
+export function buildRuntimeListArgs(): string[] {
+  return ["runtime", "list", "--output", "json"];
+}
+
+export function buildRuntimeUsageArgs(provider?: string, accountRef?: string): string[] {
+  const args = ["runtime", "usage", "--output", "json"];
+  if (provider) args.push("--provider", provider);
+  if (accountRef) args.push("--account", accountRef);
+  return args;
+}
+
+export function buildAgentListArgs(projectId?: string): string[] {
+  const args = ["agent", "list", "--output", "json"];
+  if (projectId) args.push("--project", projectId);
+  return args;
+}
+
+export function buildAgentGetArgs(agentId: string): string[] {
+  return ["agent", "get", agentId, "--output", "json"];
+}
+
+export function buildAgentCreateArgs(input: {
+  projectId: string;
+  name: string;
+  description?: string;
+  instructions: string;
+  runtimeId: string;
+  model: string;
+  thinkingLevel?: string;
+  permissionMode?: string;
+  maxConcurrentTasks?: number;
+}): string[] {
+  const args = [
+    "agent", "create",
+    "--project", input.projectId,
+    "--name", input.name,
+    "--instructions", input.instructions,
+    "--runtime", input.runtimeId,
+    "--model", input.model,
+    "--output", "json",
+  ];
+  if (input.description) args.push("--description", input.description);
+  if (input.thinkingLevel) args.push("--thinking", input.thinkingLevel);
+  if (input.permissionMode) args.push("--permission-mode", input.permissionMode);
+  if (input.maxConcurrentTasks !== undefined) args.push("--max-concurrent-tasks", String(input.maxConcurrentTasks));
+  return args;
+}
+
+export function buildAgentSkillsAddArgs(agentId: string, skillId: string): string[] {
+  return ["agent", "skills", "add", agentId, skillId, "--output", "json"];
+}
+
+export function buildAgentSkillsListArgs(agentId: string): string[] {
+  return ["agent", "skills", "list", agentId, "--output", "json"];
+}
+
+export function parseJsonArrayOutput(stdout: string, label: string): Record<string, unknown>[] {
+  const trimmed = stdout.trim();
+  if (!trimmed) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch (error) {
+    throw new Error(`${label}: failed to parse JSON output: ${(error as Error).message}`);
+  }
+  if (Array.isArray(parsed)) {
+    return parsed.filter((item) => item && typeof item === "object" && !Array.isArray(item)) as Record<string, unknown>[];
+  }
+  if (parsed && typeof parsed === "object" && Array.isArray((parsed as { items?: unknown[] }).items)) {
+    return ((parsed as { items: unknown[] }).items)
+      .filter((item) => item && typeof item === "object" && !Array.isArray(item)) as Record<string, unknown>[];
+  }
+  return [parsed as Record<string, unknown>];
+}
+
+export interface AgentRecord {
+  id: string;
+  name?: string;
+  runtime_id?: string;
+  model?: string;
+  thinking_level?: string;
+  instructions?: string;
+  permission_mode?: string;
+  max_concurrent_tasks?: number;
+  status?: string;
+  project_id?: string;
+}
+
+export interface RuntimeRecord {
+  id: string;
+  online?: boolean;
+  models?: Array<{ model: string; thinking_levels?: string[] }>;
+}
+
+export interface AgentClient {
+  list(projectId?: string, options?: RunMulticaOptions): Promise<AgentRecord[]>;
+  get(agentId: string, options?: RunMulticaOptions): Promise<AgentRecord>;
+  create(input: Parameters<typeof buildAgentCreateArgs>[0], options?: RunMulticaOptions): Promise<AgentRecord>;
+  listSkills(agentId: string, options?: RunMulticaOptions): Promise<string[]>;
+  addSkill(agentId: string, skillId: string, options?: RunMulticaOptions): Promise<void>;
+}
+
+export interface RuntimeClient {
+  list(options?: RunMulticaOptions): Promise<RuntimeRecord[]>;
+  usage(provider?: string, accountRef?: string, options?: RunMulticaOptions): Promise<Record<string, unknown>>;
+}
+
+export function createAgentClient(runner: MulticaRunner): AgentClient {
+  return {
+    async list(projectId, options = {}) {
+      const result = await runner(buildAgentListArgs(projectId), options);
+      return parseJsonArrayOutput(result.stdout, "multica agent list") as unknown as AgentRecord[];
+    },
+    async get(agentId, options = {}) {
+      const result = await runner(buildAgentGetArgs(agentId), options);
+      return parseJsonOutput(result.stdout, "multica agent get") as unknown as AgentRecord;
+    },
+    async create(input, options = {}) {
+      const result = await runner(buildAgentCreateArgs(input), options);
+      return parseJsonOutput(result.stdout, "multica agent create") as unknown as AgentRecord;
+    },
+    async listSkills(agentId, options = {}) {
+      const result = await runner(buildAgentSkillsListArgs(agentId), options);
+      const items = parseJsonArrayOutput(result.stdout, "multica agent skills list");
+      return items.map((item) => String(item.id ?? item.skill_id ?? item.name ?? "")).filter(Boolean);
+    },
+    async addSkill(agentId, skillId, options = {}) {
+      await runner(buildAgentSkillsAddArgs(agentId, skillId), options);
+    },
+  };
+}
+
+export function createRuntimeClient(runner: MulticaRunner): RuntimeClient {
+  return {
+    async list(options = {}) {
+      const result = await runner(buildRuntimeListArgs(), options);
+      return parseJsonArrayOutput(result.stdout, "multica runtime list") as unknown as RuntimeRecord[];
+    },
+    async usage(provider, accountRef, options = {}) {
+      const result = await runner(buildRuntimeUsageArgs(provider, accountRef), options);
+      return parseJsonOutput(result.stdout, "multica runtime usage");
+    },
+  };
+}
+
+export const agentClient: AgentClient = createAgentClient(runMultica);
+export const runtimeClient: RuntimeClient = createRuntimeClient(runMultica);
+
 export function parseIssueRecord(stdout: string): IssueRecord {
   const parsed = parseJsonOutput(stdout, "multica issue");
   if (typeof parsed.id !== "string" || !parsed.id) {

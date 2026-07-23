@@ -1,5 +1,6 @@
 import { Type, type Static } from "typebox";
 import { sha256Hex } from "./hash.ts";
+import { WorkflowCostClassSchema } from "./workflow-routing.ts";
 import { StringEnum } from "./schema.ts";
 import { assertValid, type ValidationResult, uniqueValues, validateSchema } from "./validation.ts";
 
@@ -39,6 +40,10 @@ export const WorkflowCatalogStageSchema = Type.Object({
   outputs: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
   sourceBundle: Type.Optional(Type.String({ minLength: 1 })),
   instructionRefs: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { minItems: 1 })),
+  capabilityRequirements: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+  permissionRequests: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+  costClass: Type.Optional(WorkflowCostClassSchema),
+  capabilityProfileId: Type.Optional(Type.String({ minLength: 1 })),
 });
 export type WorkflowCatalogStage = Static<typeof WorkflowCatalogStageSchema>;
 
@@ -54,7 +59,7 @@ export const WorkflowCatalogManifestSchema = Type.Object({
   auditToolVersion: Type.Integer({ minimum: 1 }),
   stateSchemaVersion: Type.Integer({ minimum: 1 }),
   artifactSchemaVersion: Type.Integer({ minimum: 1 }),
-  compatibleFrom: Type.Array(Type.Integer({ minimum: 1 })),
+  compatibleFrom: Type.Array(Type.Union([Type.Integer({ minimum: 1 }), Type.String({ minLength: 1 })])),
   requiredTools: Type.Array(Type.String({ minLength: 1 })),
   sideEffects: Type.Array(Type.String({ minLength: 1 })),
   humanGates: Type.Array(Type.String({ minLength: 1 })),
