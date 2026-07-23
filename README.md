@@ -270,7 +270,7 @@ See [`docs/release.md`](docs/release.md) for setup details.
 - [`docs/workflow-sandbox-canary-runbook.md`](docs/workflow-sandbox-canary-runbook.md) — Sandbox canary harness modes and safety checks
 - [`examples/minimal-walkthrough/`](examples/minimal-walkthrough/) — offline spine verify demo (repo-only, not packaged)
 - [`CONTEXT.md`](CONTEXT.md) — domain glossary (repo-only)
-- [`docs/adr/`](docs/adr/) — architectural decisions (repo-only)
+- [`docs/investigations/2026-07-24-workflow-adapter-completion-closeout.md`](docs/investigations/2026-07-24-workflow-adapter-completion-closeout.md) — DOT-1116 master plan closeout (repo-only)
 - [`ROADMAP.md`](ROADMAP.md) — maintenance context and seed history (repo-only, not packaged)
 
 ## Security
