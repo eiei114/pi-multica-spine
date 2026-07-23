@@ -4,7 +4,40 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-const { default: extension } = await import("../extensions/index.ts");
+const { default: extension, _setWorkflowLiveCliForTests } = await import("../extensions/index.ts");
+import { buildWorkflowLiveCli } from "../lib/workflow-live-cli.ts";
+import { createAutopilotClient, createIssueClient, createMetadataClient, createProjectClient } from "../lib/multica-cli.ts";
+
+function installFixtureWorkflowLiveCli() {
+  const runner = async (args) => {
+    if (args[0] === "project") {
+      return { exitCode: 0, stdout: JSON.stringify({ id: args[2] }), stderr: "" };
+    }
+    if (args[0] === "issue" && args[1] === "create") {
+      return { exitCode: 0, stdout: JSON.stringify({ id: "issue_fixture_1", status: "todo" }), stderr: "" };
+    }
+    if (args[0] === "issue" && args[1] === "get") {
+      return { exitCode: 0, stdout: JSON.stringify({ id: args[2], project_id: "proj_123" }), stderr: "" };
+    }
+    if (args[0] === "issue" && args[1] === "assign") {
+      return { exitCode: 0, stdout: JSON.stringify({ id: args[2], assignee_id: args[4] }), stderr: "" };
+    }
+    if (args[0] === "issue" && args[1] === "metadata") {
+      return { exitCode: 0, stdout: "{}", stderr: "" };
+    }
+    return { exitCode: 0, stdout: "{}", stderr: "" };
+  };
+  _setWorkflowLiveCliForTests(
+    buildWorkflowLiveCli(
+      createIssueClient(runner),
+      createMetadataClient(runner),
+      createProjectClient(runner),
+      createAutopilotClient(runner),
+    ),
+  );
+}
+
+installFixtureWorkflowLiveCli();
 
 function createFakePi() {
   const tools = new Map();
@@ -170,11 +203,31 @@ test("workflow adapter tools can persist catalog, binding, run, stage, artifact,
     projectIdOrKey: "proj_123",
     workflowRunId: "run_123",
     workflowStage: "capture_interview",
-    workflowStatus: "waiting",
-    workflowStatePointer: ".multica-spine/workflow-runs/run_123/state-ledger.json",
+    workflowStatus: "running",
   }, ctx);
   assert.equal(response.details.summary.workflow_adapter_id, "hermes-idea-workflow");
   assert.match(response.details.summary.workflow_state_pointer, /^\.multica-spine\/workflow-runs\//);
+
+  await assert.rejects(
+    () => callTool(fake.tools, "multica_workflow_parent_summary", {
+      projectIdOrKey: "proj_123",
+      workflowRunId: "run_123",
+      workflowStage: "capture_interview",
+      workflowStatus: "completed",
+      workflowStateHash: "e".repeat(64),
+    }, ctx),
+    /Workflow status summary mismatch/,
+  );
+  await assert.rejects(
+    () => callTool(fake.tools, "multica_workflow_parent_summary", {
+      projectIdOrKey: "proj_123",
+      workflowRunId: "run_123",
+      workflowStage: "capture_interview",
+      workflowStatus: "running",
+      workflowStateHash: "e".repeat(64),
+    }, ctx),
+    /state hash does not match/,
+  );
 });
 
 test("binding rejects inactive catalog entries", async () => {
@@ -210,25 +263,27 @@ test("artifact recording rejects paths outside the binding artifact root", async
   await callTool(fake.tools, "multica_workflow_binding_put", { binding: sampleBinding() }, ctx);
   await callTool(fake.tools, "multica_workflow_run_create", { projectIdOrKey: "proj_123", workflowRunId: "run_123" }, ctx);
 
-  await assert.rejects(
-    () => callTool(fake.tools, "multica_workflow_artifact_record", {
-      workflowRunId: "run_123",
-      artifact: {
-        artifactSchemaVersion: 1,
+  for (const outputPath of ["../outside.md", "Artifacts/workflows/../../outside.md", "Artifacts\\workflows\\..\\..\\outside.md"]) {
+    await assert.rejects(
+      () => callTool(fake.tools, "multica_workflow_artifact_record", {
         workflowRunId: "run_123",
-        stageId: "capture_interview",
-        producerIssueId: "issue_123",
-        producerRunId: "run_attempt_1",
-        attempt: 1,
-        adapterBundleHash: "b".repeat(64),
-        inputArtifactHashes: [],
-        outputPath: "../outside.md",
-        outputHash: "c".repeat(64),
-        status: "immutable",
-      },
-    }, ctx),
-    /must stay under binding artifactRoot/,
-  );
+        artifact: {
+          artifactSchemaVersion: 1,
+          workflowRunId: "run_123",
+          stageId: "capture_interview",
+          producerIssueId: "issue_123",
+          producerRunId: "run_attempt_1",
+          attempt: 1,
+          adapterBundleHash: "b".repeat(64),
+          inputArtifactHashes: [],
+          outputPath,
+          outputHash: "c".repeat(64),
+          status: "immutable",
+        },
+      }, ctx),
+      /must stay under binding artifactRoot/,
+    );
+  }
 });
 
 test("stage acceptance ignores artifacts from prior attempts", async () => {
@@ -291,6 +346,51 @@ test("stage acceptance ignores artifacts from prior attempts", async () => {
       status: "accepted",
     }, ctx),
     /Cannot accept stage without produced status and artifact/,
+  );
+});
+
+test("live artifact writeback rejects a producer issue outside the recorded stage", async () => {
+  const fake = createFakePi();
+  extension(fake.api);
+  const cwd = await mkdtemp(join(tmpdir(), "spine-workflow-live-artifact-"));
+  const ctx = fakeCtx(cwd);
+
+  await callTool(fake.tools, "multica_workflow_catalog_put", { manifest: sampleManifest() }, ctx);
+  for (const status of ["audited", "active"]) {
+    await callTool(fake.tools, "multica_workflow_catalog_transition", {
+      adapterId: "hermes-idea-workflow",
+      adapterVersion: 1,
+      status,
+    }, ctx);
+  }
+  await callTool(fake.tools, "multica_workflow_binding_put", { binding: sampleBinding() }, ctx);
+  await callTool(fake.tools, "multica_workflow_run_create", { projectIdOrKey: "proj_123", workflowRunId: "run_123" }, ctx);
+  await callTool(fake.tools, "multica_workflow_stage_seed", {
+    workflowRunId: "run_123",
+    stageId: "capture_interview",
+    parentIssueId: "parent_123",
+    live: true,
+  }, ctx);
+
+  await assert.rejects(
+    () => callTool(fake.tools, "multica_workflow_artifact_record", {
+      workflowRunId: "run_123",
+      live: true,
+      artifact: {
+        artifactSchemaVersion: 1,
+        workflowRunId: "run_123",
+        stageId: "capture_interview",
+        producerIssueId: "unrelated_issue",
+        producerRunId: "run_attempt_1",
+        attempt: 1,
+        adapterBundleHash: "b".repeat(64),
+        inputArtifactHashes: [],
+        outputPath: "Artifacts/workflows/run_123/00.md",
+        outputHash: "c".repeat(64),
+        status: "immutable",
+      },
+    }, ctx),
+    /Artifact producer issue mismatch/,
   );
 });
 

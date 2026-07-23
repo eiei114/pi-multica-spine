@@ -1,13 +1,13 @@
 import { spawn } from "node:child_process";
 
 /**
- * Thin wrapper around the `multica` CLI's `issue metadata` subcommands.
+ * Thin wrappers around the `multica` CLI for workflow-adapter live operations.
  *
- * The spine's own tools (bind, link_pr, add_evidence, handoff, verify) manage
- * repo-local state. The metadata tools here are different: they are genuine
- * CLI wrappers that shell out to `multica issue metadata list|set|delete`,
- * force `--output json`, and return the parsed key/value map so work agents
- * can read and write per-issue metadata without hand-rolling CLI flags.
+ * Metadata tools shell out to `multica issue metadata list|set|delete`.
+ * Issue/project/autopilot helpers cover stage issue create/assign/update/status,
+ * parent summary writeback, and controller autopilot triggers. All commands force
+ * `--output json` where supported and return parsed objects via injectable runners
+ * so tests can swap fixture-backed executors without hiding product gaps.
  */
 
 /** Default executable name. Resolved via PATH (e.g. `multica.exe` on Windows). */
@@ -175,3 +175,169 @@ export function createMetadataClient(runner: MulticaRunner): MetadataClient {
 
 /** Default metadata client backed by the real `multica` CLI. */
 export const metadataClient: MetadataClient = createMetadataClient(runMultica);
+
+/** Parsed JSON object from any multica `--output json` command. */
+export function parseJsonOutput(stdout: string, label = "multica"): Record<string, unknown> {
+  const trimmed = stdout.trim();
+  if (!trimmed) return {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch (error) {
+    throw new Error(`${label}: failed to parse JSON output: ${(error as Error).message}`);
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`${label}: expected a JSON object from the CLI`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+export interface IssueRecord {
+  id: string;
+  identifier?: string;
+  title?: string;
+  status?: string;
+  project_id?: string;
+  parent_issue_id?: string;
+  stage?: number;
+  assignee_id?: string;
+  assignee_type?: string;
+  metadata?: MetadataMap;
+}
+
+export interface CreateIssueInput {
+  title: string;
+  description?: string;
+  parentIssueId?: string;
+  stage?: number;
+  projectId?: string;
+  status?: string;
+  assigneeId?: string;
+  priority?: string;
+}
+
+export interface UpdateIssueInput {
+  title?: string;
+  status?: string;
+  stage?: number;
+  assigneeId?: string;
+  projectId?: string;
+}
+
+export function buildIssueGetArgs(issueIdentifier: string): string[] {
+  return ["issue", "get", issueIdentifier, "--output", "json"];
+}
+
+export function buildIssueCreateArgs(input: CreateIssueInput): string[] {
+  const args = ["issue", "create", "--title", input.title, "--output", "json"];
+  if (input.description) args.push("--description", input.description);
+  if (input.parentIssueId) args.push("--parent", input.parentIssueId);
+  if (input.stage !== undefined) args.push("--stage", String(input.stage));
+  if (input.projectId) args.push("--project", input.projectId);
+  if (input.status) args.push("--status", input.status);
+  if (input.assigneeId) args.push("--assignee-id", input.assigneeId);
+  if (input.priority) args.push("--priority", input.priority);
+  return args;
+}
+
+export function buildIssueAssignArgs(issueIdentifier: string, assigneeId: string): string[] {
+  return ["issue", "assign", issueIdentifier, "--to-id", assigneeId, "--output", "json"];
+}
+
+export function buildIssueUpdateArgs(issueIdentifier: string, input: UpdateIssueInput): string[] {
+  const args = ["issue", "update", issueIdentifier, "--output", "json"];
+  if (input.title) args.push("--title", input.title);
+  if (input.status) args.push("--status", input.status);
+  if (input.stage !== undefined) args.push("--stage", String(input.stage));
+  if (input.assigneeId) args.push("--assignee-id", input.assigneeId);
+  if (input.projectId) args.push("--project", input.projectId);
+  return args;
+}
+
+export function buildIssueStatusArgs(issueIdentifier: string, status: string): string[] {
+  return ["issue", "status", issueIdentifier, status, "--output", "json"];
+}
+
+export function buildProjectGetArgs(projectId: string): string[] {
+  return ["project", "get", projectId, "--output", "json"];
+}
+
+export function buildAutopilotTriggerArgs(autopilotId: string): string[] {
+  return ["autopilot", "trigger", autopilotId, "--output", "json"];
+}
+
+export function parseIssueRecord(stdout: string): IssueRecord {
+  const parsed = parseJsonOutput(stdout, "multica issue");
+  if (typeof parsed.id !== "string" || !parsed.id) {
+    throw new Error("multica issue: expected issue record with id");
+  }
+  return parsed as unknown as IssueRecord;
+}
+
+export interface IssueClient {
+  get(issueIdentifier: string, options?: RunMulticaOptions): Promise<IssueRecord>;
+  create(input: CreateIssueInput, options?: RunMulticaOptions): Promise<IssueRecord>;
+  assign(issueIdentifier: string, assigneeId: string, options?: RunMulticaOptions): Promise<IssueRecord>;
+  update(issueIdentifier: string, input: UpdateIssueInput, options?: RunMulticaOptions): Promise<IssueRecord>;
+  setStatus(issueIdentifier: string, status: string, options?: RunMulticaOptions): Promise<IssueRecord>;
+}
+
+export interface ProjectClient {
+  get(projectId: string, options?: RunMulticaOptions): Promise<Record<string, unknown>>;
+}
+
+export interface AutopilotClient {
+  trigger(autopilotId: string, options?: RunMulticaOptions): Promise<Record<string, unknown>>;
+}
+
+export function createIssueClient(runner: MulticaRunner): IssueClient {
+  return {
+    async get(issueIdentifier, options = {}) {
+      const result = await runner(buildIssueGetArgs(issueIdentifier), options);
+      return parseIssueRecord(result.stdout);
+    },
+    async create(input, options = {}) {
+      const result = await runner(buildIssueCreateArgs(input), options);
+      return parseIssueRecord(result.stdout);
+    },
+    async assign(issueIdentifier, assigneeId, options = {}) {
+      const result = await runner(buildIssueAssignArgs(issueIdentifier, assigneeId), options);
+      return parseIssueRecord(result.stdout);
+    },
+    async update(issueIdentifier, input, options = {}) {
+      const result = await runner(buildIssueUpdateArgs(issueIdentifier, input), options);
+      return parseIssueRecord(result.stdout);
+    },
+    async setStatus(issueIdentifier, status, options = {}) {
+      const result = await runner(buildIssueStatusArgs(issueIdentifier, status), options);
+      return parseIssueRecord(result.stdout);
+    },
+  };
+}
+
+export function createProjectClient(runner: MulticaRunner): ProjectClient {
+  return {
+    async get(projectId, options = {}) {
+      const result = await runner(buildProjectGetArgs(projectId), options);
+      return parseJsonOutput(result.stdout, "multica project");
+    },
+  };
+}
+
+export function createAutopilotClient(runner: MulticaRunner): AutopilotClient {
+  return {
+    async trigger(autopilotId, options = {}) {
+      const result = await runner(buildAutopilotTriggerArgs(autopilotId), options);
+      return parseJsonOutput(result.stdout, "multica autopilot");
+    },
+  };
+}
+
+/** Default issue client backed by the real `multica` CLI. */
+export const issueClient: IssueClient = createIssueClient(runMultica);
+
+/** Default project client backed by the real `multica` CLI. */
+export const projectClient: ProjectClient = createProjectClient(runMultica);
+
+/** Default autopilot client backed by the real `multica` CLI. */
+export const autopilotClient: AutopilotClient = createAutopilotClient(runMultica);

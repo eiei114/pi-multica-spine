@@ -45,6 +45,7 @@ test("extension registers MVP tools", () => {
 
   assert.deepEqual([...fake.tools.keys()].sort(), [
     "multica_workflow_artifact_record",
+    "multica_workflow_autopilot_trigger",
     "multica_workflow_binding_get",
     "multica_workflow_binding_list",
     "multica_workflow_binding_put",

@@ -73,6 +73,14 @@ test("validateProjectWorkflowBinding rejects missing role routes and invalid aut
   assert.ok(result.errors.includes("autonomous-until-final-requires-start-and-final-human-gate"));
 });
 
+test("validateProjectWorkflowBinding rejects Windows-style artifact root traversal on every platform", () => {
+  const binding = sampleBinding();
+  binding.artifactRoot = "Artifacts\\..\\..\\outside";
+  const result = validateProjectWorkflowBinding(binding, sampleManifest());
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.includes("artifact-root-must-be-project-relative"));
+});
+
 test("createParentWorkflowIssueSummary stays within the compact metadata budget", () => {
   const summary = createParentWorkflowIssueSummary({
     binding: sampleBinding(),

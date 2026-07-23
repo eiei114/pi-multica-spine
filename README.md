@@ -21,7 +21,7 @@ It does not replace Multica controllers, Todo Runner, Review Sentinel, or PR cre
 
 ## Features
 
-- Twenty-five typed tools: ten work-agent spine tools plus fifteen experimental workflow-adapter control-plane tools.
+- Twenty-six typed tools: ten work-agent spine tools plus sixteen experimental workflow-adapter control-plane tools (including live CLI bridge paths).
 - Repo-local `.multica-spine/` state store with opaque issue identifiers and ASCII-safe task filenames.
 - Work-agent contract injected into Pi sessions so agents see the bind → PR → evidence → handoff flow up front.
 - PR binding checker with a recommended `Multica Issue: <issue-identifier>` PR body line.
@@ -58,16 +58,17 @@ The `multica_spine_metadata_*` tools are CLI wrappers around the `multica` CLI. 
 | `multica_workflow_binding_put` | Validate and persist one project workflow binding against the catalog manifest. |
 | `multica_workflow_binding_get` | Read one persisted workflow binding by project id/key. |
 | `multica_workflow_binding_list` | List repo-local workflow bindings. |
-| `multica_workflow_parent_summary` | Build the compact parent workflow issue summary for a workflow run. |
-| `multica_workflow_run_create` | Create one repo-local workflow run ledger from a binding + catalog entry. |
-| `multica_workflow_run_context` | Inspect one workflow run ledger and state hash. |
-| `multica_workflow_stage_seed` | Seed the next/specified stage from manifest order + binding role routes. |
-| `multica_workflow_stage_transition` | Transition a stage through `seeded / waiting / produced / accepted / retrying / failed`. |
-| `multica_workflow_artifact_record` | Record a workflow artifact envelope in the ledger. |
+| `multica_workflow_parent_summary` | Build the compact parent workflow issue summary for a workflow run. Optional `writeback=true` writes summary metadata to the parent issue via live CLI. |
+| `multica_workflow_run_create` | Create one repo-local workflow run ledger from a binding + catalog entry. `live=true` writes parent summary metadata. |
+| `multica_workflow_run_context` | Inspect one workflow run ledger and state hash. `live=true` also reads parent issue metadata. |
+| `multica_workflow_stage_seed` | Seed the next/specified stage from manifest order + binding role routes. `live=true` creates and assigns a Multica stage issue. |
+| `multica_workflow_stage_transition` | Transition a stage through `seeded / waiting / produced / accepted / retrying / failed`. `live=true` mirrors status on the stage issue. |
+| `multica_workflow_artifact_record` | Record a workflow artifact envelope in the ledger. `live=true` writes artifact lineage metadata to the producer issue. |
 | `multica_workflow_question_record` | Record a Question Task answer artifact in the ledger. |
 | `multica_workflow_permission_check` | Compute effective permission as Adapter ∩ Project ∩ Stage ∩ Issue ∩ Agent capability. |
+| `multica_workflow_autopilot_trigger` | Invoke `multica autopilot trigger` for controller reconciliation paths. |
 
-These workflow tools are **experimental control-plane primitives**. They do not yet replace a live Multica controller/autopilot. Current scope: deterministic repo-local state and validation for the latest adapter-contract design.
+These workflow tools layer repo-local validation/state with optional **live Multica CLI** operations (`live` / `writeback`). Catalog/binding/run ledgers remain repo-local; stage issue create/assign/status, parent summary writeback, artifact lineage metadata, run metadata reads, and autopilot triggers go through the real `multica` executable via injectable runners (fixture-backed in tests).
 
 ## Install
 
