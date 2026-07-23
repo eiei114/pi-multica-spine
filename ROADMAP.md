@@ -16,155 +16,109 @@ exposes ten typed tools (`bind`, `context`, `next`, `link_pr`, `add_evidence`, `
 replace Multica controllers, Todo Runner, Review Sentinel, or the PR creation flow — it is
 a narrow spine for work agents.
 
+Workflow-adapter tools and CLIs extend that spine so Multica work can be run as a
+**Campaign** (Hermes Idea-to-Build) with ledger + Human Gate boundaries.
+
 ## Current release status
 
 | Item | Value | Source |
 | --- | --- | --- |
 | Published version | **0.6.0** (2026-07-24) | `npm view pi-multica-spine version`, GitHub Release `v0.6.0` |
-| Working-tree version | `0.6.0` | `package.json` |
-| `[Unreleased]` on `main` | — | `CHANGELOG.md` |
+| Working-tree version | `0.6.1` (candidate) | `package.json` |
+| `[Unreleased]` on `main` | pack smoke + ops docs (this branch) | `CHANGELOG.md` |
 | Tool surface | 35 typed tools (10 spine + 25 workflow-adapter) | `extensions/index.ts`, README |
 | Workflow ops | JSONL digest, sandbox canary, production binding, production run CLIs | `scripts/`, `dist/`, `docs/` |
-| CI baseline | green: `build` + `typecheck` + coverage gate + changelog lint + `pack:check` | `npm run ci` |
+| CI baseline | green: `build` + `typecheck` + coverage + changelog + `pack:check` + walkthrough (+ `pack:smoke` in 0.6.1) | `npm run ci` |
 | Live lanes | Sandbox DOT-1123; Production DOT-1137 | investigation docs |
 | Master plan DOT-1116 | **completed** 2026-07-24 | Obsidian master plan + closeout doc |
-| Maintenance seeds | ~~R-MNT-1..6~~ done in v0.6.0 | ADR-0001 |
+| Production gate | **CLOSED** (`productionAllowed=false`) | `docs/production-gate-decision.md` |
+| Absorbed seeds | ~~R-MNT-1..6~~ done in v0.6.0 | ADR-0001 |
 
 ### Release flow reminder
 
 Releases use npm Trusted Publishing (no `NPM_TOKEN`). A version-bump push to `main` lets
 `.github/workflows/auto-release.yml` create the `v<version>` tag + GitHub Release and then
-dispatch `.github/workflows/publish.yml`. Human-owned: release/publish, secrets, billing.
+dispatch `.github/workflows/publish.yml`. Human-owned: release/publish secrets setup, billing.
 See [`docs/release.md`](docs/release.md).
 
 ## Workflow Adapter Completion (DOT-1116)
 
 **Status: completed** (2026-07-24). See `docs/investigations/2026-07-24-workflow-adapter-completion-closeout.md`.
 
-## Short-term maintenance goals (next 2–3 releases)
+## Near-term lanes
 
-- **0.6.x** — Stabilize compiled CLI distribution and maintenance automation.
-- **0.7.0** — Onboarding expansion and optional coverage threshold tightening as lib coverage improves.
+| Lane | Goal | Human Gate? |
+| --- | --- | --- |
+| **0.6.x** | Stabilize compiled CLI distribution (`dist/` + pack smoke) and ops docs | No |
+| **Ops daily** | Sandbox → Maintenance rehearsal via `docs/workflow-ops-checklist.md` | No |
+| **Production gate** | Decision framework only until a human opens it | Yes — keep closed by default |
+| **0.7.0** | Onboarding expansion + optional coverage floor raise | No |
 
 ## Known technical debt
 
 | Area | Status | Evidence |
 | --- | --- | --- |
-| **Publish workflow TOCTOU race** | Investigated, not yet fixed | `docs/investigations/2026-07-07-duplicate-publish-guard-e403.md` (DOT-881). Two concurrent, non-mutexed publish triggers for one version bump caused `E403`. Option A (single trigger) recommended; Option C (idempotent E403) as defense in depth. |
-| **Coverage not enforced** | Report-only | `CONTRIBUTING.md` states "thresholds are not enforced yet." CI runs `--experimental-test-coverage` without a gate, so silent regressions are possible. |
-| **No onboarding examples** | Gap | README quickstart describes the flow, but there is no checked-in, runnable walkthrough a first-time contributor can follow offline. |
-| **No changelog lint** | Gap | Nothing prevents a release tag with an undated or missing `## [Unreleased]` section. |
-| **README package-contents drift risk** | Low | The "Package contents" table must stay in sync with `package.json` `files` and `npm pack --dry-run` (currently 18 files). No automated check. |
-| **Template alignment debt** | Tracked | DOT-823 aligned to pi-extension-template 0.80.x baseline; periodic re-sync expected as the template moves. |
+| **Publish workflow TOCTOU race** | Mitigated (single trigger + E403 classifier in 0.6.0); residual race risk low | `docs/investigations/2026-07-07-duplicate-publish-guard-e403.md` |
+| **Coverage floors are low** | Enforced, but floors (70/60/75) leave headroom for silent quality loss | `scripts/coverage-gate.mjs`, `CONTRIBUTING.md` |
+| **CLI scripts hard-require `dist/`** | Expected after 0.6.0; pack smoke verifies install path | `scripts/*.mjs` → `dist/lib` |
+| **Template alignment debt** | Tracked | DOT-823; periodic re-sync as pi-extension-template moves |
+| **`spine-lib-import.mjs` unused** | Optional fallback helper exists but CLIs use static `dist` imports | `scripts/spine-lib-import.mjs` |
+| **Production gate closed** | Intentional | `docs/production-gate-decision.md` |
 
 ## Candidate maintenance seeds (30–90 minutes each)
 
-Each seed is bounded and has explicit acceptance criteria. Promote one to a Multica issue
-when the Weekly maintenance seed planner needs the next micro-task. Seeds are proposals,
-not commitments — re-scope or retire as the codebase changes.
-
 | ID | Seed | Scope | Outcome |
 | --- | --- | --- | --- |
-| R-MNT-1 | Collapse `publish.yml` to a single trigger (DOT-881 Option A) | ~45–60 min | One publish run per version bump |
-| R-MNT-2 | Treat "already published" `E403` as benign skip (DOT-881 Option C) | ~60–90 min | Defense-in-depth publish idempotency |
-| R-MNT-3 | Enforce coverage thresholds in CI | ~45–75 min | Coverage regressions fail CI |
-| R-MNT-4 | Add `examples/` walkthrough with fixture spine state | ~60–90 min | Runnable offline onboarding |
-| R-MNT-5 | Keep-a-changelog lint script | ~30–45 min | Block undated/missing changelog releases |
-| R-MNT-6 | README package-contents accuracy pass | ~30–45 min | Docs match published tarball |
+| R-MNT-7 | Pack-install smoke for published CLIs | ~45–60 min | `npm run pack:smoke` in CI |
+| R-MNT-8 | Ops checklist + production gate decision note | ~30–45 min | One-page daily path; gate stays closed |
+| R-MNT-9 | Optional: migrate CLIs to `importSpineLib` | ~60–90 min | Dev fallback without prior `build` |
+| R-MNT-10 | Raise coverage floors toward 0.7.0 | ~45–75 min | Tighten gate after measuring headroom |
+| R-MNT-11 | Template re-sync pass (DOT-823) | ~60–90 min | Diff vs current pi-extension-template |
 
-### R-MNT-1 — Collapse `publish.yml` to a single trigger
+### R-MNT-7 — Pack-install smoke for published CLIs
 
-Implement **Option A** from `docs/investigations/2026-07-07-duplicate-publish-guard-e403.md`.
-Remove the entire `push` event from `publish.yml` `on:` (not merely its `package*.json`
-`paths`) so a version bump publishes through one path only — the `auto-release.yml` →
-`workflow_dispatch` handoff that `docs/release.md` already calls the "reliable" path.
+Install the `npm pack` tarball into a temp directory and run `scripts/jsonl-digest.mjs` against a tiny fixture so broken `dist/` layouts fail CI before publish.
 
-**Files:** `.github/workflows/publish.yml`, `docs/release.md` (note single-trigger design).
+**Files:** `scripts/pack-smoke.mjs`, `package.json`, `.github/workflows/ci.yml` (if CI invokes `npm run ci` only, package.json is enough).
 
 **Acceptance criteria:**
-- [ ] `publish.yml` `on:` has no `push` event (no publish-triggering push to `main`).
-- [ ] `docs/release.md` documents the single-trigger intent and why the duplicate was removed.
-- [ ] `npm run ci` passes.
-- [ ] Verification invokes **no** real `npm publish` (static inspection of `on:` + the
-      investigation's trigger-count reasoning in §2/§4).
+- [x] `npm run pack:smoke` exits 0 and prints `{ ok: true, ... }`.
+- [x] Smoke uses only the packed tarball (no live `npm publish`).
+- [x] Wired into `npm run ci`.
 
-### R-MNT-2 — Treat "already published" `E403` as benign skip
+### R-MNT-8 — Ops checklist + production gate decision note
 
-Implement **Option C** from the same investigation. Wrap the publish step so an `E403`
-"cannot publish over the previously published versions" is classified as a **benign skip**
-after confirming the already-published tarball `dist.shasum` matches the local
-`npm pack` shasum; other `E403`/`E4xx` (auth/forbidden) still fail.
-
-**Files:** `.github/workflows/publish.yml`; new fixture-based unit test for the classifier.
+**Files:** `docs/workflow-ops-checklist.md`, `docs/production-gate-decision.md`, README/ROADMAP links.
 
 **Acceptance criteria:**
-- [ ] Classifier unit-tested against captured stderr fixtures: benign
-      (`E403` + "previously published" + matching shasum) vs auth-fail vs `E404`.
-- [ ] Fixtures are captured text — **no** real `npm publish` is driven to obtain them.
-- [ ] Mismatched shasum still fails the step.
-- [ ] `npm run ci` passes.
+- [x] Checklist covers sandbox + Maintenance production-run + failure recovery.
+- [x] Gate note lists open/close criteria; agents forbidden from flipping without human yes.
+- [x] `productionAllowed` remains `false` in code defaults.
 
-### R-MNT-3 — Enforce coverage thresholds in CI
+### R-MNT-9 — Optional: migrate CLIs to `importSpineLib`
 
-`CONTRIBUTING.md` documents a ~93% lines / ~77% branches / ~93% functions baseline, but CI
-runs `--experimental-test-coverage` in report-only mode. Add an enforced threshold gate
-(e.g. lines ≥ 90%, functions ≥ 90%) and refresh the documented baseline numbers from a clean
-run.
-
-**Files:** `package.json` (new `test:coverage:gate` or thresholds on `test:coverage`),
-`.github/workflows/ci.yml`, `CONTRIBUTING.md`.
+Replace static `../dist/lib/*.js` imports with `importSpineLib` so local scripts can fall back to `lib/*.ts` when `dist/` is missing.
 
 **Acceptance criteria:**
-- [ ] CI fails when coverage drops below the threshold (demonstrated by a temporary check
-      that is then reverted).
-- [ ] Documented baseline in `CONTRIBUTING.md` matches a clean `npm run test:coverage` run.
-- [ ] `npm run ci` green at head.
-- [ ] No new runtime dependencies.
+- [ ] All workflow/jsonl CLIs resolve via the helper.
+- [ ] Pack smoke still passes (dist path preferred).
+- [ ] `npm run ci` green.
 
-### R-MNT-4 — Add `examples/` walkthrough with fixture spine state
+### R-MNT-10 — Raise coverage floors toward 0.7.0
 
-Create `examples/minimal-walkthrough/` showing the
-`bind → next → link_pr → add_evidence → handoff → verify` flow against a checked-in fixture
-`.multica-spine/` state plus a short `run-walkthrough.mjs` that exercises the store without
-the live `multica` CLI. Improves onboarding for first-time contributors.
-
-**Files:** `examples/` (new), `README.md` (link under Quick start / Docs).
+Measure current averages; raise `scripts/coverage-gate.mjs` floors without flaking on Windows/Linux.
 
 **Acceptance criteria:**
-- [ ] `node examples/minimal-walkthrough/run-walkthrough.mjs` exits 0 and prints a
-      `verified: yes`-style summary using only the `lib/` store (no CLI / network).
-- [ ] README links to the example.
-- [ ] `examples/` is **not** added to the npm tarball (keep `package.json` `files` whitelist
-      unchanged) — confirmed via `npm pack --dry-run`.
-- [ ] `npm run ci` passes.
+- [ ] Floors increased with documented baseline in `CONTRIBUTING.md`.
+- [ ] CI green on Linux + local Windows spot check.
 
-### R-MNT-5 — Keep-a-changelog lint script
+### R-MNT-11 — Template re-sync pass (DOT-823)
 
-Add a small `scripts/check-changelog.mjs` that asserts `CHANGELOG.md` has a `## [Unreleased]`
-heading and at least one dated `## [x.y.z] - YYYY-MM-DD` section per published tag, then wire
-it into `npm run ci`. Prevents cutting a release with an undated or missing changelog
-section.
-
-**Files:** `scripts/check-changelog.mjs` (new), `package.json`, `.github/workflows/ci.yml`.
+Diff against current `pi-extension-template` and absorb non-breaking hygiene only.
 
 **Acceptance criteria:**
-- [ ] Script exits 0 against the current `CHANGELOG.md`.
-- [ ] Script exits non-zero when `## [Unreleased]` is removed (demonstrated, then reverted).
-- [ ] Script runs as part of `npm run ci`.
-- [ ] No new runtime dependencies.
-
-### R-MNT-6 — README package-contents accuracy pass
-
-Reconcile the README "Package contents" table with the real `files` glob and the published
-tarball (`npm pack --dry-run` → 18 files). Mark `ROADMAP.md` and `docs/investigations/` as
-repo-only where appropriate, and fix any drift.
-
-**Files:** `README.md`.
-
-**Acceptance criteria:**
-- [ ] Every table row maps to a real file/directory, or is explicitly marked repo-only.
-- [ ] `npm pack --dry-run` contents match the documented set.
-- [ ] `npm run ci` passes.
+- [ ] Investigation note lists adopted vs deferred deltas.
+- [ ] No behavior change to Multica tools without tests.
 
 ## How to update this file
 

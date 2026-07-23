@@ -6,6 +6,19 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-07-24
+
+### Added
+
+- `scripts/pack-smoke.mjs` / `npm run pack:smoke` — install packed tarball and exercise `jsonl-digest` CLI via `dist/`.
+- `docs/workflow-ops-checklist.md` — short sandbox + Maintenance production-run path and failure recovery.
+- `docs/production-gate-decision.md` — Human Gate framework; `productionAllowed` stays `false`.
+
+### Changed
+
+- ROADMAP refreshed for post-0.6.0 reality (R-MNT-1..6 absorbed; new R-MNT-7..11 candidates).
+- `npm run ci` includes `pack:smoke`.
+
 ## [0.6.0] - 2026-07-24
 
 ### Added

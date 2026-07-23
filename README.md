@@ -93,7 +93,7 @@ Replace `pi-multica-spine` with the exact `name` from `package.json` when you fo
 Pin a specific version when you want reproducible installs:
 
 ```bash
-pi install npm:pi-multica-spine@0.6.0
+pi install npm:pi-multica-spine@0.6.1
 ```
 
 Install into the current project instead of your user Pi settings:
@@ -236,7 +236,7 @@ npm install
 npm run ci
 ```
 
-`npm run ci` runs build, typecheck, coverage gate, changelog lint, walkthrough smoke, and `npm pack --dry-run`.
+`npm run ci` runs build, typecheck, coverage gate, changelog lint, `pack:check`, `pack:smoke` (install tarball + digest CLI), and walkthrough smoke.
 
 Individual checks:
 
@@ -271,6 +271,8 @@ See [`docs/release.md`](docs/release.md) for setup details.
 - [`examples/minimal-walkthrough/`](examples/minimal-walkthrough/) — offline spine verify demo (repo-only, not packaged)
 - [`CONTEXT.md`](CONTEXT.md) — domain glossary (repo-only)
 - [`docs/investigations/2026-07-24-workflow-adapter-completion-closeout.md`](docs/investigations/2026-07-24-workflow-adapter-completion-closeout.md) — DOT-1116 master plan closeout (repo-only)
+- [`docs/workflow-ops-checklist.md`](docs/workflow-ops-checklist.md) — daily sandbox / Maintenance rehearsal path
+- [`docs/production-gate-decision.md`](docs/production-gate-decision.md) — when a human may open `productionAllowed` (default: closed)
 - [`ROADMAP.md`](ROADMAP.md) — maintenance context and seed history (repo-only, not packaged)
 
 ## Security
