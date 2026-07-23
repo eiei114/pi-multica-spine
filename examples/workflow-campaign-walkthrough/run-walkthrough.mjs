@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Offline Hermes Campaign walkthrough: catalog → binding → run ledger → stage artifacts.
+ * Offline Hermes Campaign walkthrough: catalog → binding → ledger → stage artifacts → human review.
  * Uses fixture WorkflowLiveCli (no Multica network / CLI).
  */
 import { mkdtemp } from "node:fs/promises";
@@ -15,8 +15,10 @@ import {
   WorkflowRunStateStore,
 } from "../../lib/workflow-run-state.ts";
 import { runCanaryCampaign } from "../../lib/workflow-sandbox-campaign.ts";
+import { completeHumanFinalReview } from "../../lib/workflow-sandbox-human-review.ts";
 
 import {
+  bootstrapWalkthroughRepo,
   buildWalkthroughBinding,
   createFixtureLiveCli,
 } from "./fixture-live-cli.mjs";
@@ -32,11 +34,32 @@ async function bootstrapCatalog(catalogStore, manifest) {
   return catalogStore.transition(manifest.adapterId, manifest.adapterVersion, "active");
 }
 
+/** After a partial offline campaign, seed completed/final_package for human-review rehearsal. */
+export async function prepareWalkthroughHumanReviewLedger(runStore, workflowRunId) {
+  await runStore.upsertStage(workflowRunId, {
+    stageId: "final_package",
+    status: "accepted",
+    attempt: 1,
+    issueId: "issue_final",
+    assignedAgentId: "agent_walkthrough",
+    artifactHashes: [],
+  });
+  const ledger = await runStore.load(workflowRunId);
+  if (!ledger) throw new Error(`ledger missing: ${workflowRunId}`);
+  ledger.currentStageId = "final_package";
+  ledger.workflowStatus = "completed";
+  await runStore.save(ledger);
+  return ledger;
+}
+
 export async function runWorkflowCampaignWalkthrough(options = {}) {
   const maxStageCycles = options.maxStageCycles ?? MAX_STAGE_CYCLES;
+  const includeHumanReview = options.includeHumanReview ?? true;
   const walkthroughRoot =
     options.root ??
     (await mkdtemp(join(tmpdir(), "pi-spine-campaign-walkthrough-")));
+
+  await bootstrapWalkthroughRepo(walkthroughRoot);
 
   const manifest = createHermesCompositeManifest();
   const binding = buildWalkthroughBinding(WALKTHROUGH_PROJECT_ID, manifest);
@@ -69,6 +92,8 @@ export async function runWorkflowCampaignWalkthrough(options = {}) {
     artifactHashes: [],
   });
 
+  const liveCli = createFixtureLiveCli(WALKTHROUGH_PROJECT_ID, WALKTHROUGH_PARENT_ISSUE);
+
   const campaign = await runCanaryCampaign(
     {
       canaryPath: walkthroughRoot,
@@ -77,13 +102,42 @@ export async function runWorkflowCampaignWalkthrough(options = {}) {
       workflowRunId: WALKTHROUGH_RUN_ID,
     },
     {
-      liveCli: createFixtureLiveCli(WALKTHROUGH_PROJECT_ID, WALKTHROUGH_PARENT_ISSUE),
+      liveCli,
       runStore,
       roughIdea:
         "Offline walkthrough: exercise Hermes capture → artifacts with fixture WorkflowLiveCli.",
       maxStageCycles,
     },
   );
+
+  let humanReview;
+  if (includeHumanReview) {
+    await prepareWalkthroughHumanReviewLedger(runStore, WALKTHROUGH_RUN_ID);
+    humanReview = await completeHumanFinalReview(
+      {
+        canaryPath: walkthroughRoot,
+        projectId: WALKTHROUGH_PROJECT_ID,
+        parentIssueId: WALKTHROUGH_PARENT_ISSUE,
+        workflowRunId: WALKTHROUGH_RUN_ID,
+      },
+      {
+        verdict: "approved",
+        reviewer: "walkthrough-offline",
+        notes: "Offline human final review rehearsal after campaign sample stages.",
+      },
+      {
+        liveCli,
+        runStore,
+        reviewArtifactPath: join(
+          walkthroughRoot,
+          ".multica-spine/walkthrough-artifacts",
+          WALKTHROUGH_RUN_ID,
+          "final",
+          "10-human-final-review.md",
+        ),
+      },
+    );
+  }
 
   const ledger = await runStore.load(WALKTHROUGH_RUN_ID);
   if (!ledger) throw new Error("ledger missing after campaign");
@@ -92,7 +146,8 @@ export async function runWorkflowCampaignWalkthrough(options = {}) {
   const ok =
     catalogEntry.status === "active" &&
     campaign.stages.length >= 1 &&
-    !binding.deliveryPolicy.productionAllowed;
+    !binding.deliveryPolicy.productionAllowed &&
+    (!includeHumanReview || humanReview?.verdict === "approved");
 
   return {
     ok,
@@ -107,6 +162,14 @@ export async function runWorkflowCampaignWalkthrough(options = {}) {
       stages: campaign.stages.map((s) => s.stageId),
       stopReason: campaign.stopReason,
     },
+    humanReview: humanReview
+      ? {
+          verdict: humanReview.verdict,
+          reviewer: "walkthrough-offline",
+          reviewArtifactPath: humanReview.reviewArtifactPath,
+          ledgerHash: humanReview.ledgerHash,
+        }
+      : undefined,
     ledgerHash,
   };
 }

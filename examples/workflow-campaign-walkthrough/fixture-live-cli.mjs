@@ -1,3 +1,6 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
 /**
  * In-memory WorkflowLiveCli for offline examples (no `multica` binary).
  */
@@ -30,8 +33,10 @@ export function createFixtureLiveCli(projectId, parentIssueId) {
     async assignStageIssue() {
       return issues.values().next().value;
     },
-    async transitionStageIssue() {
-      return issues.values().next().value;
+    async transitionStageIssue(id, status) {
+      const issue = issues.get(id);
+      if (issue) issues.set(id, { ...issue, status });
+      return issues.get(id) ?? { id, status };
     },
     async writeParentSummary() {
       return {};
@@ -46,6 +51,24 @@ export function createFixtureLiveCli(projectId, parentIssueId) {
       return {};
     },
   };
+}
+
+export async function bootstrapWalkthroughRepo(walkthroughRoot) {
+  await mkdir(walkthroughRoot, { recursive: true });
+  const pkg = {
+    name: "pi-multica-spine-walkthrough",
+    version: "0.0.0",
+    private: true,
+    type: "module",
+    description: "Offline workflow campaign walkthrough target.",
+  };
+  const sampleJsonl = [
+    '{"id":"t1","status":"open"}',
+    '{"id":"t2","status":"done"}',
+  ].join("\n");
+  await writeFile(join(walkthroughRoot, "README.md"), "# Workflow campaign walkthrough\n", "utf8");
+  await writeFile(join(walkthroughRoot, "package.json"), `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
+  await writeFile(join(walkthroughRoot, "tasks.sample.jsonl"), `${sampleJsonl}\n`, "utf8");
 }
 
 export function buildWalkthroughBinding(multicaProjectId, manifest) {

@@ -93,7 +93,7 @@ Replace `pi-multica-spine` with the exact `name` from `package.json` when you fo
 Pin a specific version when you want reproducible installs:
 
 ```bash
-pi install npm:pi-multica-spine@0.7.1
+pi install npm:pi-multica-spine@0.7.2
 ```
 
 Install into the current project instead of your user Pi settings:

@@ -25,7 +25,7 @@ Publishing also runs when a GitHub Release is published, and can be run manually
 
 `publish.yml` intentionally has **no** `push` trigger. A version-bump push to `main` used to fire publish directly *and* via the `auto-release.yml` dispatch, which caused a TOCTOU race (DOT-881 / `docs/investigations/2026-07-07-duplicate-publish-guard-e403.md`). The single handoff path is `auto-release.yml` → `workflow_dispatch`.
 
-The workflow skips `name@version` if that exact package version already exists on npm.
+The workflow skips `name@version` if that exact package version already exists on npm. The skip step uses the **public registry HTTP API** (`curl`) before `setup-node` configures OIDC — authenticated `npm view` after OIDC can mis-report `404` and cause duplicate publish failures (see pi-extension-template `docs/publish-rerun-rollout.md`).
 
 ## Workflow guardrail
 

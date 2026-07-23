@@ -32,3 +32,10 @@ test("publish.yml keeps release.published as a secondary publish path", () => {
   assert.match(onBlock, /release:/);
   assert.match(onBlock, /types:\s*\[published\]/);
 });
+
+test("publish.yml uses registry HTTP pre-check before setup-node (R-MNT-14)", () => {
+  const skipIdx = publishWorkflow.indexOf("Skip already published version");
+  const setupIdx = publishWorkflow.indexOf("Setup Node.js");
+  assert.ok(skipIdx >= 0 && setupIdx > skipIdx, "registry skip must precede setup-node");
+  assert.match(publishWorkflow, /curl -sS/);
+});

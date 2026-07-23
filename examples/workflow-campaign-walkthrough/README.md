@@ -10,7 +10,9 @@ No `multica` CLI or network access is required.
 node examples/workflow-campaign-walkthrough/run-walkthrough.mjs
 ```
 
-Success prints JSON with `ok: true`, `campaign.stageCount >= 1`, and a stable `ledgerHash`. `deliveryPolicy.productionAllowed` stays `false`.
+Success prints JSON with `ok: true`, `campaign.stageCount >= 1`, `humanReview.verdict: "approved"`, and a stable `ledgerHash`. `deliveryPolicy.productionAllowed` stays `false`.
+
+The human-review step seeds `workflow_status=completed` / `final_package` after the sample campaign stages — an **offline rehearsal** of `completeHumanFinalReview`, not a live Multica closeout.
 
 ## What it exercises
 
@@ -20,6 +22,7 @@ Success prints JSON with `ok: true`, `campaign.stageCount >= 1`, and a stable `l
 | Binding | `ProjectWorkflowBindingStore` sandbox delivery policy |
 | Run ledger | `WorkflowRunStateStore.create` + seeded `capture` stage |
 | Campaign driver | `runCanaryCampaign` with fixture live CLI |
+| Human review | `completeHumanFinalReview` (offline rehearsal) |
 | Human Gate | `productionAllowed=false` enforced in binding |
 
 ## Live lane next
