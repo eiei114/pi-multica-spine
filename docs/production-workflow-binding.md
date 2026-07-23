@@ -44,6 +44,29 @@ node scripts/workflow-production-binding.mjs --dry-run
 node scripts/workflow-production-binding.mjs --apply
 ```
 
+## Production workflow run
+
+After binding is applied, start a Maintenance-project Hermes run from the repo root:
+
+```bash
+# Plan
+node scripts/workflow-production-run.mjs --dry-run
+
+# Create parent issue + workflow run ledger
+node scripts/workflow-production-run.mjs --start
+
+# Drive Hermes stages through final_package
+node scripts/workflow-production-run.mjs --campaign
+
+# Human final review (closes parent + stage issues)
+node scripts/workflow-production-run.mjs --human-review
+
+# Inspect saved state + final package index
+node scripts/workflow-production-run.mjs --report
+```
+
+Artifacts land under `Artifacts/workflows/<workflow-run-id>/`. CLI state is persisted at `.multica-spine/production-run-state.json`.
+
 ## Difference from sandbox canary
 
 | | Sandbox canary | Production binding |
@@ -51,6 +74,6 @@ node scripts/workflow-production-binding.mjs --apply
 | Project | `pi-multica-spine Idea-to-Build Canary` | `pi-multica-spine Maintenance` |
 | `prRequired` | `false` | `true` |
 | `releaseAllowed` | `false` | `true` (human gate) |
-| Script | `workflow-sandbox-canary.mjs` | `workflow-production-binding.mjs` |
+| Script | `workflow-sandbox-canary.mjs` | `workflow-production-binding.mjs` + `workflow-production-run.mjs` |
 
 Do **not** pass sandbox project IDs to the production binding script.
