@@ -181,9 +181,20 @@ export async function seedWorkflowStageLive(input: LiveStageSeedInput): Promise<
   }
   const attempt = input.attempt ?? input.ledger.stages[stageId]?.attempt ?? 1;
   const title = `${input.titlePrefix ?? "Workflow stage"}: ${stageId} (attempt ${attempt})`;
+  const executionPacket = manifestStage.sourceBundle && manifestStage.instructionRefs?.length
+    ? [
+        `source_bundle=${manifestStage.sourceBundle}`,
+        `adapter_bundle_hash=${input.ledger.adapterBundleHash}`,
+        `instruction_refs=${manifestStage.instructionRefs.join(",")}`,
+        `outputs=${(manifestStage.outputs ?? []).join(",")}`,
+      ].join("\n")
+    : undefined;
   const issue = await input.liveCli.createStageIssue({
     title,
-    description: `Workflow run ${input.ledger.workflowRunId} stage ${stageId} attempt ${attempt}. completion_authority=${WORKFLOW_COMPLETION_AUTHORITY}`,
+    description: [
+      `Workflow run ${input.ledger.workflowRunId} stage ${stageId} attempt ${attempt}. completion_authority=${WORKFLOW_COMPLETION_AUTHORITY}`,
+      executionPacket,
+    ].filter(Boolean).join("\n"),
     parentIssueId: input.parentIssueId,
     stage: stageOrdinal,
     projectId: input.binding.multicaProjectId,

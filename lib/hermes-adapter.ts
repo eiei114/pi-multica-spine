@@ -36,21 +36,24 @@ export const HERMES_PINNED_SOURCE_BUNDLES = [
   },
 ] as const satisfies readonly WorkflowSourceBundle[];
 
+const IDEA_BUNDLE = "hermes-agent-idea-workflow";
+const SUPERPOWERS_BUNDLE = "hermes-agent-supwerpowers-chatgpt";
+
 const HERMES_STAGES = [
-  { stageId: "capture", role: "capture", outputs: ["00-idea-capture.md"] },
-  { stageId: "question_resolution", role: "question_resolver", questionParallelism: "serial", outputs: ["01-question-resolution.md"] },
-  { stageId: "design_doc", role: "designer", outputs: ["02-design-doc.md"] },
-  { stageId: "ui_design_brief", role: "ui_designer", optional: true, outputs: ["03-ui-design-brief.md"] },
-  { stageId: "implementation_spec", role: "spec_author", outputs: ["04-implementation-spec.md"] },
-  { stageId: "build_handoff", role: "handoff_author", outputs: ["05-agent-build-handoff.md"] },
-  { stageId: HERMES_SPEC_REVIEW_STAGE_ID, role: "spec_reviewer", outputs: ["06-spec-review.md"] },
-  { stageId: HERMES_SPEC_FIX_STAGE_ID, role: "spec_author", optional: true, outputs: ["06a-spec-fix.md"] },
-  { stageId: "implementation_plan", role: "planner", outputs: ["07-implementation-plan.md"] },
-  { stageId: "implementation", role: "implementer", outputs: ["08-build-report.md"] },
-  { stageId: "spec_compliance_review", role: "spec_reviewer", outputs: ["09-spec-compliance-review.md"] },
-  { stageId: "code_quality_review", role: "code_reviewer", outputs: ["10-code-quality-review.md"] },
-  { stageId: "verification", role: "verifier", outputs: ["11-verification-report.md"] },
-  { stageId: HERMES_FINAL_STAGE_ID, role: "finalizer", outputs: ["12-final-output-package.md"] },
+  { stageId: "capture", role: "capture", outputs: ["00-idea-capture.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-superpowers-suite/SKILL.md"] },
+  { stageId: "question_resolution", role: "question_resolver", questionParallelism: "serial", outputs: ["01-question-resolution.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-superpowers-suite/SKILL.md", "idea-superpowers-suite/references/interview-question-bank.md"] },
+  { stageId: "design_doc", role: "designer", outputs: ["02-design-doc.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-design-doc/SKILL.md"] },
+  { stageId: "ui_design_brief", role: "ui_designer", optional: true, outputs: ["03-ui-design-brief.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-ui-design-brief/SKILL.md"] },
+  { stageId: "implementation_spec", role: "spec_author", outputs: ["04-implementation-spec.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-implementation-doc/SKILL.md"] },
+  { stageId: "build_handoff", role: "handoff_author", outputs: ["05-agent-build-handoff.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-implementation-doc/SKILL.md", "idea-to-implementation-doc/templates/agent-build-handoff-template.md"] },
+  { stageId: HERMES_SPEC_REVIEW_STAGE_ID, role: "spec_reviewer", outputs: ["06-spec-review.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-superpowers-suite/SKILL.md"] },
+  { stageId: HERMES_SPEC_FIX_STAGE_ID, role: "spec_author", optional: true, outputs: ["06a-spec-fix.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-implementation-doc/SKILL.md"] },
+  { stageId: "implementation_plan", role: "planner", outputs: ["07-implementation-plan.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-writing-plans.md"] },
+  { stageId: "implementation", role: "implementer", outputs: ["08-build-report.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-executing-plans.md", "superpowers-test-driven-development.md"] },
+  { stageId: "spec_compliance_review", role: "spec_reviewer", outputs: ["09-spec-compliance-review.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-requesting-code-review.md"] },
+  { stageId: "code_quality_review", role: "code_reviewer", outputs: ["10-code-quality-review.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-requesting-code-review.md", "superpowers-receiving-code-review.md"] },
+  { stageId: "verification", role: "verifier", outputs: ["11-verification-report.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-verification-before-completion.md"] },
+  { stageId: HERMES_FINAL_STAGE_ID, role: "finalizer", outputs: ["12-final-output-package.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-finishing-a-development-branch.md", "superpowers-verification-before-completion.md"] },
 ] as const;
 
 const HERMES_ROLES = [...new Set(HERMES_STAGES.map((stage) => stage.role))];
@@ -86,42 +89,120 @@ export function createHermesCompositeManifest(): WorkflowCatalogManifest {
     sideEffects: ["multica_issue_write", "project_artifact_write"],
     humanGates: ["start", "final_review"],
     roles: HERMES_ROLES,
-    stages: HERMES_STAGES.map((stage) => ({ ...stage, outputs: [...stage.outputs] })),
+    stages: HERMES_STAGES.map((stage) => ({
+      ...stage,
+      outputs: [...stage.outputs],
+      instructionRefs: [...stage.instructionRefs],
+    })),
+  };
+}
+
+export interface HermesStageExecutionPacket {
+  adapterId: string;
+  adapterVersion: number;
+  adapterBundleHash: string;
+  stageId: string;
+  role: string;
+  sourceBundle: string;
+  sourceCommit: string;
+  sourceContentHash: string;
+  instructionRefs: string[];
+  outputs: string[];
+  questionParallelism?: "serial" | "bounded";
+}
+
+export function createHermesStageExecutionPacket(
+  manifest: WorkflowCatalogManifest,
+  stageId: string,
+): HermesStageExecutionPacket {
+  if (manifest.adapterId !== HERMES_ADAPTER_ID) throw new Error(`Not a Hermes Adapter manifest: ${manifest.adapterId}`);
+  const stage = manifest.stages.find((item) => item.stageId === stageId);
+  if (!stage?.sourceBundle || !stage.instructionRefs?.length) {
+    throw new Error(`Hermes stage lacks audited instructions: ${stageId}`);
+  }
+  const source = manifest.sourceBundles?.find((bundle) => bundle.name === stage.sourceBundle);
+  if (!source) throw new Error(`Hermes source bundle not found: ${stage.sourceBundle}`);
+  return {
+    adapterId: manifest.adapterId,
+    adapterVersion: manifest.adapterVersion,
+    adapterBundleHash: manifest.derivedBundleHash,
+    stageId,
+    role: stage.role,
+    sourceBundle: source.name,
+    sourceCommit: source.sourceCommit,
+    sourceContentHash: source.sourceContentHash,
+    instructionRefs: [...stage.instructionRefs],
+    outputs: [...(stage.outputs ?? [])],
+    questionParallelism: stage.questionParallelism,
   };
 }
 
 export interface AuditedBundleSnapshot {
   contentHash: string;
-  files: readonly string[];
+  files: Readonly<Record<string, string>>;
 }
 
 export interface AuditedBundleLoader {
   loadByDigest(contentHash: string): Promise<AuditedBundleSnapshot>;
 }
 
+function validateAuditedBundleSnapshot(
+  bundle: WorkflowSourceBundle,
+  snapshot: AuditedBundleSnapshot,
+  requiredRefs: readonly string[],
+): void {
+  if (snapshot.contentHash !== bundle.sourceContentHash) {
+    throw new Error(`Audited Hermes bundle digest mismatch for ${bundle.name}`);
+  }
+  const files = Object.keys(snapshot.files);
+  if (files.length === 0) throw new Error(`Audited Hermes bundle is empty: ${bundle.name}`);
+  for (const file of files) {
+    const normalized = posix.normalize(file.replace(/\\/g, "/"));
+    if (
+      !normalized ||
+      normalized === ".." ||
+      normalized.startsWith("../") ||
+      normalized.startsWith("/") ||
+      /^[A-Za-z]:\//.test(normalized)
+    ) {
+      throw new Error(`Audited Hermes bundle contains unsafe path: ${file}`);
+    }
+  }
+  const availableFiles = new Set(files.map((file) => posix.normalize(file.replace(/\\/g, "/"))));
+  for (const instructionRef of requiredRefs) {
+    if (!availableFiles.has(instructionRef)) {
+      throw new Error(`Audited Hermes bundle is missing instruction ref ${instructionRef}`);
+    }
+  }
+}
+
 export async function loadPinnedHermesBundles(loader: AuditedBundleLoader): Promise<AuditedBundleSnapshot[]> {
   const loaded: AuditedBundleSnapshot[] = [];
   for (const bundle of HERMES_PINNED_SOURCE_BUNDLES) {
     const snapshot = await loader.loadByDigest(bundle.sourceContentHash);
-    if (snapshot.contentHash !== bundle.sourceContentHash) {
-      throw new Error(`Audited Hermes bundle digest mismatch for ${bundle.name}`);
-    }
-    if (snapshot.files.length === 0) throw new Error(`Audited Hermes bundle is empty: ${bundle.name}`);
-    for (const file of snapshot.files) {
-      const normalized = posix.normalize(file.replace(/\\/g, "/"));
-      if (
-        !normalized ||
-        normalized === ".." ||
-        normalized.startsWith("../") ||
-        normalized.startsWith("/") ||
-        /^[A-Za-z]:\//.test(normalized)
-      ) {
-        throw new Error(`Audited Hermes bundle contains unsafe path: ${file}`);
-      }
-    }
+    const requiredRefs = HERMES_STAGES
+      .filter((stage) => stage.sourceBundle === bundle.name)
+      .flatMap((stage) => [...stage.instructionRefs]);
+    validateAuditedBundleSnapshot(bundle, snapshot, requiredRefs);
     loaded.push(snapshot);
   }
   return loaded;
+}
+
+export async function loadHermesStageInstructions(
+  loader: AuditedBundleLoader,
+  manifest: WorkflowCatalogManifest,
+  stageId: string,
+): Promise<{ packet: HermesStageExecutionPacket; instructions: Array<{ ref: string; content: string }> }> {
+  const packet = createHermesStageExecutionPacket(manifest, stageId);
+  const source = manifest.sourceBundles?.find((bundle) => bundle.name === packet.sourceBundle);
+  if (!source) throw new Error(`Hermes source bundle not found: ${packet.sourceBundle}`);
+  const snapshot = await loader.loadByDigest(packet.sourceContentHash);
+  validateAuditedBundleSnapshot(source, snapshot, packet.instructionRefs);
+  return {
+    packet,
+    instructions: packet.instructionRefs.map((ref) => ({ ref, content: snapshot.files[ref] })),
+  };
 }
 
 export const HermesResolverRoleSchema = StringEnum(["context", "research", "domain_product", "technical"]);

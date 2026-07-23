@@ -27,6 +27,8 @@ export const WorkflowCatalogStageSchema = Type.Object({
   optional: Type.Optional(Type.Boolean()),
   questionParallelism: Type.Optional(WorkflowQuestionParallelismSchema),
   outputs: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+  sourceBundle: Type.Optional(Type.String({ minLength: 1 })),
+  instructionRefs: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { minItems: 1 })),
 });
 export type WorkflowCatalogStage = Static<typeof WorkflowCatalogStageSchema>;
 
@@ -81,9 +83,16 @@ function validateCatalogSemantics(manifest: WorkflowCatalogManifest): string[] {
   ];
 
   const roleSet = new Set(manifest.roles);
+  const sourceBundleNames = new Set((manifest.sourceBundles ?? []).map((bundle) => bundle.name));
   for (const stage of manifest.stages) {
     if (!roleSet.has(stage.role)) {
       errors.push(`unknown-stage-role:${stage.stageId}:${stage.role}`);
+    }
+    if (stage.sourceBundle && !sourceBundleNames.has(stage.sourceBundle)) {
+      errors.push(`unknown-stage-source-bundle:${stage.stageId}:${stage.sourceBundle}`);
+    }
+    if ((stage.sourceBundle && !stage.instructionRefs?.length) || (!stage.sourceBundle && stage.instructionRefs?.length)) {
+      errors.push(`stage-source-instructions-must-be-paired:${stage.stageId}`);
     }
   }
 

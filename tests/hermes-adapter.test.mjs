@@ -7,11 +7,13 @@ import test from "node:test";
 import {
   createHermesAnswerArtifact,
   createHermesCompositeManifest,
+  createHermesStageExecutionPacket,
   evaluateHermesSpecReview,
   HERMES_ADAPTER_ID,
   HERMES_MAX_FIX_CYCLES,
   HERMES_PINNED_SOURCE_BUNDLES,
   loadPinnedHermesBundles,
+  loadHermesStageInstructions,
   resolveHermesQuestionSerially,
   resolveNextHermesStageTarget,
   validateHermesArtifactLineage,
@@ -73,18 +75,35 @@ test("Hermes manifest pins both audited bundles and runtime loads only by digest
     ],
   );
   const requested = [];
+  const filesByHash = new Map(manifest.sourceBundles.map((bundle) => [
+    bundle.sourceContentHash,
+    Object.fromEntries([...new Set(manifest.stages
+      .filter((stage) => stage.sourceBundle === bundle.name)
+      .flatMap((stage) => stage.instructionRefs))].map((ref) => [ref, `# Audited ${ref}`])),
+  ]));
   const snapshots = await loadPinnedHermesBundles({
     async loadByDigest(contentHash) {
       requested.push(contentHash);
-      return { contentHash, files: ["SKILL.md"] };
+      return { contentHash, files: filesByHash.get(contentHash) };
     },
   });
   assert.deepEqual(requested, HERMES_PINNED_SOURCE_BUNDLES.map((bundle) => bundle.sourceContentHash));
   assert.equal(snapshots.length, 2);
+  const planPacket = createHermesStageExecutionPacket(manifest, "implementation_plan");
+  assert.equal(planPacket.sourceBundle, "hermes-agent-supwerpowers-chatgpt");
+  assert.equal(planPacket.instructionRefs[0], "superpowers-writing-plans.md");
+  assert.equal(planPacket.sourceContentHash, manifest.sourceBundles[1].sourceContentHash);
+  const loadedPlan = await loadHermesStageInstructions({
+    async loadByDigest(contentHash) {
+      return { contentHash, files: filesByHash.get(contentHash) };
+    },
+  }, manifest, "implementation_plan");
+  assert.equal(loadedPlan.instructions[0].ref, "superpowers-writing-plans.md");
+  assert.match(loadedPlan.instructions[0].content, /^# Audited/);
   await assert.rejects(
     () => loadPinnedHermesBundles({
       async loadByDigest(contentHash) {
-        return { contentHash, files: ["../escape.md"] };
+        return { contentHash, files: { "../escape.md": "unsafe" } };
       },
     }),
     /unsafe path/,
