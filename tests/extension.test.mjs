@@ -44,6 +44,9 @@ test("extension registers MVP tools", () => {
   extension(fake.api);
 
   assert.deepEqual([...fake.tools.keys()].sort(), [
+    "multica_workflow_adapter_migration_apply",
+    "multica_workflow_adapter_migration_dry_run",
+    "multica_workflow_adapter_migration_rollback",
     "multica_workflow_artifact_record",
     "multica_workflow_autopilot_trigger",
     "multica_workflow_binding_get",
@@ -60,10 +63,12 @@ test("extension registers MVP tools", () => {
     "multica_workflow_parent_summary",
     "multica_workflow_permission_check",
     "multica_workflow_question_record",
+    "multica_workflow_route_preflight",
     "multica_workflow_run_context",
     "multica_workflow_run_create",
     "multica_workflow_stage_seed",
     "multica_workflow_stage_transition",
+    "multica_workflow_telemetry_record",
     "multica_spine_add_evidence",
     "multica_spine_bind",
     "multica_spine_context",

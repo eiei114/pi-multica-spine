@@ -33,12 +33,25 @@ import {
   resolveNextHermesStageTarget,
   type HermesStageTarget,
 } from "./hermes-adapter.ts";
+import {
+  findExistingRouteDecision,
+  resolveCapabilityPool,
+  resolveStaticFallbackRoute,
+  selectWorkflowRoute,
+  type LiveAgentInventoryRecord,
+} from "./workflow-routing.ts";
+import { ProviderTelemetryStore, evaluateTelemetryPreflight } from "./provider-telemetry.ts";
+import { rollbackAdapterMigration, WorkflowAdapterMigrationStore } from "./workflow-adapter-migration.ts";
 
 export const DEFAULT_LEASE_TTL_MS = 60_000;
 export const DEFAULT_EVENT_SCAN_WINDOW = 50;
 
 export const ControllerTickActionKindSchema = StringEnum([
   "acquire_lease",
+  "recover_migration",
+  "refresh_telemetry",
+  "provision_agent",
+  "record_route",
   "validate_produced_stage",
   "seed_next_stage",
   "persist_summary",
@@ -86,6 +99,9 @@ export interface ControllerTickInput {
   leaseTtlMs?: number;
   eventScanWindow?: number;
   statePointer?: string;
+  inventory?: readonly LiveAgentInventoryRecord[];
+  telemetryStore?: ProviderTelemetryStore;
+  migrationStore?: WorkflowAdapterMigrationStore;
 }
 
 export interface ControllerTickResult {
@@ -298,6 +314,7 @@ function findSeedTarget(
   manifest: WorkflowCatalogManifest,
   binding: ProjectWorkflowBinding,
 ): HermesStageTarget | undefined {
+  if (ledger.migration?.status === "preparing") return undefined;
   if (ledger.adapterId === HERMES_ADAPTER_ID) {
     return resolveNextHermesStageTarget(ledger, manifest, binding);
   }
@@ -330,6 +347,30 @@ async function persistParentSummary(
     workflowStateHash: hashWorkflowRunLedger(ledger),
   });
   return input.liveCli.writeParentSummary(input.parentIssueId, summary);
+}
+
+function manifestStageForTarget(manifest: WorkflowCatalogManifest, target: HermesStageTarget) {
+  return manifest.stages.find((stage) => stage.stageId === target.stageId);
+}
+
+function buildRouteSelectionInput(
+  input: ControllerTickInput,
+  target: HermesStageTarget,
+  telemetryByProvider: Map<string, import("./provider-telemetry.ts").ProviderTelemetrySnapshot | undefined>,
+) {
+  const stage = manifestStageForTarget(input.manifest, target);
+  if (!stage) throw new Error(`Unknown manifest stage: ${target.stageId}`);
+  const profileId = stage.capabilityProfileId ?? stage.role;
+  const pool = resolveCapabilityPool(input.binding, profileId);
+  if (!pool) throw new Error(`Missing capability pool: ${profileId}`);
+  return {
+    stage,
+    attempt: target.attempt,
+    pool,
+    inventory: input.inventory ?? [],
+    telemetryByProvider,
+    now: input.now ?? new Date(),
+  };
 }
 
 export async function runControllerAutopilotTick(
@@ -375,6 +416,111 @@ export async function runControllerAutopilotTick(
     };
   }
 
+  if (ledger.migration?.status === "preparing") {
+    const migrationStore = input.migrationStore ?? new WorkflowAdapterMigrationStore(process.cwd());
+    const snapshot = await migrationStore.loadSnapshot(input.workflowRunId);
+    if (snapshot) {
+      const rollback = rollbackAdapterMigration(snapshot, input.binding, hashWorkflowRunLedger(ledger), {
+        migrationStatus: ledger.migration.status,
+      });
+      if (!rollback.noOp) {
+        ledger = await runStore.setMigrationState(input.workflowRunId, {
+          status: rollback.migrationStatus,
+          snapshotId: snapshot.snapshotId,
+          updatedAt: nowIso(now),
+        });
+        return {
+          action: "recover_migration",
+          stopped: false,
+          reason: "migration_preparing_recovered",
+          lease,
+          ledger,
+          reconcile,
+        };
+      }
+    }
+    return {
+      action: "stop",
+      stopped: true,
+      reason: "migration_preparing",
+      lease,
+      ledger,
+      reconcile,
+    };
+  }
+
+  const seedTargetForRoute = findSeedTarget(ledger, input.manifest, input.binding);
+  if (seedTargetForRoute && input.inventory && input.telemetryStore) {
+    const stage = manifestStageForTarget(input.manifest, seedTargetForRoute);
+    const telemetryByProvider = new Map<string, import("./provider-telemetry.ts").ProviderTelemetrySnapshot | undefined>();
+    const providers = new Set((input.inventory ?? []).map((item) => item.provider));
+    for (const provider of providers) {
+      telemetryByProvider.set(provider, await input.telemetryStore.load({ provider, accountRef: input.binding.multicaProjectId }));
+    }
+    const routeInput = buildRouteSelectionInput(input, seedTargetForRoute, telemetryByProvider);
+    const inputHash = selectWorkflowRoute(routeInput).decision.inputHash;
+    const existingRoute = findExistingRouteDecision(ledger.routeDecisions, seedTargetForRoute.stageId, seedTargetForRoute.attempt, inputHash);
+    if (!existingRoute?.selectedAgentId) {
+      const staleProvider = [...telemetryByProvider.entries()].find(([, snapshot]) => {
+        const preflight = evaluateTelemetryPreflight(snapshot, now, {
+          costClass: stage?.costClass,
+          policy: routeInput.pool.telemetryPolicy,
+        });
+        return preflight.kind === "refresh_required";
+      });
+      if (staleProvider) {
+        return {
+          action: "refresh_telemetry",
+          stopped: false,
+          reason: `telemetry_stale:${staleProvider[0]}`,
+          lease,
+          ledger,
+          reconcile,
+        };
+      }
+      const selection = selectWorkflowRoute(routeInput);
+      if (!selection.decision.selectedAgentId) {
+        if (selection.provisionRequired && routeInput.pool.factoryTemplateId) {
+          return {
+            action: "provision_agent",
+            stopped: false,
+            reason: `provision_template:${routeInput.pool.factoryTemplateId}`,
+            lease,
+            ledger,
+            reconcile,
+          };
+        }
+        const fallback = resolveStaticFallbackRoute(routeInput);
+        if (!fallback?.decision.selectedAgentId) {
+          return {
+            action: "stop",
+            stopped: true,
+            reason: "route_failure",
+            lease,
+            ledger,
+            reconcile,
+          };
+        }
+        ledger = await runStore.recordRouteDecision(input.workflowRunId, fallback.decision);
+        return {
+          action: "record_route",
+          stopped: false,
+          lease,
+          ledger,
+          reconcile,
+        };
+      }
+      ledger = await runStore.recordRouteDecision(input.workflowRunId, selection.decision);
+      return {
+        action: "record_route",
+        stopped: false,
+        lease,
+        ledger,
+        reconcile,
+      };
+    }
+  }
+
   const produced = findProducedStageForValidation(ledger);
   if (produced) {
     try {
@@ -416,8 +562,20 @@ export async function runControllerAutopilotTick(
     };
   }
 
-  const seedTarget = findSeedTarget(ledger, input.manifest, input.binding);
+  const seedTarget = seedTargetForRoute ?? findSeedTarget(ledger, input.manifest, input.binding);
   if (seedTarget) {
+    const routeDecision = ledger.routeDecisions?.find((item) => item.stageId === seedTarget.stageId && item.attempt === seedTarget.attempt);
+    const selectedAgentId = routeDecision?.selectedAgentId;
+    if (input.inventory && input.telemetryStore && !selectedAgentId) {
+      return {
+        action: "stop",
+        stopped: true,
+        reason: "route_not_recorded",
+        lease,
+        ledger,
+        reconcile,
+      };
+    }
     let stage;
     if (input.liveCli && input.parentIssueId) {
       const seeded = await seedWorkflowStageLive({
@@ -427,6 +585,7 @@ export async function runControllerAutopilotTick(
         parentIssueId: input.parentIssueId,
         stageId: seedTarget.stageId,
         attempt: seedTarget.attempt,
+        assignedAgentId: selectedAgentId,
         liveCli: input.liveCli,
       });
       stage = seeded.stage;
@@ -434,6 +593,7 @@ export async function runControllerAutopilotTick(
       stage = seedWorkflowStage(ledger, input.manifest, input.binding, {
         stageId: seedTarget.stageId,
         attempt: seedTarget.attempt,
+        assignedAgentId: selectedAgentId,
       });
     }
     ledger = await runStore.upsertStage(input.workflowRunId, {

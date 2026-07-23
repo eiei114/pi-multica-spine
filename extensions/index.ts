@@ -62,6 +62,19 @@ import {
   WorkflowControllerLeaseStore,
 } from "../lib/workflow-controller-autopilot.ts";
 import {
+  dryRunAdapterMigration,
+  prepareAdapterMigrationCommit,
+  rollbackAdapterMigration,
+  WorkflowAdapterMigrationStore,
+} from "../lib/workflow-adapter-migration.ts";
+import { mergeTelemetryObservation, ProviderTelemetryStore } from "../lib/provider-telemetry.ts";
+import {
+  computeRouteInputHash,
+  findExistingRouteDecision,
+  resolveCapabilityPool,
+  selectWorkflowRoute,
+} from "../lib/workflow-routing.ts";
+import {
   type WorkflowCatalogEntry,
   type WorkflowCatalogManifest,
   WorkflowCatalogManifestSchema,
@@ -256,6 +269,36 @@ const workflowAutopilotTriggerParameters = Type.Object({
   autopilotId: Type.String({ minLength: 1 }),
 });
 
+const workflowTelemetryRecordParameters = Type.Object({
+  provider: Type.String({ minLength: 1 }),
+  accountRef: Type.String({ minLength: 1 }),
+  headers: Type.Record(Type.String(), Type.String()),
+  source: Type.Optional(StringEnum(["response_header", "runtime_usage", "official_api", "dashboard", "local_accounting"])),
+});
+
+const workflowRoutePreflightParameters = Type.Object({
+  workflowRunId: Type.String({ minLength: 1 }),
+  stageId: Type.String({ minLength: 1 }),
+  attempt: Type.Optional(Type.Integer({ minimum: 1 })),
+  inventory: Type.Array(Type.Object({
+    agentId: Type.String({ minLength: 1 }),
+    runtimeId: Type.String({ minLength: 1 }),
+    provider: Type.String({ minLength: 1 }),
+    model: Type.String({ minLength: 1 }),
+    status: StringEnum(["active", "archived", "inactive"]),
+    capabilities: Type.Array(Type.String()),
+    permissionCapabilities: Type.Array(Type.String()),
+    runtimeOnline: Type.Boolean(),
+  })),
+});
+
+const workflowMigrationMutationParameters = Type.Object({
+  workflowRunId: Type.String({ minLength: 1 }),
+  holderId: Type.String({ minLength: 1 }),
+  fencingToken: Type.Integer({ minimum: 1 }),
+  targetAdapterVersion: Type.Integer({ minimum: 1 }),
+});
+
 const workflowControllerTickParameters = Type.Object({
   workflowRunId: Type.String({ minLength: 1 }),
   holderId: Type.String({ minLength: 1 }),
@@ -308,6 +351,14 @@ function workflowBindingStoreFor(ctx: ExtensionContext): ProjectWorkflowBindingS
 
 function workflowRunStoreFor(ctx: ExtensionContext): WorkflowRunStateStore {
   return new WorkflowRunStateStore(ctx.cwd);
+}
+
+function providerTelemetryStoreFor(ctx: ExtensionContext): ProviderTelemetryStore {
+  return new ProviderTelemetryStore(ctx.cwd);
+}
+
+function workflowAdapterMigrationStoreFor(ctx: ExtensionContext): WorkflowAdapterMigrationStore {
+  return new WorkflowAdapterMigrationStore(ctx.cwd);
 }
 
 async function mutateSpine<T>(ctx: ExtensionContext, fn: () => Promise<T>): Promise<T> {
@@ -1192,6 +1243,208 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
           nextStageId: decision.nextStageId,
           terminalPackage: decision.terminalPackage,
         },
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "multica_workflow_telemetry_record",
+    label: "Multica Workflow Telemetry Record",
+    description: "Record allowlisted provider telemetry headers into the repo-local telemetry snapshot store.",
+    parameters: workflowTelemetryRecordParameters,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const args = params as { provider: string; accountRef: string; headers: Record<string, string>; source?: string };
+      const store = providerTelemetryStoreFor(ctx);
+      const scope = { provider: args.provider, accountRef: args.accountRef };
+      const existing = await store.load(scope);
+      const snapshot = mergeTelemetryObservation(existing, {
+        headers: args.headers,
+        collectedAt: new Date().toISOString(),
+        source: (args.source ?? "response_header") as "response_header",
+        provenance: ["multica_workflow_telemetry_record"],
+      });
+      snapshot.provider = args.provider;
+      snapshot.accountRef = args.accountRef;
+      await mutateWorkflow(ctx, () => store.save(scope, snapshot));
+      return {
+        content: [{ type: "text" as const, text: `telemetrySnapshotId: ${snapshot.snapshotId}\nstatus: ${snapshot.status}` }],
+        details: { snapshot },
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "multica_workflow_route_preflight",
+    label: "Multica Workflow Route Preflight",
+    description: "Pure route preflight for one stage attempt using capability pool, inventory, and telemetry snapshots.",
+    parameters: workflowRoutePreflightParameters,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const args = params as {
+        workflowRunId: string;
+        stageId: string;
+        attempt?: number;
+        inventory: Array<{
+          agentId: string;
+          runtimeId: string;
+          provider: string;
+          model: string;
+          status: "active" | "archived" | "inactive";
+          capabilities: string[];
+          permissionCapabilities: string[];
+          runtimeOnline: boolean;
+        }>;
+      };
+      const ledger = await workflowRunStoreFor(ctx).load(args.workflowRunId);
+      if (!ledger) throw new Error(`Workflow run not found: ${args.workflowRunId}`);
+      const binding = await workflowBindingStoreFor(ctx).getByProjectId(ledger.multicaProjectId);
+      if (!binding) throw new Error(`Workflow binding not found for project: ${ledger.multicaProjectId}`);
+      const manifest = await resolveManifestForLedger(ctx, ledger);
+      const stage = manifest.stages.find((item) => item.stageId === args.stageId);
+      if (!stage) throw new Error(`Unknown stage: ${args.stageId}`);
+      const pool = resolveCapabilityPool(binding, stage.capabilityProfileId ?? stage.role);
+      if (!pool) throw new Error(`Missing capability pool: ${stage.capabilityProfileId ?? stage.role}`);
+      const telemetryStore = providerTelemetryStoreFor(ctx);
+      const telemetryByProvider = new Map();
+      for (const provider of new Set(args.inventory.map((item) => item.provider))) {
+        telemetryByProvider.set(provider, await telemetryStore.load({ provider, accountRef: binding.multicaProjectId }));
+      }
+      const now = new Date();
+      const routeInput = {
+        stage,
+        attempt: args.attempt ?? ledger.stages[args.stageId]?.attempt ?? 1,
+        pool,
+        inventory: args.inventory,
+        telemetryByProvider,
+        now,
+      };
+      const inputHash = computeRouteInputHash(routeInput);
+      const existing = findExistingRouteDecision(ledger.routeDecisions, args.stageId, routeInput.attempt, inputHash);
+      const selection = existing
+        ? { decision: existing, preflight: { kind: "eligible" as const, snapshotId: existing.telemetrySnapshotId ?? "", ageMs: existing.snapshotAgeMs ?? 0 }, provisionRequired: false }
+        : selectWorkflowRoute(routeInput);
+      return {
+        content: [{ type: "text" as const, text: `selectionReason: ${selection.decision.selectionReason}\nagentId: ${selection.decision.selectedAgentId ?? "none"}` }],
+        details: selection,
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "multica_workflow_adapter_migration_dry_run",
+    label: "Multica Workflow Adapter Migration Dry Run",
+    description: "Evaluate adapter migration compatibility without writes.",
+    parameters: workflowMigrationMutationParameters,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const args = params as { workflowRunId: string; holderId: string; fencingToken: number; targetAdapterVersion: number };
+      const ledger = await workflowRunStoreFor(ctx).load(args.workflowRunId);
+      if (!ledger) throw new Error(`Workflow run not found: ${args.workflowRunId}`);
+      const binding = await workflowBindingStoreFor(ctx).getByProjectId(ledger.multicaProjectId);
+      if (!binding) throw new Error(`Workflow binding not found for project: ${ledger.multicaProjectId}`);
+      const sourceEntry = await workflowCatalogStoreFor(ctx).get(binding.adapterId, binding.adapterVersion);
+      const targetEntry = await workflowCatalogStoreFor(ctx).get(binding.adapterId, args.targetAdapterVersion);
+      if (!sourceEntry || !targetEntry) throw new Error("Source or target catalog entry not found");
+      const dryRun = dryRunAdapterMigration({ sourceEntry, targetEntry, binding, ledger });
+      return {
+        content: [{ type: "text" as const, text: `compatible: ${dryRun.compatible}\nreason: ${dryRun.humanFallbackReason ?? "none"}` }],
+        details: dryRun,
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "multica_workflow_adapter_migration_apply",
+    label: "Multica Workflow Adapter Migration Apply",
+    description: "Apply a compatible adapter migration using controller lease authority. Requires holderId and fencingToken.",
+    parameters: workflowMigrationMutationParameters,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const args = params as { workflowRunId: string; holderId: string; fencingToken: number; targetAdapterVersion: number };
+      const leaseStore = workflowControllerLeaseStoreFor(ctx);
+      const lease = await leaseStore.load(args.workflowRunId);
+      if (!lease || lease.holderId !== args.holderId || lease.fencingToken !== args.fencingToken) {
+        throw new Error("Adapter migration apply requires a valid controller lease");
+      }
+      const runStore = workflowRunStoreFor(ctx);
+      const ledger = await runStore.load(args.workflowRunId);
+      if (!ledger) throw new Error(`Workflow run not found: ${args.workflowRunId}`);
+      const binding = await workflowBindingStoreFor(ctx).getByProjectId(ledger.multicaProjectId);
+      if (!binding) throw new Error(`Workflow binding not found for project: ${ledger.multicaProjectId}`);
+      const sourceEntry = await workflowCatalogStoreFor(ctx).get(binding.adapterId, binding.adapterVersion);
+      const targetEntry = await workflowCatalogStoreFor(ctx).get(binding.adapterId, args.targetAdapterVersion);
+      if (!sourceEntry || !targetEntry) throw new Error("Source or target catalog entry not found");
+      const dryRun = dryRunAdapterMigration({ sourceEntry, targetEntry, binding, ledger });
+      const targetBinding = { ...binding, adapterVersion: targetEntry.manifest.adapterVersion };
+      const commit = prepareAdapterMigrationCommit({
+        workflowRunId: args.workflowRunId,
+        snapshot: {
+          snapshotId: "0".repeat(64),
+          workflowRunId: args.workflowRunId,
+          sourceAdapterIdentity: `${binding.adapterId}@${binding.adapterVersion}#${ledger.adapterBundleHash}`,
+          targetAdapterIdentity: `${targetEntry.manifest.adapterId}@${targetEntry.manifest.adapterVersion}#${targetEntry.manifest.derivedBundleHash}`,
+          sourceCatalogDigest: sourceEntry.manifestDigest,
+          targetCatalogDigest: targetEntry.manifestDigest,
+          bindingJson: JSON.stringify(binding),
+          bindingHash: "",
+          ledgerHash: "",
+          stateVersion: ledger.stateVersion,
+          createdAt: new Date().toISOString(),
+        },
+        targetBinding,
+        targetIdentity: {
+          adapterId: targetEntry.manifest.adapterId,
+          adapterVersion: targetEntry.manifest.adapterVersion,
+          derivedBundleHash: targetEntry.manifest.derivedBundleHash,
+        },
+      }, dryRun);
+      await mutateWorkflow(ctx, async () => {
+        await workflowBindingStoreFor(ctx).save(targetBinding);
+        return runStore.setMigrationState(args.workflowRunId, {
+          status: "committed",
+          updatedAt: new Date().toISOString(),
+        });
+      });
+      return {
+        content: [{ type: "text" as const, text: `migrationStatus: ${commit.migrationStatus}` }],
+        details: commit,
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "multica_workflow_adapter_migration_rollback",
+    label: "Multica Workflow Adapter Migration Rollback",
+    description: "Rollback a preparing or failed adapter migration from the persisted snapshot.",
+    parameters: Type.Object({
+      workflowRunId: Type.String({ minLength: 1 }),
+      holderId: Type.String({ minLength: 1 }),
+      fencingToken: Type.Integer({ minimum: 1 }),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const args = params as { workflowRunId: string; holderId: string; fencingToken: number };
+      const leaseStore = workflowControllerLeaseStoreFor(ctx);
+      const lease = await leaseStore.load(args.workflowRunId);
+      if (!lease || lease.holderId !== args.holderId || lease.fencingToken !== args.fencingToken) {
+        throw new Error("Adapter migration rollback requires a valid controller lease");
+      }
+      const snapshot = await workflowAdapterMigrationStoreFor(ctx).loadSnapshot(args.workflowRunId);
+      if (!snapshot) throw new Error(`Migration snapshot not found: ${args.workflowRunId}`);
+      const ledger = await workflowRunStoreFor(ctx).load(args.workflowRunId);
+      if (!ledger) throw new Error(`Workflow run not found: ${args.workflowRunId}`);
+      const binding = await workflowBindingStoreFor(ctx).getByProjectId(ledger.multicaProjectId);
+      if (!binding) throw new Error(`Workflow binding not found for project: ${ledger.multicaProjectId}`);
+      const rollback = rollbackAdapterMigration(snapshot, binding, "", {
+        migrationStatus: ledger.migration?.status ?? "preparing",
+      });
+      await mutateWorkflow(ctx, async () => {
+        await workflowBindingStoreFor(ctx).save(rollback.binding);
+        return workflowRunStoreFor(ctx).setMigrationState(args.workflowRunId, {
+          status: rollback.migrationStatus,
+          snapshotId: snapshot.snapshotId,
+          updatedAt: new Date().toISOString(),
+        });
+      });
+      return {
+        content: [{ type: "text" as const, text: `migrationStatus: ${rollback.migrationStatus}\nnoOp: ${rollback.noOp}` }],
+        details: rollback,
       };
     },
   });

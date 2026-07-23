@@ -159,6 +159,7 @@ export interface LiveStageSeedInput {
   parentIssueId: string;
   stageId?: string;
   attempt?: number;
+  assignedAgentId?: string;
   titlePrefix?: string;
   liveCli: WorkflowLiveCli;
 }
@@ -187,7 +188,7 @@ export async function seedWorkflowStageLive(input: LiveStageSeedInput): Promise<
   const manifestStage = input.manifest.stages.find((stage) => stage.stageId === stageId);
   if (!manifestStage) throw new Error(`Cannot seed unknown manifest stage: ${stageId}`);
   const stageOrdinal = input.manifest.stages.findIndex((stage) => stage.stageId === stageId) + 1;
-  const assignedAgentId = input.binding.roleRoutes[manifestStage.role]?.agentId;
+  const assignedAgentId = input.assignedAgentId ?? input.binding.roleRoutes[manifestStage.role]?.agentId;
   if (!assignedAgentId) {
     throw new Error(`Binding missing role route for stage ${stageId} role ${manifestStage.role}`);
   }
