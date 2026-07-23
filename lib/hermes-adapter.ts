@@ -4,6 +4,7 @@ import { sha256Hex } from "./hash.ts";
 import type { ProjectWorkflowBinding } from "./project-workflow-binding.ts";
 import { StringEnum } from "./schema.ts";
 import type { WorkflowCatalogManifest, WorkflowSourceBundle } from "./workflow-catalog.ts";
+import { resolveStageActivation } from "./workflow-catalog.ts";
 import type {
   WorkflowArtifactEnvelope,
   WorkflowQuestionRecord,
@@ -43,11 +44,11 @@ const HERMES_STAGES = [
   { stageId: "capture", role: "capture", outputs: ["00-idea-capture.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-superpowers-suite/SKILL.md"] },
   { stageId: "question_resolution", role: "question_resolver", questionParallelism: "serial", outputs: ["01-question-resolution.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-superpowers-suite/SKILL.md", "idea-superpowers-suite/references/interview-question-bank.md"] },
   { stageId: "design_doc", role: "designer", outputs: ["02-design-doc.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-design-doc/SKILL.md"] },
-  { stageId: "ui_design_brief", role: "ui_designer", optional: true, outputs: ["03-ui-design-brief.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-ui-design-brief/SKILL.md"] },
+  { stageId: "ui_design_brief", role: "ui_designer", activation: "binding_optional" as const, outputs: ["03-ui-design-brief.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-ui-design-brief/SKILL.md"] },
   { stageId: "implementation_spec", role: "spec_author", outputs: ["04-implementation-spec.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-implementation-doc/SKILL.md"] },
   { stageId: "build_handoff", role: "handoff_author", outputs: ["05-agent-build-handoff.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-implementation-doc/SKILL.md", "idea-to-implementation-doc/templates/agent-build-handoff-template.md"] },
   { stageId: HERMES_SPEC_REVIEW_STAGE_ID, role: "spec_reviewer", outputs: ["06-spec-review.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-superpowers-suite/SKILL.md"] },
-  { stageId: HERMES_SPEC_FIX_STAGE_ID, role: "spec_author", optional: true, outputs: ["06a-spec-fix.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-implementation-doc/SKILL.md"] },
+  { stageId: HERMES_SPEC_FIX_STAGE_ID, role: "spec_author", activation: "controller_conditional" as const, outputs: ["06a-spec-fix.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-implementation-doc/SKILL.md"] },
   { stageId: "implementation_plan", role: "planner", outputs: ["07-implementation-plan.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-writing-plans.md"] },
   { stageId: "implementation", role: "implementer", outputs: ["08-build-report.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-executing-plans.md", "superpowers-test-driven-development.md"] },
   { stageId: "spec_compliance_review", role: "spec_reviewer", outputs: ["09-spec-compliance-review.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-requesting-code-review.md"] },
@@ -464,10 +465,17 @@ function nextEnabledHermesStage(
   currentStageId?: string,
 ): HermesStageTarget | undefined {
   const enabledOptional = new Set(binding.enabledOptionalStages ?? []);
-  const startIndex = currentStageId ? manifest.stages.findIndex((stage) => stage.stageId === currentStageId) + 1 : 0;
+  let startIndex = 0;
+  if (currentStageId) {
+    const currentIndex = manifest.stages.findIndex((stage) => stage.stageId === currentStageId);
+    if (currentIndex < 0) throw new Error(`Unknown stage in manifest: ${currentStageId}`);
+    startIndex = currentIndex + 1;
+  }
   for (let index = startIndex; index < manifest.stages.length; index += 1) {
     const stage = manifest.stages[index];
-    if (stage.optional && !enabledOptional.has(stage.stageId)) continue;
+    const activation = resolveStageActivation(stage);
+    if (activation === "binding_optional" && !enabledOptional.has(stage.stageId)) continue;
+    if (activation === "controller_conditional") continue;
     return { stageId: stage.stageId, attempt: 1 };
   }
   return undefined;

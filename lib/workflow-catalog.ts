@@ -12,6 +12,15 @@ export type WorkflowCatalogStatus = Static<typeof WorkflowCatalogStatusSchema>;
 export const WorkflowQuestionParallelismSchema = StringEnum(["serial", "bounded"]);
 export type WorkflowQuestionParallelism = Static<typeof WorkflowQuestionParallelismSchema>;
 
+export const WorkflowStageActivationSchema = StringEnum(["always", "binding_optional", "controller_conditional"]);
+export type WorkflowStageActivation = Static<typeof WorkflowStageActivationSchema>;
+
+export function resolveStageActivation(stage: Pick<WorkflowCatalogStage, "optional" | "activation">): WorkflowStageActivation {
+  if (stage.activation) return stage.activation;
+  if (stage.optional) return "binding_optional";
+  return "always";
+}
+
 export const WorkflowSourceBundleSchema = Type.Object({
   name: Type.String({ minLength: 1, pattern: "^[a-z0-9][a-z0-9-]*$" }),
   sourceUrl: Type.String({ minLength: 1 }),
@@ -25,6 +34,7 @@ export const WorkflowCatalogStageSchema = Type.Object({
   stageId: Type.String({ minLength: 1, pattern: "^[a-z0-9][a-z0-9_-]*$" }),
   role: Type.String({ minLength: 1 }),
   optional: Type.Optional(Type.Boolean()),
+  activation: Type.Optional(WorkflowStageActivationSchema),
   questionParallelism: Type.Optional(WorkflowQuestionParallelismSchema),
   outputs: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
   sourceBundle: Type.Optional(Type.String({ minLength: 1 })),
@@ -81,6 +91,17 @@ function validateCatalogSemantics(manifest: WorkflowCatalogManifest): string[] {
     ...uniqueValues((manifest.sourceBundles ?? []).map((bundle) => bundle.name), "duplicate-source-bundle"),
     ...uniqueValues((manifest.sourceBundles ?? []).map((bundle) => bundle.sourceContentHash), "duplicate-source-content-hash"),
   ];
+
+  if (manifest.sourceBundles?.length) {
+    const primary = manifest.sourceBundles[0];
+    if (
+      primary.sourceUrl !== manifest.sourceUrl ||
+      primary.sourceCommit !== manifest.sourceCommit ||
+      primary.sourceContentHash !== manifest.sourceContentHash
+    ) {
+      errors.push("source-bundle-primary-mismatch");
+    }
+  }
 
   const roleSet = new Set(manifest.roles);
   const sourceBundleNames = new Set((manifest.sourceBundles ?? []).map((bundle) => bundle.name));

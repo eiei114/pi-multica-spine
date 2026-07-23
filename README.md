@@ -21,7 +21,7 @@ It does not replace Multica controllers, Todo Runner, Review Sentinel, or PR cre
 
 ## Features
 
-- Twenty-six typed tools: ten work-agent spine tools plus sixteen experimental workflow-adapter control-plane tools (including live CLI bridge paths).
+- Thirty typed tools: ten work-agent spine tools plus twenty experimental workflow-adapter control-plane tools (including live CLI bridge paths).
 - Repo-local `.multica-spine/` state store with opaque issue identifiers and ASCII-safe task filenames.
 - Work-agent contract injected into Pi sessions so agents see the bind → PR → evidence → handoff flow up front.
 - PR binding checker with a recommended `Multica Issue: <issue-identifier>` PR body line.

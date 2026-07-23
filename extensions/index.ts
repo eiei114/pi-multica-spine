@@ -20,6 +20,7 @@ import {
   HermesQuestionTaskSchema,
   HermesReviewDecisionInputSchema,
   resolveHermesQuestionSerially,
+  resolveNextHermesStageTarget,
   validateHermesArtifactLineage,
   type HermesAnswerInput,
   type HermesQuestionTask,
@@ -975,12 +976,24 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
           rethrowWorkflowProductGap(error);
         }
       } else {
-        const stageId = args.stageId ?? resolveNextStageId(manifest, ledger.currentStageId, binding.enabledOptionalStages);
-        if (!stageId) throw new Error(`No next stage available for workflow run: ${args.workflowRunId}`);
+        let stageId = args.stageId;
+        let attempt = args.attempt;
+        if (!stageId) {
+          if (ledger.adapterId === HERMES_ADAPTER_ID) {
+            const target = resolveNextHermesStageTarget(ledger, manifest, binding);
+            if (!target) throw new Error(`No next stage available for workflow run: ${args.workflowRunId}`);
+            stageId = target.stageId;
+            attempt = attempt ?? target.attempt;
+          } else {
+            stageId = resolveNextStageId(manifest, ledger.currentStageId, binding.enabledOptionalStages);
+            if (!stageId) throw new Error(`No next stage available for workflow run: ${args.workflowRunId}`);
+            attempt = attempt ?? ledger.stages[stageId]?.attempt ?? 1;
+          }
+        }
         const existing = ledger.stages[stageId];
         stage = seedWorkflowStage(ledger, manifest, binding, {
           stageId,
-          attempt: args.attempt ?? existing?.attempt ?? 1,
+          attempt: attempt ?? existing?.attempt ?? 1,
           issueId: args.issueId,
           assignedAgentId: args.assignedAgentId,
         });
@@ -1027,7 +1040,12 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
       let updated = await mutateWorkflow(ctx, () => store.upsertStage(args.workflowRunId, toStageUpsertInput(nextStage)));
       if (args.status === "accepted") {
         const manifest = await resolveManifestForLedger(ctx, updated);
-        if (!resolveNextStageId(manifest, args.stageId, (await workflowBindingStoreFor(ctx).getByProjectId(updated.multicaProjectId))?.enabledOptionalStages)) {
+        const bindingAfter = await workflowBindingStoreFor(ctx).getByProjectId(updated.multicaProjectId);
+        if (!bindingAfter) throw new Error(`Workflow binding not found for project: ${updated.multicaProjectId}`);
+        const hasNextStage = updated.adapterId === HERMES_ADAPTER_ID
+          ? Boolean(resolveNextHermesStageTarget(updated, manifest, bindingAfter))
+          : Boolean(resolveNextStageId(manifest, args.stageId, bindingAfter.enabledOptionalStages));
+        if (!hasNextStage) {
           updated = await mutateWorkflow(ctx, () => store.setWorkflowStatus(args.workflowRunId, "completed"));
         }
       }

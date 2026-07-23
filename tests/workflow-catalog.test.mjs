@@ -48,7 +48,21 @@ test("validateWorkflowCatalogManifest rejects duplicate stage ids and unknown ro
   assert.ok(result.errors.some((item) => item.startsWith("unknown-stage-role:capture_interview:missing-role")));
 });
 
-test("workflow catalog entry transition follows lifecycle rules", () => {
+test("validateWorkflowCatalogManifest rejects primary source bundle mismatch", () => {
+  const manifest = sampleManifest();
+  manifest.sourceBundles = [{
+    name: "primary-bundle",
+    sourceUrl: manifest.sourceUrl,
+    sourceCommit: manifest.sourceCommit,
+    sourceContentHash: "c".repeat(64),
+    license: "MIT",
+  }];
+  const result = validateWorkflowCatalogManifest(manifest);
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.includes("source-bundle-primary-mismatch"));
+});
+
+ test("workflow catalog entry transition follows lifecycle rules", () => {
   const entry = createWorkflowCatalogEntry(sampleManifest());
   assert.equal(entry.status, "quarantined");
   assert.equal(entry.manifestDigest.length, 64);

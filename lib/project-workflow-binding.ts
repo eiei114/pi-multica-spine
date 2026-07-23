@@ -1,6 +1,7 @@
 import { isAbsolute, posix } from "node:path";
 import { Type, type Static } from "typebox";
 import type { WorkflowCatalogManifest } from "./workflow-catalog.ts";
+import { resolveStageActivation } from "./workflow-catalog.ts";
 import { StringEnum } from "./schema.ts";
 import { assertValid, type ValidationResult, uniqueValues, validateSchema } from "./validation.ts";
 
@@ -108,7 +109,11 @@ function validateBindingSemantics(binding: ProjectWorkflowBinding, manifest?: Wo
     }
 
     const manifestRoles = new Set(manifest.roles);
-    const optionalStages = new Set(manifest.stages.filter((stage) => stage.optional).map((stage) => stage.stageId));
+    const optionalStages = new Set(
+      manifest.stages
+        .filter((stage) => resolveStageActivation(stage) === "binding_optional")
+        .map((stage) => stage.stageId),
+    );
     const boundRoles = Object.keys(binding.roleRoutes);
     for (const role of manifest.roles) {
       if (!binding.roleRoutes[role]) errors.push(`missing-role-route:${role}`);

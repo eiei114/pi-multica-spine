@@ -233,6 +233,78 @@ test("Hermes artifact relay enforces canonical lineage and recursively supersede
   assert.equal(updated.artifacts.find((item) => item.outputHash === replacement.outputHash).status, "immutable");
 });
 
+test("Hermes clean PASS advances to implementation_plan not spec_fix", () => {
+  const manifest = createHermesCompositeManifest();
+  const ledger = {
+    workflowRunId: "run_hermes",
+    currentStageId: "spec_review",
+    stages: {
+      spec_review: { stageId: "spec_review", status: "accepted", attempt: 1 },
+    },
+    reviews: [{
+      stageId: "spec_review",
+      attempt: 1,
+      verdict: "pass",
+      findingIds: [],
+      reviewArtifactHash: "e".repeat(64),
+      recordedAt: new Date().toISOString(),
+      terminal: false,
+    }],
+  };
+  const target = resolveNextHermesStageTarget(ledger, manifest, sampleBinding());
+  assert.equal(target?.stageId, "implementation_plan");
+});
+
+test("Hermes PASS WITH CHANGES advances to spec_fix without binding optional enablement", () => {
+  const manifest = createHermesCompositeManifest();
+  const ledger = {
+    workflowRunId: "run_hermes",
+    currentStageId: "spec_review",
+    stages: {
+      spec_review: { stageId: "spec_review", status: "accepted", attempt: 1 },
+    },
+    reviews: [{
+      stageId: "spec_review",
+      attempt: 1,
+      verdict: "pass_with_changes",
+      findingIds: ["F-1"],
+      reviewArtifactHash: "e".repeat(64),
+      recordedAt: new Date().toISOString(),
+      terminal: false,
+    }],
+  };
+  const target = resolveNextHermesStageTarget(ledger, manifest, sampleBinding());
+  assert.equal(target?.stageId, "spec_fix");
+});
+
+test("Hermes spec_fix acceptance returns to spec_review with incremented attempt", () => {
+  const manifest = createHermesCompositeManifest();
+  const ledger = {
+    workflowRunId: "run_hermes",
+    currentStageId: "spec_fix",
+    stages: {
+      spec_fix: { stageId: "spec_fix", status: "accepted", attempt: 1 },
+    },
+  };
+  const target = resolveNextHermesStageTarget(ledger, manifest, sampleBinding());
+  assert.deepEqual(target, { stageId: "spec_review", attempt: 2 });
+});
+
+test("Hermes unknown stage id throws instead of defaulting to first stage", () => {
+  const manifest = createHermesCompositeManifest();
+  const ledger = {
+    workflowRunId: "run_hermes",
+    currentStageId: "not_a_real_stage",
+    stages: {
+      not_a_real_stage: { stageId: "not_a_real_stage", status: "accepted", attempt: 1 },
+    },
+  };
+  assert.throws(
+    () => resolveNextHermesStageTarget(ledger, manifest, sampleBinding()),
+    /Unknown stage in manifest: not_a_real_stage/,
+  );
+});
+
 test("Hermes review policy branches and stops after two fix cycles", () => {
   const reviewHash = "e".repeat(64);
   const ledger = {
