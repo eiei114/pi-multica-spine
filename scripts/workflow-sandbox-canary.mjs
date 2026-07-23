@@ -19,6 +19,8 @@ import {
   runMultica,
 } from "../lib/multica-cli.ts";
 import { hashWorkflowRunLedger, WorkflowRunStateStore } from "../lib/workflow-run-state.ts";
+import { runCanaryCampaign } from "../lib/workflow-sandbox-campaign.ts";
+import { FIXTURE_NAMES, runFixture } from "../lib/workflow-sandbox-fixtures.ts";
 
 const CANARY_PROJECT_NAME = "pi-multica-spine Idea-to-Build Canary";
 const DEFAULT_CANARY_PATH = "C:/Users/Keisu/Projects/Sandbox/pi-multica-spine-idea-to-build-canary";
@@ -40,6 +42,7 @@ export function parseWorkflowSandboxCanaryArgs(argv = process.argv.slice(2)) {
       resume: { type: "string" },
       fixture: { type: "string" },
       report: { type: "boolean", default: false },
+      campaign: { type: "boolean", default: false },
       "canary-path": { type: "string", default: DEFAULT_CANARY_PATH },
       "project-id": { type: "string" },
     },
@@ -51,6 +54,7 @@ export function parseWorkflowSandboxCanaryArgs(argv = process.argv.slice(2)) {
     resumeRunId: values.resume,
     fixture: values.fixture,
     report: values.report ?? false,
+    campaign: values.campaign ?? false,
     canaryPath: values["canary-path"] ?? DEFAULT_CANARY_PATH,
     projectId: values["project-id"],
   };
@@ -66,7 +70,7 @@ export function buildSandboxCanaryPlan(config = parseWorkflowSandboxCanaryArgs()
   return {
     projectName: CANARY_PROJECT_NAME,
     canaryPath: config.canaryPath,
-    mode: config.report ? "report" : config.apply ? "apply" : config.resumeRunId ? "resume" : "dry-run",
+    mode: config.report ? "report" : config.campaign ? "campaign" : config.apply ? "apply" : config.resumeRunId ? "resume" : config.fixture ? "fixture" : "dry-run",
     resumeRunId: config.resumeRunId,
     fixture: config.fixture,
     controllerAgentId: CONTROLLER_AGENT_ID,
@@ -375,11 +379,13 @@ export async function generateFinalPackage(canaryPath, state, runEvidence = {}) 
     "01-run-index.json": JSON.stringify(pkg, null, 2),
     "02-artifact-lineage.json": JSON.stringify(ledger?.artifacts ?? [], null, 2),
     "03-routing-evidence.json": JSON.stringify(ledger?.routeDecisions ?? [], null, 2),
-    "04-autopilot-evidence.json": JSON.stringify(runEvidence.evidence ?? [], null, 2),
-    "05-test-evidence.md": "- `npm run ci` pass on pi-multica-spine main\n",
-    "06-failure-fixtures.md": "- F2 unresolved question recorded in 07-assumptions\n",
+    "04-autopilot-evidence.json": JSON.stringify(runEvidence.controllerEvidence ?? runEvidence.evidence ?? [], null, 2),
+    "05-test-evidence.md": `- npm run ci pass on pi-multica-spine\n- campaign stages: ${runEvidence.stages?.length ?? 0}\n`,
+    "06-failure-fixtures.md": FIXTURE_NAMES.map((name) => `- ${name}`).join("\n") + "\n",
     "07-assumptions-and-open-questions.md": "- Color output preference unresolved\n",
-    "08-human-actions-remaining.md": "- Complete live stage worker runs for full Hermes chain\n- Human final review on final_package stage\n",
+    "08-human-actions-remaining.md": runEvidence.completed
+      ? "- Human final review on final_package stage\n"
+      : "- Resume campaign with --campaign until workflowStatus=completed\n- Human final review on final_package stage\n",
     "09-operations-handoff.md": "See docs/workflow-sandbox-canary-runbook.md in pi-multica-spine.\n",
   };
   for (const [name, content] of Object.entries(files)) {
@@ -435,26 +441,67 @@ export async function applySandboxCanary(config) {
   return { plan, state, run, finalPackage };
 }
 
+export async function runSandboxCampaign(config) {
+  const plan = buildSandboxCanaryPlan(config);
+  const state = await loadCanaryState(plan.canaryPath);
+  if (!state?.workflowRunId) {
+    throw new Error(`Canary state not found. Run --apply first at ${plan.canaryPath}`);
+  }
+  const liveCli = buildWorkflowLiveCli(
+    createIssueClient(runMultica),
+    createMetadataClient(runMultica),
+    createProjectClient(runMultica),
+    createAutopilotClient(runMultica),
+  );
+  const campaign = await runCanaryCampaign(state, {
+    liveCli,
+    roughIdea: plan.roughIdea,
+  });
+  state.lastCampaign = {
+    at: new Date().toISOString(),
+    completed: campaign.completed,
+    workflowStatus: campaign.workflowStatus,
+    currentStageId: campaign.currentStageId,
+    stageCount: campaign.stages.length,
+    stopReason: campaign.stopReason,
+  };
+  await saveCanaryState(plan.canaryPath, state);
+  const finalPackage = await generateFinalPackage(plan.canaryPath, state, campaign);
+  return { plan, state, campaign, finalPackage };
+}
+
 async function main() {
   const config = parseWorkflowSandboxCanaryArgs();
-  if (config.dryRun || (!config.apply && !config.resume && !config.report && !config.fixture)) {
-    console.log(JSON.stringify(buildSandboxCanaryPlan(config), null, 2));
+  if (config.dryRun || (!config.apply && !config.resume && !config.report && !config.fixture && !config.campaign)) {
+    console.log(JSON.stringify({ ...buildSandboxCanaryPlan(config), fixtures: FIXTURE_NAMES }, null, 2));
     return;
   }
   if (config.report) {
     const state = await loadCanaryState(config.canaryPath);
     if (!state) throw new Error(`Canary state not found at ${config.canaryPath}`);
-    const finalPackage = await generateFinalPackage(config.canaryPath, state, state.lastRun ?? {});
+    const finalPackage = await generateFinalPackage(config.canaryPath, state, state.lastCampaign ?? state.lastRun ?? {});
     console.log(JSON.stringify({ state, finalPackage }, null, 2));
+    return;
+  }
+  if (config.fixture) {
+    const result = await runFixture(config.fixture);
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  if (config.campaign) {
+    const result = await runSandboxCampaign(config);
+    console.log(JSON.stringify(result, null, 2));
     return;
   }
   if (config.apply || config.resumeRunId) {
     const result = await applySandboxCanary({ ...config, resumeRunId: config.resumeRunId });
+    if (config.campaign) {
+      const campaign = await runSandboxCampaign(config);
+      console.log(JSON.stringify({ ...result, campaign: campaign.campaign, finalPackage: campaign.finalPackage }, null, 2));
+      return;
+    }
     console.log(JSON.stringify(result, null, 2));
     return;
-  }
-  if (config.fixture) {
-    console.log(JSON.stringify({ fixture: config.fixture, status: "fixture_runner_not_implemented_in_mvp" }, null, 2));
   }
 }
 

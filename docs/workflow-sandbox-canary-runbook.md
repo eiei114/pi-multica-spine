@@ -4,11 +4,21 @@ This runbook covers the repo-local `scripts/workflow-sandbox-canary.mjs` harness
 
 ## Modes
 
-- `--dry-run` — print target sandbox path, delivery policy, and final package layout. No Multica mutations.
+- `--dry-run` — print target sandbox path, delivery policy, fixture list, and final package layout. No Multica mutations.
 - `--apply` — create sandbox project resources, binding, parent issue, and start a canary run. Rejects explicit production project IDs.
+- `--campaign` — drive the full Hermes stage chain from existing canary state (issue seeding, artifact production, controller ticks). Requires prior `--apply`.
 - `--resume <workflow-run-id>` — resume an existing canary run from ledger state.
-- `--fixture <name>` — execute one failure fixture in isolation.
+- `--fixture <name>` — execute one failure fixture in isolation (`F1_success_path` … `F8_stage_starvation`).
 - `--report` — regenerate the final package from existing evidence without live side effects.
+
+## Typical flow
+
+```bash
+node scripts/workflow-sandbox-canary.mjs --dry-run
+node scripts/workflow-sandbox-canary.mjs --apply
+node scripts/workflow-sandbox-canary.mjs --campaign
+node scripts/workflow-sandbox-canary.mjs --report
+```
 
 ## Safety checks
 
