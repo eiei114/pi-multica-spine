@@ -30,7 +30,33 @@ jobs:
           ref: ${{ github.event.inputs.ref || github.ref }}
           persist-credentials: false
 
+      - name: Skip already published version
+        id: published
+        shell: bash
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          encoded_name="${name//\//%2F}"
+          registry_url="https://registry.npmjs.org/${encoded_name}/${version}"
+
+          http_status=$(curl -sS -o /dev/null -w '%{http_code}' "$registry_url")
+          case "$http_status" in
+            200)
+              echo "${name}@${version} is already published on npm; publish intentionally skipped."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              ;;
+            404)
+              echo "Version ${name}@${version} is not on npm yet; continuing to publish."
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unexpected npm registry response for ${name}@${version}: HTTP ${http_status}" >&2
+              exit 1
+              ;;
+          esac
+
       - name: Setup Node.js
+        if: steps.published.outputs.skip != 'true'
         uses: actions/setup-node@v6
         with:
           node-version: 24
@@ -38,9 +64,11 @@ jobs:
           package-manager-cache: false
 
       - name: Ensure npm supports trusted publishing
+        if: steps.published.outputs.skip != 'true'
         run: npm install -g npm@latest
 
       - name: Install dependencies
+        if: steps.published.outputs.skip != 'true'
         shell: bash
         run: |
           if [ -f package-lock.json ]; then
@@ -52,6 +80,7 @@ jobs:
           fi
 
       - name: Validate package
+        if: steps.published.outputs.skip != 'true'
         shell: bash
         run: |
           if node -e "process.exit(require('./package.json').scripts?.ci ? 0 : 1)"; then
@@ -64,27 +93,6 @@ jobs:
             npm run typecheck
           else
             echo "No validation script configured."
-          fi
-
-      - name: Skip already published version
-        id: published
-        shell: bash
-        run: |
-          name=$(node -p "require('./package.json').name")
-          version=$(node -p "require('./package.json').version")
-          set +e
-          output=$(npm view "${name}@${version}" version 2>&1)
-          status=$?
-          set -e
-          if [ "$status" -eq 0 ]; then
-            echo "${name}@${version} is already published."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          elif printf '%s' "$output" | grep -Eq 'E404|404 Not Found'; then
-            echo "Publishing ${name}@${version}."
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          else
-            printf '%s\n' "$output" >&2
-            exit "$status"
           fi
 
       - name: Publish to npm

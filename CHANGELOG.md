@@ -6,6 +6,19 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-07-24
+
+### Added
+
+- Coverage hotspot floors + denylist in `scripts/coverage-gate.mjs` (R-MNT-13).
+- Campaign walkthrough human-review rehearsal step (R-MNT-15).
+
+### Changed
+
+- **R-MNT-14:** `publish.yml` uses registry HTTP `curl` pre-check before `setup-node` OIDC.
+- Walkthrough bootstraps a minimal repo for implementation-stage artifacts.
+- ROADMAP: R-MNT-12..15 absorbed.
+
 ## [0.7.1] - 2026-07-24
 
 ### Added
