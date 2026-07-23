@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildSandboxCanaryPlan, parseWorkflowSandboxCanaryArgs } from "../scripts/workflow-sandbox-canary.mjs";
+import { buildHermesBinding, buildSandboxCanaryPlan, parseWorkflowSandboxCanaryArgs } from "../scripts/workflow-sandbox-canary.mjs";
+import { createHermesCompositeManifest } from "../lib/hermes-adapter.ts";
 
 test("workflow sandbox canary dry-run emits plan without mutations", () => {
   const plan = buildSandboxCanaryPlan(parseWorkflowSandboxCanaryArgs(["--dry-run"]));
@@ -21,4 +22,12 @@ test("workflow sandbox canary report mode is side-effect free", () => {
   const plan = buildSandboxCanaryPlan(parseWorkflowSandboxCanaryArgs(["--report"]));
   assert.equal(plan.mode, "report");
   assert.equal(plan.finalPackageFiles.length, 10);
+});
+
+test("workflow sandbox canary binding keeps production and release disabled", () => {
+  const manifest = createHermesCompositeManifest();
+  const binding = buildHermesBinding("sandbox-project", manifest);
+  assert.equal(binding.deliveryPolicy.productionAllowed, false);
+  assert.equal(binding.deliveryPolicy.releaseAllowed, false);
+  assert.equal(binding.roleRoutes.capture.agentId, "b37ce518-3592-4b31-ad02-df6a5bdd267e");
 });
