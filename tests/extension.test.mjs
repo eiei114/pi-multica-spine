@@ -44,6 +44,21 @@ test("extension registers MVP tools", () => {
   extension(fake.api);
 
   assert.deepEqual([...fake.tools.keys()].sort(), [
+    "multica_workflow_artifact_record",
+    "multica_workflow_binding_get",
+    "multica_workflow_binding_list",
+    "multica_workflow_binding_put",
+    "multica_workflow_catalog_get",
+    "multica_workflow_catalog_list",
+    "multica_workflow_catalog_put",
+    "multica_workflow_catalog_transition",
+    "multica_workflow_parent_summary",
+    "multica_workflow_permission_check",
+    "multica_workflow_question_record",
+    "multica_workflow_run_context",
+    "multica_workflow_run_create",
+    "multica_workflow_stage_seed",
+    "multica_workflow_stage_transition",
     "multica_spine_add_evidence",
     "multica_spine_bind",
     "multica_spine_context",
@@ -54,7 +69,7 @@ test("extension registers MVP tools", () => {
     "multica_spine_metadata_set",
     "multica_spine_next",
     "multica_spine_verify",
-  ]);
+  ].sort());
 });
 
 test("extension wraps git network bash commands with transport guard", async () => {
