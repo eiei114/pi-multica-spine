@@ -93,7 +93,7 @@ Replace `pi-multica-spine` with the exact `name` from `package.json` when you fo
 Pin a specific version when you want reproducible installs:
 
 ```bash
-pi install npm:pi-multica-spine@0.5.1
+pi install npm:pi-multica-spine@0.6.0
 ```
 
 Install into the current project instead of your user Pi settings:
@@ -220,8 +220,9 @@ See [`docs/production-workflow-binding.md`](docs/production-workflow-binding.md)
 
 | Path | Purpose |
 |---|---|
+| `dist/` | Compiled `lib/` output consumed by published CLI scripts |
 | `extensions/` | Pi TypeScript extension entrypoint (`index.ts`) |
-| `lib/` | Spine state store, state machine, PR binding checker, workflow catalog/binding/run ledger primitives, permission/controller helpers, and schemas |
+| `lib/` | TypeScript sources for spine + workflow control plane |
 | `scripts/` | Workflow ops CLIs (`jsonl-digest`, sandbox canary, production binding/run) |
 | `docs/` | Release, workflow ops runbooks, and maintainer docs |
 | `README.md` | Public entrypoint (this file) |
@@ -235,7 +236,7 @@ npm install
 npm run ci
 ```
 
-`npm run ci` runs typecheck, test coverage, and `npm pack --dry-run`.
+`npm run ci` runs build, typecheck, coverage gate, changelog lint, walkthrough smoke, and `npm pack --dry-run`.
 
 Individual checks:
 
@@ -267,7 +268,10 @@ See [`docs/release.md`](docs/release.md) for setup details.
 - [`docs/production-workflow-binding.md`](docs/production-workflow-binding.md) — Maintenance-project production binding and run commands
 - [`docs/workflow-production-run-runbook.md`](docs/workflow-production-run-runbook.md) — Production lane CLI modes and daemon context guard
 - [`docs/workflow-sandbox-canary-runbook.md`](docs/workflow-sandbox-canary-runbook.md) — Sandbox canary harness modes and safety checks
-- [`ROADMAP.md`](ROADMAP.md) — maintenance context, current release status, and bounded 30–90 minute seed candidates (repo-only, not packaged)
+- [`examples/minimal-walkthrough/`](examples/minimal-walkthrough/) — offline spine verify demo (repo-only, not packaged)
+- [`CONTEXT.md`](CONTEXT.md) — domain glossary (repo-only)
+- [`docs/adr/`](docs/adr/) — architectural decisions (repo-only)
+- [`ROADMAP.md`](ROADMAP.md) — maintenance context and seed history (repo-only, not packaged)
 
 ## Security
 

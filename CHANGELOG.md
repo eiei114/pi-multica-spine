@@ -6,6 +6,22 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-24
+
+### Added
+
+- `npm run build` emits `dist/lib/*.js` so published workflow/jsonl CLIs run from npm installs.
+- `scripts/check-changelog.mjs` and `scripts/coverage-gate.mjs` wired into CI.
+- `scripts/classify-npm-publish-failure.mjs` for benign npm `E403` already-published skips (R-MNT-2).
+- `examples/minimal-walkthrough/` offline spine demo.
+- `CONTEXT.md` and `docs/adr/0001-maintenance-bundle-v0-6-0.md`.
+
+### Changed
+
+- Maintenance Bundle: R-MNT-1..6 absorbed into one release (publish single-trigger already documented; coverage gate; changelog lint; README tarball notes).
+- Workflow/jsonl scripts import compiled `dist/lib`.
+- `CONTRIBUTING.md` documents enforced coverage floors.
+
 ## [0.5.2] - 2026-07-24
 
 ### Added

@@ -7,7 +7,7 @@ import {
   digestJsonlFileContent,
   formatJsonlDigestHuman,
   formatJsonlDigestJson,
-} from "../lib/jsonl-digest.ts";
+} from "../dist/lib/jsonl-digest.js";
 
 function stdoutIsTty() {
   return Boolean(process.stdout.isTTY);
