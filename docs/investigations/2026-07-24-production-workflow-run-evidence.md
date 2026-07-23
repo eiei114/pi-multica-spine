@@ -39,7 +39,7 @@ Update pi-multica-spine README and ops docs for v0.5.0: document jsonl-digest CL
 ## Notes
 
 - `Artifacts/workflows/` is gitignored; final package index lives under `Artifacts/workflows/<run-id>/final/` locally.
-- Campaign may require removing `.multica/daemon_task_context.json` when not running inside an agent task (Multica mat_ token guard).
+- Campaign may require removing `.multica/daemon_task_context.json` when not running inside an agent task (Multica mat_ token guard). **v0.5.2+** scripts clear this automatically.
 - `prRequired=true` on production binding; release remains human-owned.
 
 generated_at: 2026-07-23T21:45:27.262Z

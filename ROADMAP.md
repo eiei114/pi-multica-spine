@@ -20,12 +20,13 @@ a narrow spine for work agents.
 
 | Item | Value | Source |
 | --- | --- | --- |
-| Published version | **0.1.4** (2026-07-07) | `npm view pi-multica-spine version`, GitHub Release `v0.1.4` |
-| Working-tree version | `0.1.4` | `package.json` |
-| `[Unreleased]` on `main` | `add_evidence` dedup (DOT-752) + template alignment 0.80.x (DOT-823) → **0.1.5**; metadata CLI wrappers (DOT-762) → **0.2.0** | `CHANGELOG.md` |
-| Tool surface | 10 typed tools | `extensions/index.ts`, README "Tools" table |
-| CI baseline | green: `typecheck` + `test:coverage` + `pack:check`; 7 test files, 18 files in tarball | `npm run ci` |
-| Coverage (report-only) | ~93% lines / ~77% branches / ~93% functions | `CONTRIBUTING.md` |
+| Published version | **0.5.1** (2026-07-24) | `npm view pi-multica-spine version`, GitHub Release `v0.5.1` |
+| Working-tree version | `0.5.2` (in progress) | `package.json` |
+| `[Unreleased]` on `main` | Daemon task context guard + production runbook (→ **0.5.2**) | `CHANGELOG.md` |
+| Tool surface | 35 typed tools (10 spine + 25 workflow-adapter) | `extensions/index.ts`, README |
+| Workflow ops | JSONL digest, sandbox canary, production binding, production run CLIs | `scripts/`, `docs/` |
+| CI baseline | green: `typecheck` + `test:coverage` + `pack:check`; 155+ tests | `npm run ci` |
+| Live lanes | Sandbox canary DOT-1123; Production run DOT-1137 (PR #38) | investigation docs |
 | Open issues | none at last refresh | GitHub Issues |
 
 ### Release flow reminder
@@ -37,17 +38,11 @@ See [`docs/release.md`](docs/release.md).
 
 ## Short-term maintenance goals (next 2–3 releases)
 
-- **Next patch (0.1.5)** — Cut a release for the patch-level `[Unreleased]` entries on
-  `main` (evidence dedup DOT-752, template alignment DOT-823). Pair it with **R-MNT-1**
-  (single publish trigger) so the release itself does not re-trigger the DOT-881 race.
-- **Next minor (0.2.0)** — Ship the metadata CLI wrapper tools (DOT-762); additive tool
-  surface warrants a minor bump. Bundle with onboarding polish: **R-MNT-4** (examples) and
-  **R-MNT-3** (coverage gate).
-- **Following release** — Defense-in-depth release hardening (**R-MNT-2**) plus repo hygiene
-  seeds (**R-MNT-5**, **R-MNT-6**).
+- **Next patch (0.5.2)** — Ship daemon task context auto-cleanup for workflow CLIs and the production run runbook.
+- **0.5.x** — Keep workflow runbooks and investigation evidence aligned with live Maintenance/sandbox lanes.
+- **0.6.0** — Coverage gate (**R-MNT-3**), onboarding examples (**R-MNT-4**), and publish hardening seeds as bandwidth allows.
 
-Priorities are deliberately conservative: this package is a narrow spine, so each release
-should stay small, auditable, and dependency-light.
+Priorities stay conservative: narrow spine + auditable workflow-adapter control plane.
 
 ## Known technical debt
 
