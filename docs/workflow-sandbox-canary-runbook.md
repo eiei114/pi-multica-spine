@@ -38,3 +38,7 @@ node scripts/workflow-sandbox-canary.mjs --report
 4. Run adapter migration dry-run before any apply.
 5. Use migration rollback when `migration.status=preparing`.
 6. Keep unresolved preferences in `07-assumptions-and-open-questions.md`.
+
+## Live execute
+
+For orchestrated live rehearsal (`--execute`) and failure recovery, see [`workflow-sandbox-live-execute-runbook.md`](workflow-sandbox-live-execute-runbook.md).

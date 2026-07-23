@@ -14,9 +14,10 @@ Short path to run Multica work through the workflow adapter **without** opening 
 0. Optional offline rehearsal: `node examples/workflow-campaign-walkthrough/run-walkthrough.mjs` (no Multica CLI).
 0b. Automated preflight: `npm run check:sandbox-checklist` (offline) or `npm run check:sandbox-checklist -- --live` before live sandbox ops.
 0c. Rehearsal plan (CI): `npm run check:sandbox-rehearsal` (full closeout). Live: `node scripts/workflow-sandbox-rehearsal.mjs --full-closeout --execute`.
-0d. Closeout evidence (CI): `npm run check:sandbox-evidence`. Live capture after full closeout: `node scripts/workflow-sandbox-closeout-evidence.mjs --capture --canary-path <path>`.
-0e. Maintenance rehearsal (CI): `npm run check:production-rehearsal`. Live: `node scripts/workflow-production-rehearsal.mjs --execute`.
-0f. Production gate checklist (CI): `npm run check:production-gate` — validates prerequisites while gate remains **CLOSED**.
+0d. Closeout evidence (CI): `npm run check:sandbox-evidence`. Live capture after full closeout: `node scripts/workflow-sandbox-closeout-evidence.mjs --capture --canary-path <path>` (writes JSON + investigation note).
+0e. **Live execute runbook:** [`workflow-sandbox-live-execute-runbook.md`](workflow-sandbox-live-execute-runbook.md).
+0f. Maintenance rehearsal (CI): `npm run check:production-rehearsal`. Live: `node scripts/workflow-production-rehearsal.mjs --execute`.
+0g. Production gate checklist (CI): `npm run check:production-gate` — validates prerequisites while gate remains **CLOSED**.
 1. `npm run build` (or `npm run ci`) so `dist/lib` exists for CLI imports.
 2. `multica` authenticated with a **user** token.
 3. No stale daemon marker — auto-cleared in v0.5.2+; manual: `rm -f .multica/daemon_task_context.json`.
@@ -33,6 +34,8 @@ node scripts/workflow-sandbox-canary.mjs --report
 ```
 
 Details: [`workflow-sandbox-canary-runbook.md`](workflow-sandbox-canary-runbook.md).
+
+For live `--execute` rehearsal (apply → campaign → human review → evidence), see [`workflow-sandbox-live-execute-runbook.md`](workflow-sandbox-live-execute-runbook.md).
 
 ## Maintenance production-run flow
 
@@ -60,6 +63,7 @@ Details: [`workflow-production-run-runbook.md`](workflow-production-run-runbook.
 ## Evidence
 
 - Sandbox: `docs/investigations/2026-07-23-workflow-sandbox-canary-evidence.md`
-- Sandbox closeout JSON (live): `docs/investigations/sandbox-closeout-evidence.latest.json` via `--capture`
+- Sandbox closeout JSON (live): `docs/investigations/sandbox-closeout-evidence.latest.json`
+- Sandbox closeout note (live): `docs/investigations/sandbox-closeout-evidence.latest.md`
 - Production run: `docs/investigations/2026-07-24-production-workflow-run-evidence.md`
 - Closeout: `docs/investigations/2026-07-24-workflow-adapter-completion-closeout.md`

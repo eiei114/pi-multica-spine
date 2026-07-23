@@ -4,10 +4,15 @@ import test from "node:test";
 import {
   buildCloseoutEvidenceFromCanaryState,
   buildCloseoutEvidenceRecord,
+  formatCloseoutEvidenceInvestigationNote,
   parseSandboxCloseoutEvidenceArgs,
+  persistCloseoutEvidenceArtifacts,
   runSandboxCloseoutEvidence,
   validateCloseoutEvidence,
 } from "../scripts/workflow-sandbox-closeout-evidence.mjs";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { HERMES_FINAL_STAGE_ID } from "../scripts/workflow-sandbox-rehearsal.mjs";
 
 const approvedRecord = {
@@ -33,6 +38,42 @@ const approvedRecord = {
   },
   deliveryPolicy: { productionAllowed: false },
 };
+
+test("parseSandboxCloseoutEvidenceArgs reads note path and skip-note", () => {
+  const args = parseSandboxCloseoutEvidenceArgs([
+    "--capture",
+    "--note-path",
+    "/tmp/note.md",
+    "--skip-note",
+  ]);
+  assert.equal(args.notePath, "/tmp/note.md");
+  assert.equal(args.skipNote, true);
+});
+
+test("formatCloseoutEvidenceInvestigationNote includes ledger hash", () => {
+  const note = formatCloseoutEvidenceInvestigationNote(approvedRecord);
+  assert.match(note, /ledgerHash/);
+  assert.ok(note.includes(approvedRecord.ledgerHash));
+  assert.match(note, /productionAllowed/);
+});
+
+test("persistCloseoutEvidenceArtifacts writes json and markdown", async () => {
+  const root = await mkdtemp(join(tmpdir(), "closeout-evidence-"));
+  try {
+    const written = await persistCloseoutEvidenceArtifacts(approvedRecord, {
+      repoRoot: root,
+      outPath: join(root, "evidence.json"),
+      notePath: join(root, "evidence.md"),
+      writeDatedNote: false,
+    });
+    const json = JSON.parse(await readFile(written.jsonPath, "utf8"));
+    assert.equal(json.workflowRunId, "run-1");
+    const note = await readFile(written.notePath, "utf8");
+    assert.match(note, /Sandbox Closeout Evidence/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test("parseSandboxCloseoutEvidenceArgs reads capture flags", () => {
   const args = parseSandboxCloseoutEvidenceArgs([
