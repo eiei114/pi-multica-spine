@@ -6,6 +6,20 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-07-24
+
+### Added
+
+- Sandbox full closeout rehearsal through `final_package` + human review (R-MNT-22).
+- `scripts/workflow-production-rehearsal.mjs` for Maintenance lane automation (R-MNT-23).
+- Sandbox module line coverage floors in `coverage-gate.mjs` (R-MNT-24).
+
+### Changed
+
+- `check:sandbox-rehearsal` uses `--full-closeout`; CI adds `check:production-rehearsal`.
+- `workflow-production-run.mjs` accepts `--max-stage-cycles`.
+- ROADMAP: R-MNT-22..24 absorbed.
+
 ## [0.7.4] - 2026-07-24
 
 ### Added

@@ -10,22 +10,29 @@ import {
   applySandboxCanary,
   buildSandboxCanaryPlan,
   parseWorkflowSandboxCanaryArgs,
+  runHumanFinalReview,
   runSandboxCampaign,
 } from "./workflow-sandbox-canary.mjs";
 
 export const SANDBOX_REHEARSAL_STEPS = ["preflight", "apply", "campaign"];
+export const SANDBOX_FULL_CLOSEOUT_STEPS = ["preflight", "apply", "campaign", "human-review"];
 
 export const DEFAULT_LIVE_MAX_STAGE_CYCLES = 8;
+export const FULL_LIVE_CAMPAIGN_STAGE_CYCLES = 80;
+export const HERMES_FINAL_STAGE_ID = "final_package";
 
 export function parseWorkflowSandboxRehearsalArgs(argv = process.argv.slice(2)) {
   const execute = argv.includes("--execute");
+  const fullCloseout = argv.includes("--full-closeout");
   const json = argv.includes("--json") || !argv.includes("--plain");
   const maxStageCyclesArg = argv.find((arg, index) => argv[index - 1] === "--max-stage-cycles");
   const canaryPathArg = argv.find((arg, index) => argv[index - 1] === "--canary-path");
+  const defaultCycles = fullCloseout ? FULL_LIVE_CAMPAIGN_STAGE_CYCLES : DEFAULT_LIVE_MAX_STAGE_CYCLES;
   return {
     execute,
+    fullCloseout,
     json,
-    maxStageCycles: maxStageCyclesArg ? Number(maxStageCyclesArg) : DEFAULT_LIVE_MAX_STAGE_CYCLES,
+    maxStageCycles: maxStageCyclesArg ? Number(maxStageCyclesArg) : defaultCycles,
     canaryPath: canaryPathArg,
   };
 }
@@ -35,31 +42,48 @@ function baseCanaryArgv(canaryPath, extra = []) {
   return argv;
 }
 
-export function buildOfflineRehearsalPlan(canaryPath) {
+export function buildOfflineRehearsalPlan(canaryPath, options = {}) {
+  const fullCloseout = options.fullCloseout ?? false;
   const dryPlan = buildSandboxCanaryPlan(parseWorkflowSandboxCanaryArgs(baseCanaryArgv(canaryPath, ["--dry-run"])));
   const applyPlan = buildSandboxCanaryPlan(parseWorkflowSandboxCanaryArgs(baseCanaryArgv(canaryPath, ["--apply"])));
   const campaignPlan = buildSandboxCanaryPlan(parseWorkflowSandboxCanaryArgs(baseCanaryArgv(canaryPath, ["--campaign"])));
+  const humanReviewPlan = fullCloseout
+    ? buildSandboxCanaryPlan(parseWorkflowSandboxCanaryArgs(baseCanaryArgv(canaryPath, ["--human-review"])))
+    : undefined;
   const policyClosed =
     dryPlan.deliveryPolicy.productionAllowed === false &&
     applyPlan.deliveryPolicy.productionAllowed === false &&
-    campaignPlan.deliveryPolicy.productionAllowed === false;
+    campaignPlan.deliveryPolicy.productionAllowed === false &&
+    (!humanReviewPlan || humanReviewPlan.deliveryPolicy.productionAllowed === false);
+  const modesOk =
+    dryPlan.mode === "dry-run" &&
+    applyPlan.mode === "apply" &&
+    campaignPlan.mode === "campaign" &&
+    (!fullCloseout || humanReviewPlan?.mode === "human-review");
   return {
-    ok: dryPlan.mode === "dry-run" && applyPlan.mode === "apply" && campaignPlan.mode === "campaign" && policyClosed,
+    ok: modesOk && policyClosed,
+    fullCloseout,
     dryPlan,
     applyPlan,
     campaignPlan,
-    steps: SANDBOX_REHEARSAL_STEPS,
+    humanReviewPlan,
+    maxStageCycles: fullCloseout ? FULL_LIVE_CAMPAIGN_STAGE_CYCLES : DEFAULT_LIVE_MAX_STAGE_CYCLES,
+    steps: fullCloseout ? SANDBOX_FULL_CLOSEOUT_STEPS : SANDBOX_REHEARSAL_STEPS,
   };
 }
 
 /**
- * @param {{ execute?: boolean, canaryPath?: string, maxStageCycles?: number }} [options]
+ * @param {{ execute?: boolean, fullCloseout?: boolean, canaryPath?: string, maxStageCycles?: number }} [options]
  */
 export async function runWorkflowSandboxRehearsal(options = {}) {
   const execute = options.execute ?? false;
+  const fullCloseout = options.fullCloseout ?? false;
   const canaryPath =
     options.canaryPath ?? buildSandboxCanaryPlan(parseWorkflowSandboxCanaryArgs([])).canaryPath;
-  const maxStageCycles = options.maxStageCycles ?? DEFAULT_LIVE_MAX_STAGE_CYCLES;
+  const maxStageCycles =
+    options.maxStageCycles ??
+    (fullCloseout ? FULL_LIVE_CAMPAIGN_STAGE_CYCLES : DEFAULT_LIVE_MAX_STAGE_CYCLES);
+  const steps = fullCloseout ? SANDBOX_FULL_CLOSEOUT_STEPS : SANDBOX_REHEARSAL_STEPS;
 
   const checklist = await runWorkflowSandboxChecklist({ live: execute, canaryPath });
   if (!checklist.ok) {
@@ -67,19 +91,25 @@ export async function runWorkflowSandboxRehearsal(options = {}) {
   }
 
   if (!execute) {
-    const plan = buildOfflineRehearsalPlan(canaryPath);
+    const plan = buildOfflineRehearsalPlan(canaryPath, { fullCloseout });
     return {
       ok: plan.ok,
-      mode: "offline-rehearsal",
+      mode: fullCloseout ? "offline-full-closeout" : "offline-rehearsal",
       canaryPath,
-      steps: SANDBOX_REHEARSAL_STEPS,
+      steps,
       checklist,
       plan,
-      nextSteps: [
-        "npm run check:sandbox-rehearsal",
-        "npm run check:sandbox-checklist -- --live",
-        "node scripts/workflow-sandbox-rehearsal.mjs --execute",
-      ],
+      nextSteps: fullCloseout
+        ? [
+            "npm run check:sandbox-rehearsal",
+            "npm run check:sandbox-checklist -- --live",
+            "node scripts/workflow-sandbox-rehearsal.mjs --full-closeout --execute",
+          ]
+        : [
+            "npm run check:sandbox-rehearsal",
+            "npm run check:sandbox-checklist -- --live",
+            "node scripts/workflow-sandbox-rehearsal.mjs --execute",
+          ],
     };
   }
 
@@ -91,16 +121,54 @@ export async function runWorkflowSandboxRehearsal(options = {}) {
   campaignConfig.maxStageCycles = maxStageCycles;
   const campaignResult = await runSandboxCampaign(campaignConfig);
 
+  let humanReview;
+  if (fullCloseout) {
+    if (
+      !campaignResult.campaign.completed ||
+      campaignResult.campaign.currentStageId !== HERMES_FINAL_STAGE_ID
+    ) {
+      return {
+        ok: false,
+        mode: "live-execute",
+        canaryPath,
+        steps,
+        checklist,
+        apply: {
+          workflowRunId: applyResult.state?.workflowRunId,
+          stopReason: applyResult.run?.stopReason,
+          currentStageId: applyResult.run?.ledger?.currentStageId,
+        },
+        campaign: {
+          completed: campaignResult.campaign.completed,
+          workflowStatus: campaignResult.campaign.workflowStatus,
+          currentStageId: campaignResult.campaign.currentStageId,
+          stageCount: campaignResult.campaign.stages.length,
+          stopReason: campaignResult.campaign.stopReason,
+          maxStageCycles,
+        },
+        error: `campaign must reach ${HERMES_FINAL_STAGE_ID} before human review`,
+      };
+    }
+    const reviewConfig = parseWorkflowSandboxCanaryArgs(baseCanaryArgv(canaryPath, ["--human-review"]));
+    const reviewResult = await runHumanFinalReview(reviewConfig);
+    humanReview = {
+      verdict: reviewResult.review?.verdict,
+      reviewArtifactPath: reviewResult.review?.reviewArtifactPath,
+      ledgerHash: reviewResult.review?.ledgerHash,
+    };
+  }
+
   const ok =
     Boolean(applyResult.state?.workflowRunId) &&
     Boolean(campaignResult.campaign) &&
-    campaignResult.plan.deliveryPolicy.productionAllowed === false;
+    campaignResult.plan.deliveryPolicy.productionAllowed === false &&
+    (!fullCloseout || humanReview?.verdict === "approved");
 
   return {
     ok,
-    mode: "live-execute",
+    mode: fullCloseout ? "live-full-closeout" : "live-execute",
     canaryPath,
-    steps: SANDBOX_REHEARSAL_STEPS,
+    steps,
     checklist,
     apply: {
       workflowRunId: applyResult.state?.workflowRunId,
@@ -115,17 +183,18 @@ export async function runWorkflowSandboxRehearsal(options = {}) {
       stopReason: campaignResult.campaign.stopReason,
       maxStageCycles,
     },
+    humanReview,
   };
 }
 
 async function main() {
-  const { execute, json, maxStageCycles, canaryPath } = parseWorkflowSandboxRehearsalArgs();
-  const report = await runWorkflowSandboxRehearsal({ execute, maxStageCycles, canaryPath });
+  const { execute, fullCloseout, json, maxStageCycles, canaryPath } = parseWorkflowSandboxRehearsalArgs();
+  const report = await runWorkflowSandboxRehearsal({ execute, fullCloseout, maxStageCycles, canaryPath });
   if (json) {
     console.log(JSON.stringify(report, null, 2));
   } else {
     console.log(`mode: ${report.mode}`);
-    for (const step of SANDBOX_REHEARSAL_STEPS) {
+    for (const step of report.steps ?? SANDBOX_REHEARSAL_STEPS) {
       console.log(`- ${step}`);
     }
     console.log(report.ok ? "sandbox rehearsal ok" : "sandbox rehearsal failed");
