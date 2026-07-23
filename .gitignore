@@ -26,6 +26,8 @@ coverage/
 .pi/npm/
 .pi/git/
 .multica-spine/
+!examples/minimal-walkthrough/fixture/.multica-spine/
+!examples/minimal-walkthrough/fixture/.multica-spine/**
 
 # workflow run artifacts (local only)
 Artifacts/

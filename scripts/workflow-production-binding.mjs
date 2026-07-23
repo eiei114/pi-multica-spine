@@ -4,24 +4,24 @@ import { access } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
-import { createHermesCompositeManifest } from "../lib/hermes-adapter.ts";
-import { ProjectWorkflowBindingStore } from "../lib/project-workflow-binding-store.ts";
-import { WorkflowCatalogStore } from "../lib/workflow-catalog-store.ts";
+import { createHermesCompositeManifest } from "../dist/lib/hermes-adapter.js";
+import { ProjectWorkflowBindingStore } from "../dist/lib/project-workflow-binding-store.js";
+import { WorkflowCatalogStore } from "../dist/lib/workflow-catalog-store.js";
 import {
   buildProductionBindingPlan,
   buildProductionWorkflowBinding,
   PRODUCTION_PROJECT_ID,
   PRODUCTION_REPO_PATH,
   PRODUCTION_DAEMON_ID,
-} from "../lib/workflow-production-binding.ts";
-import { buildWorkflowLiveCli } from "../lib/workflow-live-cli.ts";
+} from "../dist/lib/workflow-production-binding.js";
+import { buildWorkflowLiveCli } from "../dist/lib/workflow-live-cli.js";
 import {
   createAutopilotClient,
   createIssueClient,
   createMetadataClient,
   createProjectClient,
   runMultica,
-} from "../lib/multica-cli.ts";
+} from "../dist/lib/multica-cli.js";
 
 export function parseProductionBindingArgs(argv = process.argv.slice(2)) {
   const { values } = parseArgs({

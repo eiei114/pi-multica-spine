@@ -20,14 +20,14 @@ a narrow spine for work agents.
 
 | Item | Value | Source |
 | --- | --- | --- |
-| Published version | **0.5.2** (2026-07-24) | `npm view pi-multica-spine version`, GitHub Release `v0.5.2` |
-| Working-tree version | `0.5.2` | `package.json` |
+| Published version | **0.6.0** (in progress) | `npm view pi-multica-spine version` after release |
+| Working-tree version | `0.6.0` | `package.json` |
 | `[Unreleased]` on `main` | — | `CHANGELOG.md` |
 | Tool surface | 35 typed tools (10 spine + 25 workflow-adapter) | `extensions/index.ts`, README |
-| Workflow ops | JSONL digest, sandbox canary, production binding, production run CLIs | `scripts/`, `docs/` |
-| CI baseline | green: `typecheck` + `test:coverage` + `pack:check`; 155+ tests | `npm run ci` |
-| Live lanes | Sandbox canary DOT-1123; Production run DOT-1137 (PR #38) | investigation docs |
-| Open issues | none at last refresh | GitHub Issues |
+| Workflow ops | JSONL digest, sandbox canary, production binding, production run CLIs | `scripts/`, `dist/`, `docs/` |
+| CI baseline | green: `build` + `typecheck` + coverage gate + changelog lint + `pack:check` | `npm run ci` |
+| Live lanes | Sandbox canary DOT-1123; Production run DOT-1137 | investigation docs |
+| Maintenance seeds | ~~R-MNT-1..6~~ absorbed in v0.6.0 Maintenance Bundle | ADR-0001 |
 
 ### Release flow reminder
 
@@ -38,10 +38,8 @@ See [`docs/release.md`](docs/release.md).
 
 ## Short-term maintenance goals (next 2–3 releases)
 
-- **0.5.x** — Keep workflow runbooks and investigation evidence aligned with live Maintenance/sandbox lanes.
-- **0.6.0** — Coverage gate (**R-MNT-3**), onboarding examples (**R-MNT-4**), and publish hardening seeds as bandwidth allows.
-
-Priorities stay conservative: narrow spine + auditable workflow-adapter control plane.
+- **0.6.x** — Stabilize compiled CLI distribution and maintenance automation.
+- **0.7.0** — Onboarding expansion and optional coverage threshold tightening as lib coverage improves.
 
 ## Known technical debt
 

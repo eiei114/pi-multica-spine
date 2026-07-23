@@ -1,0 +1,32 @@
+{
+  "issue": {
+    "identifier": "TASK-45",
+    "boundAt": "2026-01-01T00:00:00.000Z"
+  },
+  "pr": {
+    "prUrl": "https://github.com/eiei114/pi-multica-spine/pull/1",
+    "prNumber": 1,
+    "prHeadSha": "abc123",
+    "prBranch": "TASK-45-work-agent-contract",
+    "prBody": "Multica Issue: TASK-45",
+    "writebackRecorded": true,
+    "linkedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "evidence": [
+    {
+      "kind": "command",
+      "command": "npm run ci",
+      "exitCode": 0,
+      "summary": "passed",
+      "timestamp": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "handoff": {
+    "done": ["Implemented TASK-45"],
+    "changed": ["lib and extension tools"],
+    "verification": ["npm run ci passed for https://github.com/eiei114/pi-multica-spine/pull/1"],
+    "timestamp": "2026-01-01T00:00:00.000Z"
+  },
+  "verifiedAt": "2026-01-01T00:00:01.000Z",
+  "updatedAt": "2026-01-01T00:00:00.000Z"
+}

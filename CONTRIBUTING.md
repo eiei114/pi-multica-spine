@@ -17,7 +17,7 @@ npm run test:coverage
 
 Prints line, branch, and function coverage for `lib/` and `extensions/` using Node's built-in `--experimental-test-coverage` reporter (no extra dependencies).
 
-Baseline (Node 24, report-only): ~93% lines, ~77% branches, ~93% functions. CI runs the same coverage step in report-only mode; thresholds are not enforced yet.
+Baseline (Node 24): CI enforces average coverage across `lib/**/*.ts` and `extensions/index.ts` via `scripts/coverage-gate.mjs` (lines ≥ 70%, branches ≥ 60%, functions ≥ 75%). Run `npm run test:coverage` locally for the full per-file report.
 
 ## Local Pi testing
 

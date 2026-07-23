@@ -5,12 +5,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
-import { createHermesCompositeManifest, HERMES_ADAPTER_ID } from "../lib/hermes-adapter.ts";
-import { ProjectWorkflowBindingStore } from "../lib/project-workflow-binding-store.ts";
-import { createParentWorkflowIssueSummary } from "../lib/project-workflow-binding.ts";
-import { WorkflowCatalogStore } from "../lib/workflow-catalog-store.ts";
-import { runControllerAutopilotTick } from "../lib/workflow-controller-autopilot.ts";
-import { buildWorkflowLiveCli } from "../lib/workflow-live-cli.ts";
+import { createHermesCompositeManifest, HERMES_ADAPTER_ID } from "../dist/lib/hermes-adapter.js";
+import { ProjectWorkflowBindingStore } from "../dist/lib/project-workflow-binding-store.js";
+import { createParentWorkflowIssueSummary } from "../dist/lib/project-workflow-binding.js";
+import { WorkflowCatalogStore } from "../dist/lib/workflow-catalog-store.js";
+import { runControllerAutopilotTick } from "../dist/lib/workflow-controller-autopilot.js";
+import { buildWorkflowLiveCli } from "../dist/lib/workflow-live-cli.js";
 import {
   createAutopilotClient,
   createIssueClient,
@@ -18,11 +18,11 @@ import {
   createProjectClient,
   clearStaleDaemonTaskContext,
   runMultica,
-} from "../lib/multica-cli.ts";
-import { hashWorkflowRunLedger, WorkflowRunStateStore } from "../lib/workflow-run-state.ts";
-import { runCanaryCampaign } from "../lib/workflow-sandbox-campaign.ts";
-import { FIXTURE_NAMES, runFixture } from "../lib/workflow-sandbox-fixtures.ts";
-import { completeHumanFinalReview } from "../lib/workflow-sandbox-human-review.ts";
+} from "../dist/lib/multica-cli.js";
+import { hashWorkflowRunLedger, WorkflowRunStateStore } from "../dist/lib/workflow-run-state.js";
+import { runCanaryCampaign } from "../dist/lib/workflow-sandbox-campaign.js";
+import { FIXTURE_NAMES, runFixture } from "../dist/lib/workflow-sandbox-fixtures.js";
+import { completeHumanFinalReview } from "../dist/lib/workflow-sandbox-human-review.js";
 
 const CANARY_PROJECT_NAME = "pi-multica-spine Idea-to-Build Canary";
 const DEFAULT_CANARY_PATH = "C:/Users/Keisu/Projects/Sandbox/pi-multica-spine-idea-to-build-canary";
