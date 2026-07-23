@@ -6,8 +6,10 @@ import type {
   WorkflowStageStatus,
 } from "./workflow-run-state.ts";
 import type { WorkflowCatalogManifest } from "./workflow-catalog.ts";
+import { resolveStageActivation } from "./workflow-catalog.ts";
 import type { WorkflowLiveCli } from "./workflow-live-cli.ts";
 import { WORKFLOW_COMPLETION_AUTHORITY } from "./workflow-live-cli.ts";
+import { HERMES_ADAPTER_ID, resolveNextHermesStageTarget } from "./hermes-adapter.ts";
 
 export interface EffectivePermissionInput {
   adapterRequest: string[];
@@ -53,11 +55,26 @@ export function computeEffectivePermission(input: EffectivePermissionInput): Eff
   };
 }
 
-export function resolveNextStageId(manifest: WorkflowCatalogManifest, currentStageId?: string): string | undefined {
-  if (!currentStageId) return manifest.stages[0]?.stageId;
-  const index = manifest.stages.findIndex((stage) => stage.stageId === currentStageId);
-  if (index < 0) throw new Error(`Unknown stage in manifest: ${currentStageId}`);
-  return manifest.stages[index + 1]?.stageId;
+export function resolveNextStageId(
+  manifest: WorkflowCatalogManifest,
+  currentStageId?: string,
+  enabledOptionalStages: readonly string[] = [],
+): string | undefined {
+  const enabledOptional = new Set(enabledOptionalStages);
+  let startIndex = 0;
+  if (currentStageId) {
+    const currentIndex = manifest.stages.findIndex((stage) => stage.stageId === currentStageId);
+    if (currentIndex < 0) throw new Error(`Unknown stage in manifest: ${currentStageId}`);
+    startIndex = currentIndex + 1;
+  }
+  for (let index = startIndex; index < manifest.stages.length; index += 1) {
+    const stage = manifest.stages[index];
+    const activation = resolveStageActivation(stage);
+    if (activation === "binding_optional" && !enabledOptional.has(stage.stageId)) continue;
+    if (activation === "controller_conditional") continue;
+    return stage.stageId;
+  }
+  return undefined;
 }
 
 export function seedWorkflowStage(
@@ -114,7 +131,7 @@ export function transitionWorkflowStage(
 }
 
 export function canAcceptProducedStage(stage: WorkflowStageState, artifact?: WorkflowArtifactEnvelope): boolean {
-  return stage.status === "produced" && Boolean(artifact?.outputHash);
+  return stage.status === "produced" && artifact?.status === "immutable" && Boolean(artifact.outputHash);
 }
 
 export function mapStageStatusToIssueStatus(stageStatus: WorkflowStageStatus): string {
@@ -151,8 +168,22 @@ export async function seedWorkflowStageLive(input: LiveStageSeedInput): Promise<
   issueId: string;
   issueIdentifier?: string;
 }> {
-  const stageId = input.stageId ?? resolveNextStageId(input.manifest, input.ledger.currentStageId);
+  let stageId = input.stageId;
+  let attempt = input.attempt;
+  if (!stageId) {
+    if (input.ledger.adapterId === HERMES_ADAPTER_ID) {
+      const target = resolveNextHermesStageTarget(input.ledger, input.manifest, input.binding);
+      if (!target) throw new Error(`No next stage available for workflow run: ${input.ledger.workflowRunId}`);
+      stageId = target.stageId;
+      attempt = attempt ?? target.attempt;
+    } else {
+      stageId = resolveNextStageId(input.manifest, input.ledger.currentStageId, input.binding.enabledOptionalStages);
+      if (!stageId) throw new Error(`No next stage available for workflow run: ${input.ledger.workflowRunId}`);
+      attempt = attempt ?? input.ledger.stages[stageId]?.attempt ?? 1;
+    }
+  }
   if (!stageId) throw new Error(`No next stage available for workflow run: ${input.ledger.workflowRunId}`);
+  const resolvedAttempt = attempt ?? input.ledger.stages[stageId]?.attempt ?? 1;
   const manifestStage = input.manifest.stages.find((stage) => stage.stageId === stageId);
   if (!manifestStage) throw new Error(`Cannot seed unknown manifest stage: ${stageId}`);
   const stageOrdinal = input.manifest.stages.findIndex((stage) => stage.stageId === stageId) + 1;
@@ -166,11 +197,21 @@ export async function seedWorkflowStageLive(input: LiveStageSeedInput): Promise<
       `Workflow parent issue project mismatch: expected ${input.binding.multicaProjectId}, got ${parentIssue.project_id ?? "unknown"}`,
     );
   }
-  const attempt = input.attempt ?? input.ledger.stages[stageId]?.attempt ?? 1;
-  const title = `${input.titlePrefix ?? "Workflow stage"}: ${stageId} (attempt ${attempt})`;
+  const title = `${input.titlePrefix ?? "Workflow stage"}: ${stageId} (attempt ${resolvedAttempt})`;
+  const executionPacket = manifestStage.sourceBundle && manifestStage.instructionRefs?.length
+    ? [
+        `source_bundle=${manifestStage.sourceBundle}`,
+        `adapter_bundle_hash=${input.ledger.adapterBundleHash}`,
+        `instruction_refs=${manifestStage.instructionRefs.join(",")}`,
+        `outputs=${(manifestStage.outputs ?? []).join(",")}`,
+      ].join("\n")
+    : undefined;
   const issue = await input.liveCli.createStageIssue({
     title,
-    description: `Workflow run ${input.ledger.workflowRunId} stage ${stageId} attempt ${attempt}. completion_authority=${WORKFLOW_COMPLETION_AUTHORITY}`,
+    description: [
+      `Workflow run ${input.ledger.workflowRunId} stage ${stageId} attempt ${resolvedAttempt}. completion_authority=${WORKFLOW_COMPLETION_AUTHORITY}`,
+      executionPacket,
+    ].filter(Boolean).join("\n"),
     parentIssueId: input.parentIssueId,
     stage: stageOrdinal,
     projectId: input.binding.multicaProjectId,
@@ -181,14 +222,14 @@ export async function seedWorkflowStageLive(input: LiveStageSeedInput): Promise<
     extra: {
       workflow_run_id: input.ledger.workflowRunId,
       workflow_stage_id: stageId,
-      workflow_stage_attempt: attempt,
+      workflow_stage_attempt: resolvedAttempt,
       completion_authority: WORKFLOW_COMPLETION_AUTHORITY,
     },
   });
   await input.liveCli.assignStageIssue(issue.id, assignedAgentId);
   const stage = seedWorkflowStage(input.ledger, input.manifest, input.binding, {
     stageId,
-    attempt,
+    attempt: resolvedAttempt,
     issueId: issue.id,
     assignedAgentId,
   });

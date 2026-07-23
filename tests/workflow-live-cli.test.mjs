@@ -196,8 +196,16 @@ test("seedWorkflowStageLive writes controller metadata before assigning the work
       return { id: issueIdentifier, assignee_id: assigneeId };
     },
   };
-  const ledger = { workflowRunId: "run-live-1", stages: {} };
-  const manifest = { stages: [{ stageId: "capture_interview", role: "interview" }] };
+  const ledger = { workflowRunId: "run-live-1", adapterBundleHash: "a".repeat(64), stages: {} };
+  const manifest = {
+    stages: [{
+      stageId: "capture_interview",
+      role: "interview",
+      sourceBundle: "hermes-agent-idea-workflow",
+      instructionRefs: ["idea-superpowers-suite/SKILL.md"],
+      outputs: ["00-idea-capture.md"],
+    }],
+  };
 
   const seeded = await seedWorkflowStageLive({
     ledger,
@@ -211,6 +219,8 @@ test("seedWorkflowStageLive writes controller metadata before assigning the work
   assert.deepEqual(calls.map((call) => call.action), ["get-parent", "create", "writeback", "assign"]);
   assert.equal(calls[1].input.stage, 1);
   assert.equal(calls[1].input.assigneeId, undefined);
+  assert.match(calls[1].input.description, /source_bundle=hermes-agent-idea-workflow/);
+  assert.match(calls[1].input.description, /instruction_refs=idea-superpowers-suite\/SKILL\.md/);
   assert.equal(calls[2].input.extra.completion_authority, WORKFLOW_COMPLETION_AUTHORITY);
 });
 

@@ -411,3 +411,66 @@ test("workflow permission check surfaces granted and blocked capabilities", asyn
   assert.deepEqual(response.details.granted, ["design_doc"]);
   assert.deepEqual(response.details.blocked, ["release"]);
 });
+
+test("Hermes tools expose the pinned manifest and persist serial provenance answers", async () => {
+  const fake = createFakePi();
+  extension(fake.api);
+  const cwd = await mkdtemp(join(tmpdir(), "spine-hermes-tools-"));
+  const ctx = fakeCtx(cwd);
+  const manifestResponse = await callTool(fake.tools, "multica_workflow_hermes_manifest", {}, ctx);
+  const manifest = manifestResponse.details.manifest;
+  assert.equal(manifest.sourceBundles.length, 2);
+  await callTool(fake.tools, "multica_workflow_catalog_put", { manifest }, ctx);
+  for (const status of ["audited", "active"]) {
+    await callTool(fake.tools, "multica_workflow_catalog_transition", {
+      adapterId: manifest.adapterId,
+      adapterVersion: manifest.adapterVersion,
+      status,
+    }, ctx);
+  }
+  const binding = {
+    schemaVersion: 1,
+    multicaProjectId: "proj_123",
+    adapterId: manifest.adapterId,
+    adapterVersion: manifest.adapterVersion,
+    artifactRoot: "Artifacts/workflows",
+    projectGrants: ["design_doc"],
+    humanOwnedActions: ["release"],
+    roleRoutes: Object.fromEntries(manifest.roles.map((role) => [role, { agentId: `agent_${role}` }])),
+    autoAdvancePolicy: "autonomous",
+    executionMode: "autonomous_until_final",
+    humanGate: "start_and_final",
+    deliveryPolicy: {
+      prRequired: true,
+      releaseAllowed: true,
+      productionAllowed: false,
+      destructiveAllowed: false,
+    },
+  };
+  await callTool(fake.tools, "multica_workflow_binding_put", { binding }, ctx);
+  await callTool(fake.tools, "multica_workflow_run_create", {
+    projectIdOrKey: "proj_123",
+    workflowRunId: "run_hermes",
+    initialStageId: "question_resolution",
+  }, ctx);
+  const answer = await callTool(fake.tools, "multica_workflow_hermes_question_answer", {
+    workflowRunId: "run_hermes",
+    tasks: [{
+      questionId: "q1",
+      questionTaskId: "task_1",
+      prompt: "What does the repository implement?",
+      resolverRole: "technical",
+    }],
+    questionId: "q1",
+    answer: {
+      resolverAgentId: "agent_technical",
+      answerStatus: "observed",
+      answer: "A Pi workflow extension.",
+      sourceRefs: ["README.md"],
+      provenance: [{ kind: "repository", ref: "README.md" }],
+      confidence: "high",
+    },
+  }, ctx);
+  assert.equal(answer.details.ledger.questions.length, 1);
+  assert.equal(answer.details.answerArtifact.provenance[0].kind, "repository");
+});

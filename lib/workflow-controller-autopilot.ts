@@ -26,6 +26,13 @@ import { StringEnum } from "./schema.ts";
 import { safeIssueIdentifier } from "./state-store.ts";
 import { SPINE_STATE_ROOT } from "./types.ts";
 import { assertValid, validateSchema } from "./validation.ts";
+import {
+  assertHermesProducedStageReady,
+  HERMES_ADAPTER_ID,
+  HERMES_FINAL_STAGE_ID,
+  resolveNextHermesStageTarget,
+  type HermesStageTarget,
+} from "./hermes-adapter.ts";
 
 export const DEFAULT_LEASE_TTL_MS = 60_000;
 export const DEFAULT_EVENT_SCAN_WINDOW = 50;
@@ -286,19 +293,26 @@ function findProducedStageForValidation(ledger: WorkflowRunStateLedger) {
   return undefined;
 }
 
-function findSeedTarget(ledger: WorkflowRunStateLedger, manifest: WorkflowCatalogManifest) {
+function findSeedTarget(
+  ledger: WorkflowRunStateLedger,
+  manifest: WorkflowCatalogManifest,
+  binding: ProjectWorkflowBinding,
+): HermesStageTarget | undefined {
+  if (ledger.adapterId === HERMES_ADAPTER_ID) {
+    return resolveNextHermesStageTarget(ledger, manifest, binding);
+  }
   const currentStageId = ledger.currentStageId;
   if (!currentStageId) {
-    const firstStageId = resolveNextStageId(manifest);
-    return firstStageId ? { stageId: firstStageId, attempt: 1, reason: "initial" as const } : undefined;
+    const firstStageId = resolveNextStageId(manifest, undefined, binding.enabledOptionalStages);
+    return firstStageId ? { stageId: firstStageId, attempt: 1 } : undefined;
   }
   const current = ledger.stages[currentStageId];
   if (!current) return undefined;
   if (current.status !== "accepted") return undefined;
-  const nextStageId = resolveNextStageId(manifest, currentStageId);
+  const nextStageId = resolveNextStageId(manifest, currentStageId, binding.enabledOptionalStages);
   if (!nextStageId) return undefined;
   const existing = ledger.stages[nextStageId];
-  return { stageId: nextStageId, attempt: existing?.attempt ?? 1, reason: "advance" as const };
+  return { stageId: nextStageId, attempt: existing?.attempt ?? 1 };
 }
 
 async function persistParentSummary(
@@ -363,6 +377,18 @@ export async function runControllerAutopilotTick(
 
   const produced = findProducedStageForValidation(ledger);
   if (produced) {
+    try {
+      assertHermesProducedStageReady(ledger, produced.stage.stageId, produced.stage.attempt);
+    } catch (error) {
+      return {
+        action: "stop",
+        stopped: true,
+        reason: error instanceof Error ? error.message : String(error),
+        lease,
+        ledger,
+        reconcile,
+      };
+    }
     let nextStage = transitionWorkflowStage(produced.stage, "accepted", produced.artifact);
     if (input.liveCli && nextStage.issueId) {
       nextStage = await transitionWorkflowStageLive(input.liveCli, produced.stage, "accepted", produced.artifact);
@@ -375,7 +401,10 @@ export async function runControllerAutopilotTick(
       assignedAgentId: nextStage.assignedAgentId,
       artifactHashes: nextStage.artifactHashes,
     });
-    if (!resolveNextStageId(input.manifest, nextStage.stageId)) {
+    const shouldComplete = ledger.adapterId === HERMES_ADAPTER_ID
+      ? nextStage.stageId === HERMES_FINAL_STAGE_ID
+      : !resolveNextStageId(input.manifest, nextStage.stageId, input.binding.enabledOptionalStages);
+    if (shouldComplete) {
       ledger = await runStore.setWorkflowStatus(input.workflowRunId, "completed");
     }
     return {
@@ -387,7 +416,7 @@ export async function runControllerAutopilotTick(
     };
   }
 
-  const seedTarget = findSeedTarget(ledger, input.manifest);
+  const seedTarget = findSeedTarget(ledger, input.manifest, input.binding);
   if (seedTarget) {
     let stage;
     if (input.liveCli && input.parentIssueId) {

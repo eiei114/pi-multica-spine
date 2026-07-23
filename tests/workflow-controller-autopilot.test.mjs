@@ -14,6 +14,7 @@ const {
 } = await import("../lib/workflow-controller-autopilot.ts");
 const { WorkflowRunStateStore } = await import("../lib/workflow-run-state.ts");
 const { WORKFLOW_COMPLETION_AUTHORITY } = await import("../lib/workflow-live-cli.ts");
+const { createHermesCompositeManifest, HERMES_ADAPTER_ID } = await import("../lib/hermes-adapter.ts");
 
 function sampleManifest() {
   return {
@@ -335,4 +336,84 @@ test("runControllerAutopilotTick persists parent summary once per state version"
 
   assert.equal(released.action, "release_lease");
   assert.equal(writeCount, 1);
+});
+
+test("Hermes Controller refuses to accept spec_review before a persisted decision", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "controller-hermes-review-"));
+  const manifest = createHermesCompositeManifest();
+  const binding = {
+    ...sampleBinding(),
+    adapterId: HERMES_ADAPTER_ID,
+    roleRoutes: Object.fromEntries(manifest.roles.map((role) => [role, { agentId: `agent_${role}` }])),
+  };
+  const runStore = new WorkflowRunStateStore(cwd);
+  await runStore.create({
+    workflowRunId: "run_hermes",
+    multicaProjectId: "proj_123",
+    adapterId: HERMES_ADAPTER_ID,
+    adapterVersion: 1,
+    adapterBundleHash: manifest.derivedBundleHash,
+    executionMode: "autonomous_until_final",
+    initialStageId: "spec_review",
+  });
+  await runStore.upsertStage("run_hermes", {
+    stageId: "spec_review",
+    status: "produced",
+    attempt: 1,
+    artifactHashes: [],
+  });
+  const reviewHash = "e".repeat(64);
+  await runStore.recordArtifact("run_hermes", {
+    artifactSchemaVersion: 1,
+    workflowRunId: "run_hermes",
+    stageId: "spec_review",
+    producerIssueId: "issue_review",
+    producerRunId: "review_run_1",
+    attempt: 1,
+    adapterBundleHash: manifest.derivedBundleHash,
+    inputArtifactHashes: [],
+    outputPath: "Artifacts/workflows/run_hermes/06-spec-review.md",
+    outputHash: reviewHash,
+    status: "immutable",
+  });
+  const leaseStore = new WorkflowControllerLeaseStore(cwd);
+  const now = new Date("2026-07-23T12:00:00.000Z");
+  const lease = await leaseStore.acquire("run_hermes", "controller_a", { now });
+  let ledger = await runStore.load("run_hermes");
+  const waitingForDecision = await runControllerAutopilotTick(
+    { workflowRunId: "run_hermes", holderId: "controller_a", ledger, lease, manifest, binding, now },
+    { leaseStore, runStore },
+  );
+  assert.equal(waitingForDecision.action, "stop");
+  assert.match(waitingForDecision.reason, /spec review decision missing/);
+
+  ledger = await runStore.recordReview("run_hermes", {
+    stageId: "spec_review",
+    attempt: 1,
+    verdict: "pass_with_changes",
+    findingIds: ["F-1"],
+    reviewArtifactHash: reviewHash,
+    terminal: false,
+  });
+  const accepted = await runControllerAutopilotTick(
+    { workflowRunId: "run_hermes", holderId: "controller_a", ledger, lease, manifest, binding, now },
+    { leaseStore, runStore },
+  );
+  assert.equal(accepted.action, "validate_produced_stage");
+  assert.equal(accepted.ledger.stages.spec_review.status, "accepted");
+  const seededFix = await runControllerAutopilotTick(
+    {
+      workflowRunId: "run_hermes",
+      holderId: "controller_a",
+      ledger: accepted.ledger,
+      lease,
+      manifest,
+      binding,
+      now,
+    },
+    { leaseStore, runStore },
+  );
+  assert.equal(seededFix.action, "seed_next_stage");
+  assert.equal(seededFix.ledger.stages.spec_fix.status, "seeded");
+  assert.equal(seededFix.ledger.stages.spec_fix.attempt, 1);
 });

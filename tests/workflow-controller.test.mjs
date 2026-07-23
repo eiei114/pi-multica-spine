@@ -53,7 +53,8 @@ test("seedWorkflowStage uses binding role routes and transitionWorkflowStage enf
   const produced = transitionWorkflowStage(seeded, "produced");
   assert.equal(produced.status, "produced");
 
-  assert.equal(canAcceptProducedStage(produced, { outputHash: "a".repeat(64) }), true);
+  assert.equal(canAcceptProducedStage(produced, { outputHash: "a".repeat(64), status: "immutable" }), true);
+  assert.equal(canAcceptProducedStage(produced, { outputHash: "a".repeat(64), status: "superseded" }), false);
   const accepted = transitionWorkflowStage(produced, "accepted", { outputHash: "a".repeat(64) });
   assert.equal(accepted.status, "accepted");
   assert.throws(() => transitionWorkflowStage(accepted, "produced"), /Invalid stage transition/);

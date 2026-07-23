@@ -21,7 +21,9 @@ export const WorkflowEventTypeSchema = StringEnum([
   "stage_seeded",
   "stage_updated",
   "artifact_recorded",
+  "artifact_superseded",
   "question_recorded",
+  "review_recorded",
   "workflow_status_changed",
 ]);
 export type WorkflowEventType = Static<typeof WorkflowEventTypeSchema>;
@@ -41,6 +43,7 @@ export const WorkflowArtifactEnvelopeSchema = Type.Object({
   outputPath: Type.String({ minLength: 1 }),
   outputHash: Sha256Hex,
   status: StringEnum(["immutable", "superseded"]),
+  supersedesOutputHash: Type.Optional(Sha256Hex),
 });
 export type WorkflowArtifactEnvelope = Static<typeof WorkflowArtifactEnvelopeSchema>;
 
@@ -72,8 +75,23 @@ export const WorkflowQuestionRecordSchema = Type.Object({
   sourceRefs: Type.Array(Type.String({ minLength: 1 })),
   confidence: StringEnum(["high", "medium", "low"]),
   answerHash: Sha256Hex,
+  provenance: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { minItems: 1 })),
 });
 export type WorkflowQuestionRecord = Static<typeof WorkflowQuestionRecordSchema>;
+
+export const WorkflowReviewVerdictSchema = StringEnum(["pass", "pass_with_changes", "fail"]);
+export type WorkflowReviewVerdict = Static<typeof WorkflowReviewVerdictSchema>;
+
+export const WorkflowReviewRecordSchema = Type.Object({
+  stageId: Type.String({ minLength: 1 }),
+  attempt: Type.Integer({ minimum: 1 }),
+  verdict: WorkflowReviewVerdictSchema,
+  findingIds: Type.Array(Type.String({ minLength: 1 })),
+  reviewArtifactHash: Sha256Hex,
+  recordedAt: Type.String({ minLength: 1 }),
+  terminal: Type.Boolean(),
+});
+export type WorkflowReviewRecord = Static<typeof WorkflowReviewRecordSchema>;
 
 export const WorkflowRunStateLedgerSchema = Type.Object({
   schemaVersion: Type.Integer({ minimum: 1 }),
@@ -92,6 +110,7 @@ export const WorkflowRunStateLedgerSchema = Type.Object({
   artifacts: Type.Array(WorkflowArtifactEnvelopeSchema),
   events: Type.Array(WorkflowEventSchema),
   questions: Type.Array(WorkflowQuestionRecordSchema),
+  reviews: Type.Optional(Type.Array(WorkflowReviewRecordSchema)),
 });
 export type WorkflowRunStateLedger = Static<typeof WorkflowRunStateLedgerSchema>;
 
@@ -166,6 +185,7 @@ export function createWorkflowRunLedger(input: CreateWorkflowRunLedgerInput): Wo
       },
     ],
     questions: [],
+    reviews: [],
   };
   return assertValid(validateSchema(WorkflowRunStateLedgerSchema, ledger), "Invalid workflow run ledger");
 }
@@ -277,6 +297,53 @@ export class WorkflowRunStateStore {
         }
         return ledger;
       }
+      const pathOwner = ledger.artifacts.find((item) => item.outputPath === artifact.outputPath);
+      if (pathOwner) {
+        throw new Error(`Immutable artifact output path already exists: ${artifact.outputPath}`);
+      }
+      if (new Set(artifact.inputArtifactHashes).size !== artifact.inputArtifactHashes.length) {
+        throw new Error("Artifact input hashes must be unique");
+      }
+      for (const inputHash of artifact.inputArtifactHashes) {
+        const inputArtifact = ledger.artifacts.find((item) => item.outputHash === inputHash);
+        if (!inputArtifact) throw new Error(`Artifact input hash not found: ${inputHash}`);
+        if (inputArtifact.status !== "immutable") throw new Error(`Artifact input is superseded: ${inputHash}`);
+      }
+      if (artifact.supersedesOutputHash) {
+        const superseded = ledger.artifacts.find((item) => item.outputHash === artifact.supersedesOutputHash);
+        if (!superseded) throw new Error(`Superseded artifact hash not found: ${artifact.supersedesOutputHash}`);
+        if (superseded.status !== "immutable") throw new Error(`Artifact is already superseded: ${artifact.supersedesOutputHash}`);
+        if (superseded.stageId !== artifact.stageId) throw new Error("Replacement artifact must supersede an artifact from the same stage");
+        if (!artifact.inputArtifactHashes.includes(superseded.outputHash)) {
+          throw new Error("Replacement artifact must include the superseded hash in inputArtifactHashes");
+        }
+        const invalidated = new Set([superseded.outputHash]);
+        let changed = true;
+        while (changed) {
+          changed = false;
+          for (const existing of ledger.artifacts) {
+            if (
+              existing.status === "immutable" &&
+              !invalidated.has(existing.outputHash) &&
+              existing.inputArtifactHashes.some((hash) => invalidated.has(hash))
+            ) {
+              invalidated.add(existing.outputHash);
+              changed = true;
+            }
+          }
+        }
+        for (const existing of ledger.artifacts) {
+          if (!invalidated.has(existing.outputHash) || existing.status === "superseded") continue;
+          existing.status = "superseded";
+          ledger.events.push({
+            eventId: `${workflowRunId}:artifact-superseded:${existing.outputHash.slice(0, 12)}:${artifact.outputHash.slice(0, 12)}`,
+            eventType: "artifact_superseded",
+            stageId: existing.stageId,
+            timestamp: nowIso(),
+            details: { outputHash: existing.outputHash, replacementHash: artifact.outputHash },
+          });
+        }
+      }
       ledger.artifacts.push(artifact);
       stage.artifactHashes = [...new Set([...stage.artifactHashes, artifact.outputHash])];
       stage.updatedAt = nowIso();
@@ -312,6 +379,44 @@ export class WorkflowRunStateStore {
         eventType: "question_recorded",
         timestamp: ledger.updatedAt,
         details: { questionTaskId: question.questionTaskId, answerStatus: question.answerStatus },
+      });
+      return this.saveUnlocked(ledger);
+    });
+  }
+
+  async recordReview(
+    workflowRunId: string,
+    reviewInput: Omit<WorkflowReviewRecord, "recordedAt">,
+  ): Promise<WorkflowRunStateLedger> {
+    return withFileLock(this.ledgerPath(workflowRunId), async () => {
+      const ledger = await this.requireLedger(workflowRunId);
+      const stage = ledger.stages[reviewInput.stageId];
+      if (!stage) throw new Error(`Cannot record review for unknown stage: ${reviewInput.stageId}`);
+      if (stage.attempt !== reviewInput.attempt) {
+        throw new Error(`Review attempt mismatch for ${reviewInput.stageId}: expected ${stage.attempt}, got ${reviewInput.attempt}`);
+      }
+      const reviews = ledger.reviews ?? (ledger.reviews = []);
+      const existing = reviews.find((review) => review.stageId === reviewInput.stageId && review.attempt === reviewInput.attempt);
+      if (existing) {
+        const candidate = { ...reviewInput, recordedAt: existing.recordedAt };
+        if (sha256Hex(existing) !== sha256Hex(candidate)) {
+          throw new Error(`Review decision already exists for ${reviewInput.stageId} attempt ${reviewInput.attempt}`);
+        }
+        return ledger;
+      }
+      const review = assertValid(
+        validateSchema(WorkflowReviewRecordSchema, { ...reviewInput, recordedAt: nowIso() }),
+        "Invalid workflow review record",
+      );
+      reviews.push(review);
+      ledger.updatedAt = review.recordedAt;
+      ledger.stateVersion += 1;
+      ledger.events.push({
+        eventId: `${workflowRunId}:review:${review.stageId}:${review.attempt}`,
+        eventType: "review_recorded",
+        stageId: review.stageId,
+        timestamp: review.recordedAt,
+        details: { verdict: review.verdict, terminal: review.terminal, findingIds: review.findingIds },
       });
       return this.saveUnlocked(ledger);
     });

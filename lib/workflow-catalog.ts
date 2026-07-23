@@ -12,12 +12,33 @@ export type WorkflowCatalogStatus = Static<typeof WorkflowCatalogStatusSchema>;
 export const WorkflowQuestionParallelismSchema = StringEnum(["serial", "bounded"]);
 export type WorkflowQuestionParallelism = Static<typeof WorkflowQuestionParallelismSchema>;
 
+export const WorkflowStageActivationSchema = StringEnum(["always", "binding_optional", "controller_conditional"]);
+export type WorkflowStageActivation = Static<typeof WorkflowStageActivationSchema>;
+
+export function resolveStageActivation(stage: Pick<WorkflowCatalogStage, "optional" | "activation">): WorkflowStageActivation {
+  if (stage.activation) return stage.activation;
+  if (stage.optional) return "binding_optional";
+  return "always";
+}
+
+export const WorkflowSourceBundleSchema = Type.Object({
+  name: Type.String({ minLength: 1, pattern: "^[a-z0-9][a-z0-9-]*$" }),
+  sourceUrl: Type.String({ minLength: 1 }),
+  sourceCommit: Type.String({ pattern: "^[a-f0-9]{40}$" }),
+  sourceContentHash: Sha256Hex,
+  license: Type.String({ minLength: 1 }),
+});
+export type WorkflowSourceBundle = Static<typeof WorkflowSourceBundleSchema>;
+
 export const WorkflowCatalogStageSchema = Type.Object({
   stageId: Type.String({ minLength: 1, pattern: "^[a-z0-9][a-z0-9_-]*$" }),
   role: Type.String({ minLength: 1 }),
   optional: Type.Optional(Type.Boolean()),
+  activation: Type.Optional(WorkflowStageActivationSchema),
   questionParallelism: Type.Optional(WorkflowQuestionParallelismSchema),
   outputs: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+  sourceBundle: Type.Optional(Type.String({ minLength: 1 })),
+  instructionRefs: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { minItems: 1 })),
 });
 export type WorkflowCatalogStage = Static<typeof WorkflowCatalogStageSchema>;
 
@@ -27,6 +48,7 @@ export const WorkflowCatalogManifestSchema = Type.Object({
   sourceUrl: Type.String({ minLength: 1 }),
   sourceCommit: Type.String({ minLength: 7 }),
   sourceContentHash: Sha256Hex,
+  sourceBundles: Type.Optional(Type.Array(WorkflowSourceBundleSchema, { minItems: 1 })),
   derivedBundleHash: Sha256Hex,
   license: Type.String({ minLength: 1 }),
   auditToolVersion: Type.Integer({ minimum: 1 }),
@@ -66,12 +88,32 @@ function validateCatalogSemantics(manifest: WorkflowCatalogManifest): string[] {
     ...uniqueValues(manifest.humanGates, "duplicate-human-gate"),
     ...uniqueValues(manifest.compatibleFrom.map(String), "duplicate-compatible-from"),
     ...uniqueValues(manifest.stages.map((stage) => stage.stageId), "duplicate-stage"),
+    ...uniqueValues((manifest.sourceBundles ?? []).map((bundle) => bundle.name), "duplicate-source-bundle"),
+    ...uniqueValues((manifest.sourceBundles ?? []).map((bundle) => bundle.sourceContentHash), "duplicate-source-content-hash"),
   ];
 
+  if (manifest.sourceBundles?.length) {
+    const primary = manifest.sourceBundles[0];
+    if (
+      primary.sourceUrl !== manifest.sourceUrl ||
+      primary.sourceCommit !== manifest.sourceCommit ||
+      primary.sourceContentHash !== manifest.sourceContentHash
+    ) {
+      errors.push("source-bundle-primary-mismatch");
+    }
+  }
+
   const roleSet = new Set(manifest.roles);
+  const sourceBundleNames = new Set((manifest.sourceBundles ?? []).map((bundle) => bundle.name));
   for (const stage of manifest.stages) {
     if (!roleSet.has(stage.role)) {
       errors.push(`unknown-stage-role:${stage.stageId}:${stage.role}`);
+    }
+    if (stage.sourceBundle && !sourceBundleNames.has(stage.sourceBundle)) {
+      errors.push(`unknown-stage-source-bundle:${stage.stageId}:${stage.sourceBundle}`);
+    }
+    if ((stage.sourceBundle && !stage.instructionRefs?.length) || (!stage.sourceBundle && stage.instructionRefs?.length)) {
+      errors.push(`stage-source-instructions-must-be-paired:${stage.stageId}`);
     }
   }
 

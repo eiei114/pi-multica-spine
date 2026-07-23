@@ -12,6 +12,21 @@ import {
 } from "../lib/project-workflow-binding.ts";
 import { ProjectWorkflowBindingStore } from "../lib/project-workflow-binding-store.ts";
 import {
+  assertHermesProducedStageReady,
+  createHermesCompositeManifest,
+  evaluateHermesSpecReview,
+  HermesAnswerInputSchema,
+  HERMES_ADAPTER_ID,
+  HermesQuestionTaskSchema,
+  HermesReviewDecisionInputSchema,
+  resolveHermesQuestionSerially,
+  resolveNextHermesStageTarget,
+  validateHermesArtifactLineage,
+  type HermesAnswerInput,
+  type HermesQuestionTask,
+  type HermesReviewDecisionInput,
+} from "../lib/hermes-adapter.ts";
+import {
   buildGuardedGitNetworkBashCommand,
   gitNetworkWallClockTimeoutSeconds,
   isGitNetworkShellCommand,
@@ -251,6 +266,20 @@ const workflowControllerTickParameters = Type.Object({
 const workflowQuestionRecordParameters = Type.Object({
   workflowRunId: Type.String({ minLength: 1 }),
   question: WorkflowQuestionRecordSchema,
+});
+
+const workflowHermesManifestParameters = Type.Object({});
+
+const workflowHermesQuestionAnswerParameters = Type.Object({
+  workflowRunId: Type.String({ minLength: 1 }),
+  tasks: Type.Array(HermesQuestionTaskSchema, { minItems: 1 }),
+  questionId: Type.String({ minLength: 1 }),
+  answer: HermesAnswerInputSchema,
+});
+
+const workflowHermesReviewDecisionParameters = Type.Object({
+  workflowRunId: Type.String({ minLength: 1 }),
+  decision: HermesReviewDecisionInputSchema,
 });
 
 const workflowPermissionCheckParameters = Type.Object({
@@ -845,7 +874,7 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
         live?: boolean;
       };
       const { binding, manifest, catalogEntry } = await resolveBindingAndManifest(ctx, args.projectIdOrKey);
-      const initialStageId = args.initialStageId ?? resolveNextStageId(manifest);
+      const initialStageId = args.initialStageId ?? resolveNextStageId(manifest, undefined, binding.enabledOptionalStages);
       const store = workflowRunStoreFor(ctx);
       let ledger = await mutateWorkflow(ctx, () =>
         store.create({
@@ -947,12 +976,24 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
           rethrowWorkflowProductGap(error);
         }
       } else {
-        const stageId = args.stageId ?? resolveNextStageId(manifest, ledger.currentStageId);
-        if (!stageId) throw new Error(`No next stage available for workflow run: ${args.workflowRunId}`);
+        let stageId = args.stageId;
+        let attempt = args.attempt;
+        if (!stageId) {
+          if (ledger.adapterId === HERMES_ADAPTER_ID) {
+            const target = resolveNextHermesStageTarget(ledger, manifest, binding);
+            if (!target) throw new Error(`No next stage available for workflow run: ${args.workflowRunId}`);
+            stageId = target.stageId;
+            attempt = attempt ?? target.attempt;
+          } else {
+            stageId = resolveNextStageId(manifest, ledger.currentStageId, binding.enabledOptionalStages);
+            if (!stageId) throw new Error(`No next stage available for workflow run: ${args.workflowRunId}`);
+            attempt = attempt ?? ledger.stages[stageId]?.attempt ?? 1;
+          }
+        }
         const existing = ledger.stages[stageId];
         stage = seedWorkflowStage(ledger, manifest, binding, {
           stageId,
-          attempt: args.attempt ?? existing?.attempt ?? 1,
+          attempt: attempt ?? existing?.attempt ?? 1,
           issueId: args.issueId,
           assignedAgentId: args.assignedAgentId,
         });
@@ -981,6 +1022,9 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
       if (args.status === "accepted" && !canAcceptProducedStage(stage, latestArtifact)) {
         throw new Error(`Cannot accept stage without produced status and artifact: ${args.stageId}`);
       }
+      if (args.status === "accepted") {
+        assertHermesProducedStageReady(ledger, stage.stageId, stage.attempt);
+      }
       let nextStage: WorkflowStageState;
       if (args.live) {
         try {
@@ -996,7 +1040,12 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
       let updated = await mutateWorkflow(ctx, () => store.upsertStage(args.workflowRunId, toStageUpsertInput(nextStage)));
       if (args.status === "accepted") {
         const manifest = await resolveManifestForLedger(ctx, updated);
-        if (!resolveNextStageId(manifest, args.stageId)) {
+        const bindingAfter = await workflowBindingStoreFor(ctx).getByProjectId(updated.multicaProjectId);
+        if (!bindingAfter) throw new Error(`Workflow binding not found for project: ${updated.multicaProjectId}`);
+        const hasNextStage = updated.adapterId === HERMES_ADAPTER_ID
+          ? Boolean(resolveNextHermesStageTarget(updated, manifest, bindingAfter))
+          : Boolean(resolveNextStageId(manifest, args.stageId, bindingAfter.enabledOptionalStages));
+        if (!hasNextStage) {
           updated = await mutateWorkflow(ctx, () => store.setWorkflowStatus(args.workflowRunId, "completed"));
         }
       }
@@ -1019,6 +1068,10 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
       if (!binding) throw new Error(`Workflow binding not found for project: ${existingLedger.multicaProjectId}`);
       if (!pathWithinArtifactRoot(args.artifact.outputPath, binding.artifactRoot)) {
         throw new Error(`Artifact output path must stay under binding artifactRoot ${binding.artifactRoot}: ${args.artifact.outputPath}`);
+      }
+      if (existingLedger.adapterId === HERMES_ADAPTER_ID) {
+        const manifest = await resolveManifestForLedger(ctx, existingLedger);
+        validateHermesArtifactLineage(existingLedger, manifest, args.artifact, binding.artifactRoot);
       }
       if (args.live) {
         const stage = existingLedger.stages[args.artifact.stageId];
@@ -1060,8 +1113,86 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
     parameters: workflowQuestionRecordParameters,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const args = params as { workflowRunId: string; question: WorkflowQuestionRecord };
-      const ledger = await mutateWorkflow(ctx, () => workflowRunStoreFor(ctx).recordQuestion(args.workflowRunId, args.question));
+      const store = workflowRunStoreFor(ctx);
+      const existing = await store.load(args.workflowRunId);
+      if (!existing) throw new Error(`Workflow run not found: ${args.workflowRunId}`);
+      if (existing.adapterId === HERMES_ADAPTER_ID) {
+        throw new Error("Hermes workflow answers must use multica_workflow_hermes_question_answer");
+      }
+      const ledger = await mutateWorkflow(ctx, () => store.recordQuestion(args.workflowRunId, args.question));
       return workflowRunResult("workflow_question_record", ledger);
+    },
+  });
+
+  pi.registerTool({
+    name: "multica_workflow_hermes_manifest",
+    label: "Multica Workflow Hermes Manifest",
+    description: "Return the dedicated Hermes Idea-to-Build composite Adapter manifest with two audited source bundles pinned by commit and content digest.",
+    parameters: workflowHermesManifestParameters,
+    async execute() {
+      const manifest = createHermesCompositeManifest();
+      return {
+        content: [{
+          type: "text" as const,
+          text: `adapter: ${manifest.adapterId}@${manifest.adapterVersion}\nbundleHash: ${manifest.derivedBundleHash}\nstages: ${manifest.stages.length}\nsources: ${manifest.sourceBundles?.length ?? 0}`,
+        }],
+        details: { manifest },
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "multica_workflow_hermes_question_answer",
+    label: "Multica Workflow Hermes Question Answer",
+    description: "Resolve the next Hermes Question Task serially, validate provenance and user-preference safety, and persist its hashed Answer Artifact record.",
+    parameters: workflowHermesQuestionAnswerParameters,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const args = params as {
+        workflowRunId: string;
+        tasks: HermesQuestionTask[];
+        questionId: string;
+        answer: HermesAnswerInput;
+      };
+      const store = workflowRunStoreFor(ctx);
+      const ledger = await store.load(args.workflowRunId);
+      if (!ledger) throw new Error(`Workflow run not found: ${args.workflowRunId}`);
+      if (ledger.adapterId !== HERMES_ADAPTER_ID) throw new Error(`Not a Hermes workflow run: ${args.workflowRunId}`);
+      if (ledger.currentStageId !== "question_resolution") {
+        throw new Error(`Hermes Question Task relay is not active: ${ledger.currentStageId ?? "pending"}`);
+      }
+      const resolved = resolveHermesQuestionSerially(args.tasks, ledger.questions, args.questionId, args.answer);
+      const updated = await mutateWorkflow(ctx, () => store.recordQuestion(args.workflowRunId, resolved.record));
+      const result = workflowRunResult("workflow_hermes_question_answer", updated);
+      return { ...result, details: { ...result.details, answerArtifact: resolved.artifact } };
+    },
+  });
+
+  pi.registerTool({
+    name: "multica_workflow_hermes_review_decide",
+    label: "Multica Workflow Hermes Review Decide",
+    description: "Record one independent Hermes spec-review verdict. PASS advances, PASS WITH CHANGES allows at most two fix cycles, and terminal outcomes stop for human review.",
+    parameters: workflowHermesReviewDecisionParameters,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const args = params as { workflowRunId: string; decision: HermesReviewDecisionInput };
+      const store = workflowRunStoreFor(ctx);
+      const ledger = await store.load(args.workflowRunId);
+      if (!ledger) throw new Error(`Workflow run not found: ${args.workflowRunId}`);
+      if (ledger.adapterId !== HERMES_ADAPTER_ID) throw new Error(`Not a Hermes workflow run: ${args.workflowRunId}`);
+      const decision = evaluateHermesSpecReview(ledger, args.decision);
+      let updated = await mutateWorkflow(ctx, () => store.recordReview(args.workflowRunId, decision.record));
+      if (decision.terminalPackage) {
+        updated = await mutateWorkflow(ctx, () => store.setWorkflowStatus(args.workflowRunId, "failed"));
+      }
+      const result = workflowRunResult("workflow_hermes_review_decide", updated);
+      return {
+        ...result,
+        details: {
+          ...result.details,
+          review: decision.record,
+          nextStageId: decision.nextStageId,
+          terminalPackage: decision.terminalPackage,
+        },
+      };
     },
   });
 

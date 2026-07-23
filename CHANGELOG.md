@@ -6,11 +6,24 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-23
+
 ### Added
 
 - Run-only Controller Autopilot tick loop (`lib/workflow-controller-autopilot.ts`) with lease/fencing, bounded event reconcile, orphan adoption, and generic reconciler guard for `workflow_controller`-owned stages.
 - `multica_workflow_controller_tick` experimental tool to execute exactly one bounded controller action per tick with optional live parent summary writeback.
 - Tests for duplicate/stale event rejection, double-acquire reject path, orphan adoption, produced-stage validation, and summary persistence (`tests/workflow-controller-autopilot.test.mjs`).
+- Dedicated Hermes Idea-to-Build composite Adapter (`lib/hermes-adapter.ts`) with both external bundles pinned by full commit and canonical content digest. Runtime loading uses audited digests, never live GitHub workflow content.
+- Serial Hermes Question Task resolution with provenance-bearing Answer Artifacts, unresolved-preference preservation, and deterministic answer hashes.
+- Immutable Artifact relay checks with canonical stage paths, input lineage validation, explicit supersession, and recursive downstream invalidation.
+- Spec-review policy for PASS / PASS WITH CHANGES / FAIL, including at most two fix cycles and terminal human-review packages.
+- `multica_workflow_hermes_manifest`, `multica_workflow_hermes_question_answer`, and `multica_workflow_hermes_review_decide` tools.
+
+### Changed
+
+- Project Workflow Bindings may explicitly enable optional Adapter stages; optional stages are skipped by default.
+- Workflow Catalog manifests may record multiple audited source bundles for dedicated composite Adapters.
+- Package version advances to `0.3.0` for the Controller + Hermes workflow lane.
 
 ## [0.2.1] - 2026-07-23
 
