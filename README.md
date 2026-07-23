@@ -222,7 +222,8 @@ See [`docs/production-workflow-binding.md`](docs/production-workflow-binding.md)
 |---|---|
 | `extensions/` | Pi TypeScript extension entrypoint (`index.ts`) |
 | `lib/` | Spine state store, state machine, PR binding checker, workflow catalog/binding/run ledger primitives, permission/controller helpers, and schemas |
-| `docs/` | Release and maintainer docs (`release.md`) |
+| `scripts/` | Workflow ops CLIs (`jsonl-digest`, sandbox canary, production binding/run) |
+| `docs/` | Release, workflow ops runbooks, and maintainer docs |
 | `README.md` | Public entrypoint (this file) |
 | `LICENSE` | MIT license |
 | `CHANGELOG.md` | Version history |
@@ -263,6 +264,8 @@ See [`docs/release.md`](docs/release.md) for setup details.
 `docs/` is optional supporting documentation. README stays the GitHub/npm entrypoint.
 
 - [`docs/release.md`](docs/release.md) — Trusted Publishing details (README Release summarizes the flow)
+- [`docs/production-workflow-binding.md`](docs/production-workflow-binding.md) — Maintenance-project production binding and run commands
+- [`docs/workflow-sandbox-canary-runbook.md`](docs/workflow-sandbox-canary-runbook.md) — Sandbox canary harness modes and safety checks
 - [`ROADMAP.md`](ROADMAP.md) — maintenance context, current release status, and bounded 30–90 minute seed candidates (repo-only, not packaged)
 
 ## Security
