@@ -5,24 +5,41 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
-import { createHermesCompositeManifest, HERMES_ADAPTER_ID } from "../dist/lib/hermes-adapter.js";
-import { ProjectWorkflowBindingStore } from "../dist/lib/project-workflow-binding-store.js";
-import { createParentWorkflowIssueSummary } from "../dist/lib/project-workflow-binding.js";
-import { WorkflowCatalogStore } from "../dist/lib/workflow-catalog-store.js";
-import { runControllerAutopilotTick } from "../dist/lib/workflow-controller-autopilot.js";
-import { buildWorkflowLiveCli } from "../dist/lib/workflow-live-cli.js";
-import {
+import { importSpineLibs } from "./spine-lib-import.mjs";
+
+const {
+  createHermesCompositeManifest,
+  HERMES_ADAPTER_ID,
+  ProjectWorkflowBindingStore,
+  createParentWorkflowIssueSummary,
+  WorkflowCatalogStore,
+  runControllerAutopilotTick,
+  buildWorkflowLiveCli,
   createAutopilotClient,
   createIssueClient,
   createMetadataClient,
   createProjectClient,
   clearStaleDaemonTaskContext,
   runMultica,
-} from "../dist/lib/multica-cli.js";
-import { hashWorkflowRunLedger, WorkflowRunStateStore } from "../dist/lib/workflow-run-state.js";
-import { runCanaryCampaign } from "../dist/lib/workflow-sandbox-campaign.js";
-import { FIXTURE_NAMES, runFixture } from "../dist/lib/workflow-sandbox-fixtures.js";
-import { completeHumanFinalReview } from "../dist/lib/workflow-sandbox-human-review.js";
+  hashWorkflowRunLedger,
+  WorkflowRunStateStore,
+  runCanaryCampaign,
+  FIXTURE_NAMES,
+  runFixture,
+  completeHumanFinalReview,
+} = await importSpineLibs(import.meta.url, [
+  "hermes-adapter.ts",
+  "project-workflow-binding-store.ts",
+  "project-workflow-binding.ts",
+  "workflow-catalog-store.ts",
+  "workflow-controller-autopilot.ts",
+  "workflow-live-cli.ts",
+  "multica-cli.ts",
+  "workflow-run-state.ts",
+  "workflow-sandbox-campaign.ts",
+  "workflow-sandbox-fixtures.ts",
+  "workflow-sandbox-human-review.ts",
+]);
 
 const CANARY_PROJECT_NAME = "pi-multica-spine Idea-to-Build Canary";
 const DEFAULT_CANARY_PATH = "C:/Users/Keisu/Projects/Sandbox/pi-multica-spine-idea-to-build-canary";

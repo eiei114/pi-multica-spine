@@ -4,8 +4,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 const DEFAULT_THRESHOLDS = {
-  lines: 70,
-  branches: 60,
+  lines: 75,
+  branches: 68,
   functions: 75,
 };
 

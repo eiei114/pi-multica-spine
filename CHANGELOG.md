@@ -6,6 +6,21 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-24
+
+### Added
+
+- `importSpineLibs` batch helper on `scripts/spine-lib-import.mjs`.
+- `tests/spine-lib-import.test.mjs`.
+- `docs/investigations/2026-07-24-template-resync-dot-823.md` (DOT-823 periodic re-sync).
+
+### Changed
+
+- **R-MNT-9:** workflow/jsonl CLIs load `lib/` via `importSpineLib` (dist preferred, TypeScript dev fallback).
+- **R-MNT-10:** coverage gate floors raised to lines ≥ 75%, branches ≥ 68%, functions ≥ 75%.
+- **R-MNT-11:** CI actions bumped to `checkout@v7` / `setup-node@v6` per pi-extension-template hygiene.
+- ROADMAP: R-MNT-7..11 absorbed; next lane is onboarding expansion.
+
 ## [0.6.1] - 2026-07-24
 
 ### Added

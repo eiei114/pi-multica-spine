@@ -22,3 +22,11 @@ export async function importSpineLib(fromImportMetaUrl, libRelativePath) {
     return import(pathToFileURL(tsPath).href);
   }
 }
+
+/** Load multiple lib modules in parallel (dist preferred, ts fallback). */
+export async function importSpineLibs(fromImportMetaUrl, libRelativePaths) {
+  const mods = await Promise.all(
+    libRelativePaths.map((path) => importSpineLib(fromImportMetaUrl, path)),
+  );
+  return Object.assign({}, ...mods);
+}

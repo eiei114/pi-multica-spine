@@ -5,24 +5,22 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
-import { createHermesCompositeManifest } from "../dist/lib/hermes-adapter.js";
-import { createParentWorkflowIssueSummary } from "../dist/lib/project-workflow-binding.js";
-import { ProjectWorkflowBindingStore } from "../dist/lib/project-workflow-binding-store.js";
-import { buildWorkflowLiveCli } from "../dist/lib/workflow-live-cli.js";
-import {
+import { importSpineLibs } from "./spine-lib-import.mjs";
+import { applyProductionWorkflowBinding } from "./workflow-production-binding.mjs";
+
+const {
+  createHermesCompositeManifest,
+  createParentWorkflowIssueSummary,
+  ProjectWorkflowBindingStore,
+  buildWorkflowLiveCli,
   createAutopilotClient,
   createIssueClient,
   createMetadataClient,
   createProjectClient,
   clearStaleDaemonTaskContext,
   runMultica,
-} from "../dist/lib/multica-cli.js";
-import {
   PRODUCTION_PROJECT_ID,
   PRODUCTION_REPO_PATH,
-} from "../dist/lib/workflow-production-binding.js";
-import { applyProductionWorkflowBinding } from "./workflow-production-binding.mjs";
-import {
   buildProductionRunPlan,
   buildProductionStageArtifactContent,
   buildProductionWorkflowRunId,
@@ -34,10 +32,22 @@ import {
   PRODUCTION_STATE_RELATIVE,
   summarizeProductionLedger,
   writeProductionImplementationArtifacts,
-} from "../dist/lib/workflow-production-run.js";
-import { hashWorkflowRunLedger, WorkflowRunStateStore } from "../dist/lib/workflow-run-state.js";
-import { runCanaryCampaign } from "../dist/lib/workflow-sandbox-campaign.js";
-import { completeHumanFinalReview } from "../dist/lib/workflow-sandbox-human-review.js";
+  hashWorkflowRunLedger,
+  WorkflowRunStateStore,
+  runCanaryCampaign,
+  completeHumanFinalReview,
+} = await importSpineLibs(import.meta.url, [
+  "hermes-adapter.ts",
+  "project-workflow-binding.ts",
+  "project-workflow-binding-store.ts",
+  "workflow-live-cli.ts",
+  "multica-cli.ts",
+  "workflow-production-binding.ts",
+  "workflow-production-run.ts",
+  "workflow-run-state.ts",
+  "workflow-sandbox-campaign.ts",
+  "workflow-sandbox-human-review.ts",
+]);
 
 const CONTROLLER_TITLE = "pi-multica-spine Production Controller";
 
