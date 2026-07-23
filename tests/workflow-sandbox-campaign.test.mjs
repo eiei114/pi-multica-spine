@@ -35,7 +35,7 @@ function sampleBinding() {
   };
 }
 
-test("buildStageArtifactContent records unresolved color preference in question_resolution", () => {
+test("buildStageArtifactContent records resolved color policy in question_resolution", () => {
   const manifest = createHermesCompositeManifest();
   const ledger = {
     workflowRunId: "run_fixture",
@@ -43,7 +43,8 @@ test("buildStageArtifactContent records unresolved color preference in question_
     stages: {},
   };
   const content = buildStageArtifactContent("question_resolution", manifest, ledger, "rough idea");
-  assert.match(content, /unresolved/i);
+  assert.match(content, /assumed/i);
+  assert.match(content, /json_default_opt_in_color/);
 });
 
 test("workflow sandbox fixtures F3 duplicate event dedupes", async () => {

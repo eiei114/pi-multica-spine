@@ -87,7 +87,7 @@ export function buildSandboxCanaryPlan(config = parseWorkflowSandboxCanaryArgs()
     },
     roughIdea:
       "Build a small TypeScript CLI that reads JSONL task records and outputs status counts plus a stable SHA-256 digest as JSON.",
-    unresolvedPreference: "Whether human-readable summary output should use color remains unresolved.",
+    unresolvedPreference: "Resolved: JSON default; use --human and optional --color on TTY for summaries.",
     artifactRootTemplate: ".multica-spine/canary-artifacts/<workflow-run-id>",
     finalPackageFiles: [
       "00-executive-summary.md",
@@ -372,8 +372,9 @@ export async function generateFinalPackage(canaryPath, state, runEvidence = {}) 
     unresolvedQuestions: [
       {
         topic: "colorized human-readable summary",
-        status: "unresolved",
-        reason: "No user preference recorded; JSON output path is independent.",
+        status: "resolved",
+        policy: "json_default_opt_in_color",
+        reason: "JSON is default output; --human enables summary; --color opt-in on TTY.",
       },
     ],
   };
@@ -490,7 +491,7 @@ export async function runHumanFinalReview(config, reviewInput = {}) {
   const review = await completeHumanFinalReview(state, {
     verdict: "approved",
     reviewer: "Keisu (human operator)",
-    notes: "Sandbox Idea-to-Build canary approved. Unresolved color preference documented and accepted.",
+    notes: "Sandbox Idea-to-Build canary approved. Color policy: JSON default, --human/--color opt-in.",
     unresolvedAccepted: true,
     ...reviewInput,
   }, { liveCli });
