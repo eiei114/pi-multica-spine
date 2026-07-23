@@ -23,12 +23,12 @@ Workflow-adapter tools and CLIs extend that spine so Multica work can be run as 
 
 | Item | Value | Source |
 | --- | --- | --- |
-| Published version | **0.6.0** (2026-07-24) | `npm view pi-multica-spine version`, GitHub Release `v0.6.0` |
-| Working-tree version | `0.6.1` (candidate) | `package.json` |
-| `[Unreleased]` on `main` | pack smoke + ops docs (this branch) | `CHANGELOG.md` |
+| Published version | **0.6.1** (2026-07-24) | `npm view pi-multica-spine version`, GitHub Release `v0.6.1` |
+| Working-tree version | `0.6.1` | `package.json` |
+| `[Unreleased]` on `main` | — | `CHANGELOG.md` |
 | Tool surface | 35 typed tools (10 spine + 25 workflow-adapter) | `extensions/index.ts`, README |
 | Workflow ops | JSONL digest, sandbox canary, production binding, production run CLIs | `scripts/`, `dist/`, `docs/` |
-| CI baseline | green: `build` + `typecheck` + coverage + changelog + `pack:check` + walkthrough (+ `pack:smoke` in 0.6.1) | `npm run ci` |
+| CI baseline | green: `build` + `typecheck` + coverage + changelog + `pack:check` + `pack:smoke` + walkthrough | `npm run ci` |
 | Live lanes | Sandbox DOT-1123; Production DOT-1137 | investigation docs |
 | Master plan DOT-1116 | **completed** 2026-07-24 | Obsidian master plan + closeout doc |
 | Production gate | **CLOSED** (`productionAllowed=false`) | `docs/production-gate-decision.md` |
