@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Offline Hermes Campaign walkthrough: catalog → binding → ledger → stage artifacts → human review.
+ * Offline Hermes Campaign walkthrough: catalog → binding → ledger → full campaign → human review.
  * Uses fixture WorkflowLiveCli (no Multica network / CLI).
  */
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createHermesCompositeManifest } from "../../lib/hermes-adapter.ts";
+import { createHermesCompositeManifest, HERMES_FINAL_STAGE_ID } from "../../lib/hermes-adapter.ts";
 import { ProjectWorkflowBindingStore } from "../../lib/project-workflow-binding-store.ts";
 import { WorkflowCatalogStore } from "../../lib/workflow-catalog-store.ts";
 import {
@@ -26,7 +26,8 @@ import {
 const WALKTHROUGH_PROJECT_ID = "walkthrough-proj-001";
 const WALKTHROUGH_PARENT_ISSUE = "parent_walkthrough";
 const WALKTHROUGH_RUN_ID = "walkthrough-run-001";
-const MAX_STAGE_CYCLES = 5;
+/** Enough cycles to reach `final_package` without manual ledger seeding (R-MNT-16). */
+export const FULL_OFFLINE_CAMPAIGN_STAGE_CYCLES = 80;
 
 async function bootstrapCatalog(catalogStore, manifest) {
   await catalogStore.upsert(manifest, "quarantined");
@@ -34,26 +35,8 @@ async function bootstrapCatalog(catalogStore, manifest) {
   return catalogStore.transition(manifest.adapterId, manifest.adapterVersion, "active");
 }
 
-/** After a partial offline campaign, seed completed/final_package for human-review rehearsal. */
-export async function prepareWalkthroughHumanReviewLedger(runStore, workflowRunId) {
-  await runStore.upsertStage(workflowRunId, {
-    stageId: "final_package",
-    status: "accepted",
-    attempt: 1,
-    issueId: "issue_final",
-    assignedAgentId: "agent_walkthrough",
-    artifactHashes: [],
-  });
-  const ledger = await runStore.load(workflowRunId);
-  if (!ledger) throw new Error(`ledger missing: ${workflowRunId}`);
-  ledger.currentStageId = "final_package";
-  ledger.workflowStatus = "completed";
-  await runStore.save(ledger);
-  return ledger;
-}
-
 export async function runWorkflowCampaignWalkthrough(options = {}) {
-  const maxStageCycles = options.maxStageCycles ?? MAX_STAGE_CYCLES;
+  const maxStageCycles = options.maxStageCycles ?? FULL_OFFLINE_CAMPAIGN_STAGE_CYCLES;
   const includeHumanReview = options.includeHumanReview ?? true;
   const walkthroughRoot =
     options.root ??
@@ -83,15 +66,6 @@ export async function runWorkflowCampaignWalkthrough(options = {}) {
     initialStageId: "capture",
   });
 
-  await runStore.upsertStage(WALKTHROUGH_RUN_ID, {
-    stageId: "capture",
-    status: "seeded",
-    attempt: 1,
-    issueId: "issue_capture",
-    assignedAgentId: "agent_walkthrough",
-    artifactHashes: [],
-  });
-
   const liveCli = createFixtureLiveCli(WALKTHROUGH_PROJECT_ID, WALKTHROUGH_PARENT_ISSUE);
 
   const campaign = await runCanaryCampaign(
@@ -105,14 +79,18 @@ export async function runWorkflowCampaignWalkthrough(options = {}) {
       liveCli,
       runStore,
       roughIdea:
-        "Offline walkthrough: exercise Hermes capture → artifacts with fixture WorkflowLiveCli.",
+        "Offline walkthrough: exercise Hermes capture → final_package with fixture WorkflowLiveCli.",
       maxStageCycles,
     },
   );
 
   let humanReview;
   if (includeHumanReview) {
-    await prepareWalkthroughHumanReviewLedger(runStore, WALKTHROUGH_RUN_ID);
+    if (!campaign.completed || campaign.currentStageId !== HERMES_FINAL_STAGE_ID) {
+      throw new Error(
+        `campaign must complete at ${HERMES_FINAL_STAGE_ID} before human review (got ${campaign.currentStageId}, stop=${campaign.stopReason})`,
+      );
+    }
     humanReview = await completeHumanFinalReview(
       {
         canaryPath: walkthroughRoot,
@@ -123,7 +101,7 @@ export async function runWorkflowCampaignWalkthrough(options = {}) {
       {
         verdict: "approved",
         reviewer: "walkthrough-offline",
-        notes: "Offline human final review rehearsal after campaign sample stages.",
+        notes: "Offline human final review after full campaign reached final_package.",
       },
       {
         liveCli,
@@ -145,7 +123,9 @@ export async function runWorkflowCampaignWalkthrough(options = {}) {
   const ledgerHash = hashWorkflowRunLedger(ledger);
   const ok =
     catalogEntry.status === "active" &&
-    campaign.stages.length >= 1 &&
+    campaign.completed &&
+    campaign.currentStageId === HERMES_FINAL_STAGE_ID &&
+    ledger.workflowStatus === "completed" &&
     !binding.deliveryPolicy.productionAllowed &&
     (!includeHumanReview || humanReview?.verdict === "approved");
 

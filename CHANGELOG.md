@@ -6,6 +6,20 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-07-24
+
+### Added
+
+- Full offline campaign walkthrough through `final_package` without ledger seeding (R-MNT-16).
+- `scripts/workflow-sandbox-checklist.mjs` for automated sandbox ops preflight (R-MNT-17).
+- `scripts/template-resync-check.mjs` for periodic pi-extension-template hygiene (R-MNT-18).
+
+### Changed
+
+- Campaign walkthrough human review runs only after natural `final_package` completion.
+- CI runs `check:template` and `check:sandbox-checklist`.
+- ROADMAP: R-MNT-16..18 absorbed.
+
 ## [0.7.2] - 2026-07-24
 
 ### Added

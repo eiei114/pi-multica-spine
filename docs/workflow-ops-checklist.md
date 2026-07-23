@@ -12,6 +12,7 @@ Short path to run Multica work through the workflow adapter **without** opening 
 ## Preconditions (both lanes)
 
 0. Optional offline rehearsal: `node examples/workflow-campaign-walkthrough/run-walkthrough.mjs` (no Multica CLI).
+0b. Automated preflight: `npm run check:sandbox-checklist` (offline) or `npm run check:sandbox-checklist -- --live` before live sandbox ops.
 1. `npm run build` (or `npm run ci`) so `dist/lib` exists for CLI imports.
 2. `multica` authenticated with a **user** token.
 3. No stale daemon marker — auto-cleared in v0.5.2+; manual: `rm -f .multica/daemon_task_context.json`.

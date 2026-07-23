@@ -14,12 +14,18 @@ Compared `pi-multica-spine@0.6.1` against local `pi-extension-template@0.1.6` (p
 
 | Delta | Reason |
 | --- | --- |
-| Template `publish.yml` curl pre-check before `setup-node` | pi-multica-spine already skips via `npm view` + E403 classifier; changing OIDC order risks regressions |
 | Template `push`/`tags` publish triggers | Removed in 0.6.0 (DOT-881 single-trigger design) |
 | `skills/`, `prompts/`, `themes/` scaffold layout | Not applicable to Multica spine package |
 | `create-pi-extension` workspace / `sync:template` | Different publish model (this repo publishes `pi-multica-spine` directly) |
 | Example extensions (`hello.ts`, TUI dashboard) | Out of scope for workflow adapter package |
 
+## Adopted later
+
+| Delta | Action |
+| --- | --- |
+| Template `publish.yml` curl pre-check before `setup-node` | Adopted in v0.7.2 (R-MNT-14) |
+| Periodic template hygiene script | `npm run check:template` / `scripts/template-resync-check.mjs` (v0.7.3, R-MNT-18) |
+
 ## Next periodic check
 
-Re-diff when `pi-extension-template` bumps peer deps or release workflow guardrails change.
+Re-run `npm run check:template` when `pi-extension-template` bumps peer deps or release workflow guardrails change.
