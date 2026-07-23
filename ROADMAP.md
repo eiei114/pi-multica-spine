@@ -20,9 +20,9 @@ a narrow spine for work agents.
 
 | Item | Value | Source |
 | --- | --- | --- |
-| Published version | **0.5.1** (2026-07-24) | `npm view pi-multica-spine version`, GitHub Release `v0.5.1` |
-| Working-tree version | `0.5.2` (in progress) | `package.json` |
-| `[Unreleased]` on `main` | Daemon task context guard + production runbook (→ **0.5.2**) | `CHANGELOG.md` |
+| Published version | **0.5.2** (2026-07-24) | `npm view pi-multica-spine version`, GitHub Release `v0.5.2` |
+| Working-tree version | `0.5.2` | `package.json` |
+| `[Unreleased]` on `main` | — | `CHANGELOG.md` |
 | Tool surface | 35 typed tools (10 spine + 25 workflow-adapter) | `extensions/index.ts`, README |
 | Workflow ops | JSONL digest, sandbox canary, production binding, production run CLIs | `scripts/`, `docs/` |
 | CI baseline | green: `typecheck` + `test:coverage` + `pack:check`; 155+ tests | `npm run ci` |
@@ -38,7 +38,6 @@ See [`docs/release.md`](docs/release.md).
 
 ## Short-term maintenance goals (next 2–3 releases)
 
-- **Next patch (0.5.2)** — Ship daemon task context auto-cleanup for workflow CLIs and the production run runbook.
 - **0.5.x** — Keep workflow runbooks and investigation evidence aligned with live Maintenance/sandbox lanes.
 - **0.6.0** — Coverage gate (**R-MNT-3**), onboarding examples (**R-MNT-4**), and publish hardening seeds as bandwidth allows.
 
