@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
-import { relative, resolve } from "node:path";
+import { posix, relative, resolve } from "node:path";
 import { Type } from "typebox";
 import { StringEnum } from "../lib/schema.ts";
 import {
@@ -441,8 +441,8 @@ function portableRelativePath(from: string, to: string): string {
 }
 
 function pathWithinArtifactRoot(outputPath: string, artifactRoot: string): boolean {
-  const cleanOutput = outputPath.replace(/\\/g, "/").replace(/^\.\//, "");
-  const cleanRoot = artifactRoot.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/$/, "");
+  const cleanOutput = posix.normalize(outputPath.replace(/\\/g, "/").replace(/^\.\//, ""));
+  const cleanRoot = posix.normalize(artifactRoot.replace(/\\/g, "/").replace(/^\.\//, "")).replace(/\/$/, "");
   return cleanOutput === cleanRoot || cleanOutput.startsWith(`${cleanRoot}/`);
 }
 
@@ -462,16 +462,42 @@ async function buildWorkflowParentSummary(
   const { binding, catalogEntry } = await resolveBindingAndManifest(ctx, args.projectIdOrKey);
   const existingLedger = await workflowRunStoreFor(ctx).load(args.workflowRunId);
   if (!existingLedger) throw new Error(`Workflow run not found: ${args.workflowRunId}`);
-  const statePointer =
-    args.workflowStatePointer || portableRelativePath(ctx.cwd, workflowRunStoreFor(ctx).ledgerPath(args.workflowRunId));
+  if (
+    existingLedger.multicaProjectId !== binding.multicaProjectId ||
+    existingLedger.adapterId !== binding.adapterId ||
+    existingLedger.adapterVersion !== binding.adapterVersion ||
+    existingLedger.adapterBundleHash !== catalogEntry.manifest.derivedBundleHash
+  ) {
+    throw new Error(`Workflow run ${args.workflowRunId} does not match binding ${binding.multicaProjectId}`);
+  }
+  const workflowStage = existingLedger.currentStageId ?? "pending";
+  const workflowStatus = existingLedger.workflowStatus;
+  const statePointer = portableRelativePath(ctx.cwd, workflowRunStoreFor(ctx).ledgerPath(args.workflowRunId));
+  const stateHash = hashWorkflowRunLedger(existingLedger);
+  const workflowBundleHash = catalogEntry.manifest.derivedBundleHash;
+  if (args.workflowStage !== workflowStage) {
+    throw new Error(`Workflow stage summary mismatch: expected ${workflowStage}, got ${args.workflowStage}`);
+  }
+  if (args.workflowStatus !== workflowStatus) {
+    throw new Error(`Workflow status summary mismatch: expected ${workflowStatus}, got ${args.workflowStatus}`);
+  }
+  if (args.workflowStatePointer && args.workflowStatePointer !== statePointer) {
+    throw new Error(`Workflow state pointer mismatch: expected ${statePointer}, got ${args.workflowStatePointer}`);
+  }
+  if (args.workflowStateHash && args.workflowStateHash !== stateHash) {
+    throw new Error("Workflow state hash does not match the durable run ledger");
+  }
+  if (args.workflowBundleHash && args.workflowBundleHash !== workflowBundleHash) {
+    throw new Error("Workflow bundle hash does not match the active catalog entry");
+  }
   return createParentWorkflowIssueSummary({
     binding,
     workflowRunId: args.workflowRunId,
-    workflowBundleHash: args.workflowBundleHash ?? catalogEntry.manifest.derivedBundleHash,
-    workflowStage: args.workflowStage,
-    workflowStatus: args.workflowStatus,
+    workflowBundleHash,
+    workflowStage,
+    workflowStatus,
     workflowStatePointer: statePointer,
-    workflowStateHash: args.workflowStateHash ?? hashWorkflowRunLedger(existingLedger),
+    workflowStateHash: stateHash,
     needsHumanReview: args.needsHumanReview,
   });
 }
@@ -481,6 +507,13 @@ function rethrowWorkflowProductGap(error: unknown): never {
     throw new Error(`${error.message} File a product-gap child issue under the workflow parent before simulating success.`);
   }
   throw error;
+}
+
+async function assertLiveIssueProject(issueIdentifier: string, expectedProjectId: string): Promise<void> {
+  const issue = await workflowLiveCli.getIssue(issueIdentifier);
+  if (issue.project_id !== expectedProjectId) {
+    throw new Error(`Workflow issue project mismatch: expected ${expectedProjectId}, got ${issue.project_id ?? "unknown"}`);
+  }
 }
 
 export default function multicaSpineExtension(pi: ExtensionAPI) {
@@ -763,6 +796,9 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
       if (args.writeback) {
         if (!args.parentIssueId) throw new Error("parentIssueId is required when writeback=true");
         try {
+          const binding = await workflowBindingStoreFor(ctx).get(args.projectIdOrKey);
+          if (!binding) throw new Error(`Workflow binding not found: ${args.projectIdOrKey}`);
+          await assertLiveIssueProject(args.parentIssueId, binding.multicaProjectId);
           metadata = await workflowLiveCli.writeParentSummary(args.parentIssueId, summary);
         } catch (error) {
           rethrowWorkflowProductGap(error);
@@ -820,6 +856,7 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
           workflowStatus: ledger.workflowStatus,
         });
         try {
+          await assertLiveIssueProject(args.parentIssueId, binding.multicaProjectId);
           parentMetadata = await workflowLiveCli.writeParentSummary(args.parentIssueId, summary);
         } catch (error) {
           rethrowWorkflowProductGap(error);
@@ -843,6 +880,7 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
       if (args.live) {
         if (!args.parentIssueId) throw new Error("parentIssueId is required when live=true");
         try {
+          await assertLiveIssueProject(args.parentIssueId, ledger.multicaProjectId);
           parentMetadata = await workflowLiveCli.readRunMetadata(args.parentIssueId);
         } catch (error) {
           rethrowWorkflowProductGap(error);
@@ -931,6 +969,8 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
       let nextStage: WorkflowStageState;
       if (args.live) {
         try {
+          if (!stage.issueId) throw new Error(`Live stage transition requires a stage issue: ${args.stageId}`);
+          await assertLiveIssueProject(stage.issueId, ledger.multicaProjectId);
           nextStage = await transitionWorkflowStageLive(workflowLiveCli, stage, args.status, latestArtifact);
         } catch (error) {
           rethrowWorkflowProductGap(error);
@@ -964,6 +1004,22 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
       if (!binding) throw new Error(`Workflow binding not found for project: ${existingLedger.multicaProjectId}`);
       if (!pathWithinArtifactRoot(args.artifact.outputPath, binding.artifactRoot)) {
         throw new Error(`Artifact output path must stay under binding artifactRoot ${binding.artifactRoot}: ${args.artifact.outputPath}`);
+      }
+      if (args.live) {
+        const stage = existingLedger.stages[args.artifact.stageId];
+        if (!stage?.issueId) {
+          throw new Error(`Live artifact writeback requires a stage issue: ${args.artifact.stageId}`);
+        }
+        if (args.artifact.producerIssueId !== stage.issueId) {
+          throw new Error(
+            `Artifact producer issue mismatch for ${args.artifact.stageId}: expected ${stage.issueId}, got ${args.artifact.producerIssueId}`,
+          );
+        }
+        try {
+          await assertLiveIssueProject(stage.issueId, existingLedger.multicaProjectId);
+        } catch (error) {
+          rethrowWorkflowProductGap(error);
+        }
       }
       const ledger = await mutateWorkflow(ctx, () => runStore.recordArtifact(args.workflowRunId, args.artifact));
       let stageMetadata;

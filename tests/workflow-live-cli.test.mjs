@@ -8,7 +8,9 @@ import {
   parentSummaryMetadataEntries,
   stageWritebackMetadataEntries,
   WORKFLOW_COMPLETION_AUTHORITY,
+  WorkflowProductGapError,
 } from "../lib/workflow-live-cli.ts";
+import { seedWorkflowStageLive } from "../lib/workflow-controller.ts";
 import {
   createAutopilotClient,
   createIssueClient,
@@ -87,6 +89,7 @@ test("parentSummaryMetadataEntries always sets completion_authority=workflow_con
   const entries = parentSummaryMetadataEntries(summary);
   assert.equal(entries.completion_authority, WORKFLOW_COMPLETION_AUTHORITY);
   assert.equal(entries.workflow_run_id, "run-live-1");
+  assert.equal(Object.keys(entries).at(-1), "workflow_state_hash");
 });
 
 test("stageWritebackMetadataEntries includes PR and artifact lineage keys", () => {
@@ -113,6 +116,21 @@ test("stageWritebackMetadataEntries includes PR and artifact lineage keys", () =
   assert.equal(entries.completion_authority, WORKFLOW_COMPLETION_AUTHORITY);
   assert.equal(entries.pr_number, 99);
   assert.equal(entries.workflow_artifact_output_hash, "c".repeat(64));
+});
+
+test("stageWritebackMetadataEntries prevents extra metadata from overriding completion authority", () => {
+  const entries = stageWritebackMetadataEntries({
+    issueIdentifier: "stage-issue-1",
+    prUrl: "https://example.test/expected",
+    extra: {
+      completion_authority: "worker",
+      pr_url: "https://example.test/spoofed",
+      workflow_artifact_output_hash: "d".repeat(64),
+    },
+  });
+  assert.equal(entries.completion_authority, WORKFLOW_COMPLETION_AUTHORITY);
+  assert.equal(entries.pr_url, "https://example.test/expected");
+  assert.equal(entries.workflow_artifact_output_hash, undefined);
 });
 
 test("createWorkflowLiveCli creates stage issues and writes parent summary via fixture runner", async () => {
@@ -156,4 +174,85 @@ test("buildWorkflowLiveCli transitions stage issue status through issue client",
   const issue = await liveCli.transitionStageIssue("stage-issue-1", "in_progress");
   assert.equal(issue.status, "in_progress");
   assert.deepEqual(calls.find((args) => args[1] === "status"), ["issue", "status", "stage-issue-1", "in_progress", "--output", "json"]);
+});
+
+test("seedWorkflowStageLive writes controller metadata before assigning the worker", async () => {
+  const calls = [];
+  const liveCli = {
+    async getIssue(issueIdentifier) {
+      calls.push({ action: "get-parent", issueIdentifier });
+      return { id: issueIdentifier, project_id: sampleBinding.multicaProjectId };
+    },
+    async createStageIssue(input) {
+      calls.push({ action: "create", input });
+      return { id: "stage-issue-1", identifier: "DOT-9001" };
+    },
+    async writeStageWriteback(input) {
+      calls.push({ action: "writeback", input });
+      return {};
+    },
+    async assignStageIssue(issueIdentifier, assigneeId) {
+      calls.push({ action: "assign", issueIdentifier, assigneeId });
+      return { id: issueIdentifier, assignee_id: assigneeId };
+    },
+  };
+  const ledger = { workflowRunId: "run-live-1", stages: {} };
+  const manifest = { stages: [{ stageId: "capture_interview", role: "interview" }] };
+
+  const seeded = await seedWorkflowStageLive({
+    ledger,
+    manifest,
+    binding: sampleBinding,
+    parentIssueId: "parent-issue-1",
+    liveCli,
+  });
+
+  assert.equal(seeded.issueId, "stage-issue-1");
+  assert.deepEqual(calls.map((call) => call.action), ["get-parent", "create", "writeback", "assign"]);
+  assert.equal(calls[1].input.stage, 1);
+  assert.equal(calls[1].input.assigneeId, undefined);
+  assert.equal(calls[2].input.extra.completion_authority, WORKFLOW_COMPLETION_AUTHORITY);
+});
+
+test("seedWorkflowStageLive rejects a parent issue from another project before creation", async () => {
+  let created = false;
+  const liveCli = {
+    async getIssue(issueIdentifier) {
+      return { id: issueIdentifier, project_id: "other-project" };
+    },
+    async createStageIssue() {
+      created = true;
+      return { id: "stage-issue-1" };
+    },
+  };
+
+  await assert.rejects(
+    () => seedWorkflowStageLive({
+      ledger: { workflowRunId: "run-live-1", stages: {} },
+      manifest: { stages: [{ stageId: "capture_interview", role: "interview" }] },
+      binding: sampleBinding,
+      parentIssueId: "parent-issue-1",
+      liveCli,
+    }),
+    /parent issue project mismatch/,
+  );
+  assert.equal(created, false);
+});
+
+test("WorkflowProductGapError only wraps missing CLI capabilities, not missing resources", async () => {
+  const missingCapability = createWorkflowLiveCli(async () => {
+    throw new Error("unknown command metadata");
+  });
+  await assert.rejects(
+    () => missingCapability.readRunMetadata("DOT-1"),
+    (error) => error instanceof WorkflowProductGapError && error.capability === "issue.metadata.list",
+  );
+
+  const missingResource = createWorkflowLiveCli(async () => {
+    throw new Error("project not found: missing-project");
+  });
+  await assert.rejects(
+    () => missingResource.verifyProject("missing-project"),
+    (error) => !(error instanceof WorkflowProductGapError) && /project not found/.test(error.message),
+  );
 });

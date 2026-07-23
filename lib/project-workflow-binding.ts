@@ -1,4 +1,4 @@
-import { isAbsolute, normalize } from "node:path";
+import { isAbsolute, posix } from "node:path";
 import { Type, type Static } from "typebox";
 import type { WorkflowCatalogManifest } from "./workflow-catalog.ts";
 import { StringEnum } from "./schema.ts";
@@ -68,7 +68,7 @@ function isRelativeArtifactRoot(root: string): boolean {
   if (!root.trim()) return false;
   if (isAbsolute(root)) return false;
   if (/^[A-Za-z]:[\\/]/.test(root)) return false;
-  const normalized = normalize(root).replace(/\\/g, "/");
+  const normalized = posix.normalize(root.replace(/\\/g, "/"));
   return !normalized.startsWith("../") && normalized !== "..";
 }
 

@@ -155,9 +155,16 @@ export async function seedWorkflowStageLive(input: LiveStageSeedInput): Promise<
   if (!stageId) throw new Error(`No next stage available for workflow run: ${input.ledger.workflowRunId}`);
   const manifestStage = input.manifest.stages.find((stage) => stage.stageId === stageId);
   if (!manifestStage) throw new Error(`Cannot seed unknown manifest stage: ${stageId}`);
+  const stageOrdinal = input.manifest.stages.findIndex((stage) => stage.stageId === stageId) + 1;
   const assignedAgentId = input.binding.roleRoutes[manifestStage.role]?.agentId;
   if (!assignedAgentId) {
     throw new Error(`Binding missing role route for stage ${stageId} role ${manifestStage.role}`);
+  }
+  const parentIssue = await input.liveCli.getIssue(input.parentIssueId);
+  if (parentIssue.project_id !== input.binding.multicaProjectId) {
+    throw new Error(
+      `Workflow parent issue project mismatch: expected ${input.binding.multicaProjectId}, got ${parentIssue.project_id ?? "unknown"}`,
+    );
   }
   const attempt = input.attempt ?? input.ledger.stages[stageId]?.attempt ?? 1;
   const title = `${input.titlePrefix ?? "Workflow stage"}: ${stageId} (attempt ${attempt})`;
@@ -165,8 +172,8 @@ export async function seedWorkflowStageLive(input: LiveStageSeedInput): Promise<
     title,
     description: `Workflow run ${input.ledger.workflowRunId} stage ${stageId} attempt ${attempt}. completion_authority=${WORKFLOW_COMPLETION_AUTHORITY}`,
     parentIssueId: input.parentIssueId,
+    stage: stageOrdinal,
     projectId: input.binding.multicaProjectId,
-    assigneeId: assignedAgentId,
     status: "todo",
   });
   await input.liveCli.writeStageWriteback({
@@ -178,6 +185,7 @@ export async function seedWorkflowStageLive(input: LiveStageSeedInput): Promise<
       completion_authority: WORKFLOW_COMPLETION_AUTHORITY,
     },
   });
+  await input.liveCli.assignStageIssue(issue.id, assignedAgentId);
   const stage = seedWorkflowStage(input.ledger, input.manifest, input.binding, {
     stageId,
     attempt,
