@@ -29,15 +29,31 @@ function npm(args, opts = {}) {
   return execFileSync("npm", args, { cwd, encoding: "utf8", stdio });
 }
 
+function parseNpmPackFilename(stdout) {
+  const trimmed = String(stdout).trim();
+  const start = Math.min(
+    ...["[", "{"]
+      .map((ch) => {
+        const idx = trimmed.indexOf(ch);
+        return idx === -1 ? Number.POSITIVE_INFINITY : idx;
+      }),
+  );
+  if (!Number.isFinite(start)) {
+    throw new Error(`npm pack --json produced no JSON: ${trimmed.slice(0, 200)}`);
+  }
+  const packed = JSON.parse(trimmed.slice(start));
+  const entry = Array.isArray(packed) ? packed[0] : packed;
+  const tarballName = entry?.filename;
+  if (!tarballName || typeof tarballName !== "string") {
+    throw new Error(`npm pack --json did not return a filename: ${trimmed.slice(0, 400)}`);
+  }
+  return tarballName;
+}
+
 async function main() {
   npm(["run", "build"], { stdio: "inherit" });
 
-  const packJson = npm(["pack", "--json"]).trim();
-  const packed = JSON.parse(packJson);
-  const tarballName = packed[0]?.filename ?? packed[0]?.id;
-  if (!tarballName) {
-    throw new Error(`npm pack --json did not return a filename: ${packJson}`);
-  }
+  const tarballName = parseNpmPackFilename(npm(["pack", "--json"]));
   const tarballPath = join(root, tarballName);
 
   const smokeRoot = await mkdtemp(join(tmpdir(), "pi-multica-spine-pack-smoke-"));
