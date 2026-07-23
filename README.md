@@ -93,7 +93,7 @@ Replace `pi-multica-spine` with the exact `name` from `package.json` when you fo
 Pin a specific version when you want reproducible installs:
 
 ```bash
-pi install npm:pi-multica-spine@0.7.0
+pi install npm:pi-multica-spine@0.7.1
 ```
 
 Install into the current project instead of your user Pi settings:
@@ -236,7 +236,7 @@ npm install
 npm run ci
 ```
 
-`npm run ci` runs build, typecheck, coverage gate, changelog lint, `pack:check`, `pack:smoke` (install tarball + digest CLI), and walkthrough smoke.
+`npm run ci` runs build, typecheck, coverage gate, changelog lint, `pack:check`, `pack:smoke` (install tarball + digest CLI), both walkthrough smokes, and `npm pack --dry-run`.
 
 Individual checks:
 
@@ -269,6 +269,7 @@ See [`docs/release.md`](docs/release.md) for setup details.
 - [`docs/workflow-production-run-runbook.md`](docs/workflow-production-run-runbook.md) — Production lane CLI modes and daemon context guard
 - [`docs/workflow-sandbox-canary-runbook.md`](docs/workflow-sandbox-canary-runbook.md) — Sandbox canary harness modes and safety checks
 - [`examples/minimal-walkthrough/`](examples/minimal-walkthrough/) — offline spine verify demo (repo-only, not packaged)
+- [`examples/workflow-campaign-walkthrough/`](examples/workflow-campaign-walkthrough/) — offline Hermes Campaign walkthrough (repo-only)
 - [`CONTEXT.md`](CONTEXT.md) — domain glossary (repo-only)
 - [`docs/investigations/2026-07-24-workflow-adapter-completion-closeout.md`](docs/investigations/2026-07-24-workflow-adapter-completion-closeout.md) — DOT-1116 master plan closeout (repo-only)
 - [`docs/workflow-ops-checklist.md`](docs/workflow-ops-checklist.md) — daily sandbox / Maintenance rehearsal path
