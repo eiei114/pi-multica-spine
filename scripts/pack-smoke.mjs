@@ -30,22 +30,30 @@ function npm(args, opts = {}) {
 }
 
 function parseNpmPackFilename(stdout) {
+  // Prefer plain `npm pack` last non-empty line (stable across npm JSON shapes).
+  const lines = String(stdout)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.startsWith("npm "));
+  const fromPlain = [...lines].reverse().find((line) => line.endsWith(".tgz"));
+  if (fromPlain) return fromPlain;
+
+  // Fallback: npm pack --json may be an array, a flat object, or a name→entry map.
   const trimmed = String(stdout).trim();
-  const start = Math.min(
-    ...["[", "{"]
-      .map((ch) => {
-        const idx = trimmed.indexOf(ch);
-        return idx === -1 ? Number.POSITIVE_INFINITY : idx;
-      }),
-  );
-  if (!Number.isFinite(start)) {
-    throw new Error(`npm pack --json produced no JSON: ${trimmed.slice(0, 200)}`);
+  const startCandidates = ["[", "{"].map((ch) => trimmed.indexOf(ch)).filter((idx) => idx >= 0);
+  if (startCandidates.length === 0) {
+    throw new Error(`npm pack produced no tarball name: ${trimmed.slice(0, 200)}`);
   }
-  const packed = JSON.parse(trimmed.slice(start));
-  const entry = Array.isArray(packed) ? packed[0] : packed;
-  const tarballName = entry?.filename;
-  if (!tarballName || typeof tarballName !== "string") {
-    throw new Error(`npm pack --json did not return a filename: ${trimmed.slice(0, 400)}`);
+  const packed = JSON.parse(trimmed.slice(Math.min(...startCandidates)));
+  const entries = Array.isArray(packed)
+    ? packed
+    : packed?.filename
+      ? [packed]
+      : Object.values(packed ?? {});
+  const tarballName = entries.find((entry) => typeof entry?.filename === "string")?.filename;
+  if (!tarballName) {
+    throw new Error(`npm pack did not return a filename: ${trimmed.slice(0, 400)}`);
   }
   return tarballName;
 }
@@ -53,7 +61,8 @@ function parseNpmPackFilename(stdout) {
 async function main() {
   npm(["run", "build"], { stdio: "inherit" });
 
-  const tarballName = parseNpmPackFilename(npm(["pack", "--json"]));
+  // Plain pack: last line is the tarball filename (avoids npm --json shape churn).
+  const tarballName = parseNpmPackFilename(npm(["pack"]));
   const tarballPath = join(root, tarballName);
 
   const smokeRoot = await mkdtemp(join(tmpdir(), "pi-multica-spine-pack-smoke-"));
