@@ -69,8 +69,8 @@ See [`docs/release.md`](docs/release.md).
 
 | ID | Seed | Scope | Outcome |
 | --- | --- | --- | --- |
-| R-MNT-7 | Pack-install smoke for published CLIs | ~45–60 min | `npm run pack:smoke` in CI |
-| R-MNT-8 | Ops checklist + production gate decision note | ~30–45 min | One-page daily path; gate stays closed |
+| ~~R-MNT-7~~ | Pack-install smoke for published CLIs | ~45–60 min | done in v0.6.1 |
+| ~~R-MNT-8~~ | Ops checklist + production gate decision note | ~30–45 min | done in v0.6.1 |
 | R-MNT-9 | Optional: migrate CLIs to `importSpineLib` | ~60–90 min | Dev fallback without prior `build` |
 | R-MNT-10 | Raise coverage floors toward 0.7.0 | ~45–75 min | Tighten gate after measuring headroom |
 | R-MNT-11 | Template re-sync pass (DOT-823) | ~60–90 min | Diff vs current pi-extension-template |
