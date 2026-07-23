@@ -6,6 +6,18 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-07-24
+
+### Added
+
+- `examples/workflow-campaign-walkthrough/` — offline Hermes Campaign demo (catalog → binding → ledger → `runCanaryCampaign` with fixture live CLI).
+- `npm run walkthrough` runs spine + campaign examples.
+
+### Changed
+
+- **R-MNT-12:** CI includes campaign walkthrough smoke.
+- README and workflow ops checklist link to the new example.
+
 ## [0.7.0] - 2026-07-24
 
 ### Added

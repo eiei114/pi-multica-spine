@@ -7,3 +7,5 @@ node examples/minimal-walkthrough/run-walkthrough.mjs
 ```
 
 No `multica` CLI or network access is required.
+
+See also [`../workflow-campaign-walkthrough/`](../workflow-campaign-walkthrough/) for an offline Hermes Campaign demo.
