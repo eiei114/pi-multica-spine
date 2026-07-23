@@ -15,18 +15,22 @@
 
 `pi-multica-spine` is for Pi agents doing implementation or PR-producing work inside Multica. It injects a short work-agent contract and exposes typed tools that make forgotten PR binding, verification evidence, and handoff gaps visible before an agent reports done.
 
+It also includes an **experimental workflow-adapter control-plane foundation** for the latest Multica design work: workflow catalog manifests, project workflow bindings, compact parent issue summaries, repo-local workflow run ledgers, stage transitions, artifact envelopes, question records, and effective-permission checks.
+
 It does not replace Multica controllers, Todo Runner, Review Sentinel, or PR creation flow. It is a narrow spine for work agents.
 
 ## Features
 
-- Ten typed spine tools: bind, context, next, link PR, add evidence, handoff, verify, and metadata list/set/delete CLI wrappers.
+- Twenty-five typed tools: ten work-agent spine tools plus fifteen experimental workflow-adapter control-plane tools.
 - Repo-local `.multica-spine/` state store with opaque issue identifiers and ASCII-safe task filenames.
 - Work-agent contract injected into Pi sessions so agents see the bind → PR → evidence → handoff flow up front.
 - PR binding checker with a recommended `Multica Issue: <issue-identifier>` PR body line.
 - Local import closure check: `multica_spine_verify` blocks completion while a linked vault issue still has `ready_for_multica: true`.
 - Done gate via `multica_spine_verify` — fails until issue binding, PR writeback, evidence, handoff, local import closure, and git completion (clean worktree, no conflict markers, pushed commits, current PR head SHA) are complete.
+- Experimental workflow-adapter persistence under `.multica-spine/workflow-catalog/`, `.multica-spine/workflow-bindings/`, and `.multica-spine/workflow-runs/`.
+- Workflow catalog manifest validation, lifecycle transitions, project binding validation, parent summary generation, workflow run ledger creation, stage seeding/transitions, artifact recording, question recording, and effective-permission intersection checks.
 
-### Tools
+### Work-agent spine tools
 
 | Tool | Purpose |
 |---|---|
@@ -42,6 +46,28 @@ It does not replace Multica controllers, Todo Runner, Review Sentinel, or PR cre
 | `multica_spine_metadata_delete` | Remove one metadata key via `multica issue metadata delete --output json`. Deleting a missing key is a no-op. |
 
 The `multica_spine_metadata_*` tools are CLI wrappers around the `multica` CLI. They always pass `--output json` and return the parsed key/value map. Each accepts an optional `issueIdentifier` (UUID or key like `DOT-123`) and falls back to the currently bound issue when omitted. They are independent of the bind → PR → evidence → handoff → verify completion gate, so reading or writing metadata does not affect `multica_spine_verify`.
+
+### Experimental workflow-adapter tools
+
+| Tool | Purpose |
+|---|---|
+| `multica_workflow_catalog_put` | Validate and persist one workflow catalog manifest entry. |
+| `multica_workflow_catalog_get` | Read one persisted catalog entry by adapter id/version. |
+| `multica_workflow_catalog_list` | List repo-local catalog entries. |
+| `multica_workflow_catalog_transition` | Move an entry through `quarantined / audited / active / deprecated / revoked`. |
+| `multica_workflow_binding_put` | Validate and persist one project workflow binding against the catalog manifest. |
+| `multica_workflow_binding_get` | Read one persisted workflow binding by project id/key. |
+| `multica_workflow_binding_list` | List repo-local workflow bindings. |
+| `multica_workflow_parent_summary` | Build the compact parent workflow issue summary for a workflow run. |
+| `multica_workflow_run_create` | Create one repo-local workflow run ledger from a binding + catalog entry. |
+| `multica_workflow_run_context` | Inspect one workflow run ledger and state hash. |
+| `multica_workflow_stage_seed` | Seed the next/specified stage from manifest order + binding role routes. |
+| `multica_workflow_stage_transition` | Transition a stage through `seeded / waiting / produced / accepted / retrying / failed`. |
+| `multica_workflow_artifact_record` | Record a workflow artifact envelope in the ledger. |
+| `multica_workflow_question_record` | Record a Question Task answer artifact in the ledger. |
+| `multica_workflow_permission_check` | Compute effective permission as Adapter ∩ Project ∩ Stage ∩ Issue ∩ Agent capability. |
+
+These workflow tools are **experimental control-plane primitives**. They do not yet replace a live Multica controller/autopilot. Current scope: deterministic repo-local state and validation for the latest adapter-contract design.
 
 ## Install
 
@@ -139,6 +165,9 @@ State is repo-local:
 ```txt
 .multica-spine/current.json
 .multica-spine/tasks/<safe-issue-identifier>.json
+.multica-spine/workflow-catalog/<adapter>/v<version>.json
+.multica-spine/workflow-bindings/<project>.json
+.multica-spine/workflow-runs/<workflow-run-id>/state-ledger.json
 ```
 
 Issue identifiers are stored canonically as opaque strings. Filenames are ASCII-safe slugs with a short hash suffix.
@@ -148,7 +177,7 @@ Issue identifiers are stored canonically as opaque strings. Filenames are ASCII-
 | Path | Purpose |
 |---|---|
 | `extensions/` | Pi TypeScript extension entrypoint (`index.ts`) |
-| `lib/` | Spine state store, state machine, PR binding checker, local import closure checker, git completion checker, and schemas |
+| `lib/` | Spine state store, state machine, PR binding checker, workflow catalog/binding/run ledger primitives, permission/controller helpers, and schemas |
 | `docs/` | Release and maintainer docs (`release.md`) |
 | `README.md` | Public entrypoint (this file) |
 | `LICENSE` | MIT license |

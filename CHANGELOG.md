@@ -6,17 +6,27 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-23
+
 ### Changed
 
-- Align package metadata and extension patterns with pi-extension-template 0.80.x baseline (DOT-823)
-- Bump package version to `0.1.5` for the next patch release.
+- Remove the `push` trigger from `.github/workflows/publish.yml` so version bumps publish through the `auto-release.yml` → `workflow_dispatch` handoff only, preventing the duplicate-publish TOCTOU race (DOT-881).
+
+### Added
+
+- Experimental Multica workflow-adapter foundation modules under `lib/`: workflow catalog manifest validation/lifecycle, project workflow binding + compact parent issue summary, and repo-local workflow run state-ledger storage for the latest adapter-contract design.
+- Experimental workflow-adapter tools: catalog put/get/list/transition, binding put/get/list, parent summary generation, workflow run create/context, stage seed/transition, artifact/question record, and effective-permission check.
+
+## [0.1.5] - 2026-07-20
+
+### Changed
+
+- Align package metadata and extension patterns with pi-extension-template 0.80.x baseline (DOT-823).
+- Bump package version to `0.1.5` for the patch release.
 
 ### Added
 
 - `multica_spine_metadata_list`, `multica_spine_metadata_set`, and `multica_spine_metadata_delete` tools: CLI wrappers around `multica issue metadata list|set|delete` that force `--output json` and return the parsed key/value map. Each tool defaults to the bound issue when `issueIdentifier` is omitted, and `set` preserves the JS value type by default (overridable via `type`). These tools are independent of the `multica_spine_verify` completion gate.
-
-### Added
-
 - `multica_spine_add_evidence` now dedups evidence: repeated calls with the same `kind`, `command`, and `exitCode` refresh the existing record instead of appending a duplicate, keeping at most one entry per verification step.
 
 ## [0.1.4] - 2026-07-07
@@ -62,4 +72,3 @@ This project follows semantic versioning.
 - State machine for `UNBOUND`, `BOUND`, `PR_LINKED`, `EVIDENCE_READY`, `HANDOFF_READY`, and `VERIFIED`.
 - PR binding checker and recommended `Multica Issue: <issue-identifier>` PR body line.
 - Tests for state storage, PR binding, next action, verification failure, extension registration, and short context injection.
-
