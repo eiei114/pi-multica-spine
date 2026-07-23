@@ -6,6 +6,20 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-23
+
+### Added
+
+- Live Multica CLI bridge (`lib/workflow-live-cli.ts`) and expanded `lib/multica-cli.ts` issue/project/autopilot clients for workflow stage issue create/assign/status, parent summary metadata writeback, artifact lineage writeback, run metadata reads, and autopilot trigger invocation.
+- Workflow tools accept `live` / `writeback` flags to mirror repo-local ledger mutations onto Multica (`multica_workflow_run_create`, `multica_workflow_run_context`, `multica_workflow_stage_seed`, `multica_workflow_stage_transition`, `multica_workflow_artifact_record`, `multica_workflow_parent_summary`).
+- `multica_workflow_autopilot_trigger` experimental tool for controller execution paths.
+- Fixture-backed tests for the injectable CLI executor (`tests/workflow-live-cli.test.mjs`, `tests/workflow-multica-cli.test.mjs`).
+
+### Changed
+
+- `ProjectWorkflowBindingStore.save` validates the bound Multica project via `multica project get` when the live CLI bridge is enabled.
+- Every workflow-stage metadata writeback sets `completion_authority=workflow_controller`.
+
 ## [0.2.0] - 2026-07-23
 
 ### Changed

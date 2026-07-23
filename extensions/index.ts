@@ -37,8 +37,10 @@ import {
   computeEffectivePermission,
   resolveNextStageId,
   seedWorkflowStage,
+  seedWorkflowStageLive,
   summarizeControllerState,
   transitionWorkflowStage,
+  transitionWorkflowStageLive,
 } from "../lib/workflow-controller.ts";
 import {
   type WorkflowCatalogEntry,
@@ -47,6 +49,12 @@ import {
   WorkflowCatalogStatusSchema,
 } from "../lib/workflow-catalog.ts";
 import { WorkflowCatalogStore } from "../lib/workflow-catalog-store.ts";
+import {
+  createWorkflowLiveCli,
+  workflowLiveCli as defaultWorkflowLiveCli,
+  WorkflowProductGapError,
+  type WorkflowLiveCli,
+} from "../lib/workflow-live-cli.ts";
 import {
   hashWorkflowRunLedger,
   type WorkflowArtifactEnvelope,
@@ -63,10 +71,21 @@ import {
 // Metadata CLI client. Overridable via _setMetadataClientForTests for unit tests;
 // production uses the real `multica` CLI-backed client.
 let metadataClient: MetadataClient = createMetadataClient(runMultica);
+let workflowLiveCli: WorkflowLiveCli = defaultWorkflowLiveCli;
 
 /** @internal Test seam to inject a fake metadata client without spawning the CLI. */
 export function _setMetadataClientForTests(client: MetadataClient): void {
   metadataClient = client;
+}
+
+/** @internal Test seam to inject a fixture-backed workflow live CLI runner. */
+export function _setWorkflowLiveCliForTests(client: WorkflowLiveCli): void {
+  workflowLiveCli = client;
+}
+
+/** @internal Reset workflow live CLI to the default production bridge. */
+export function _resetWorkflowLiveCliForTests(): void {
+  workflowLiveCli = defaultWorkflowLiveCli;
 }
 
 const CONTRACT = `You are acting as a Multica Work Agent.
@@ -173,16 +192,22 @@ const parentSummaryParameters = Type.Object({
   workflowStateHash: Type.Optional(Type.String({ pattern: "^[a-f0-9]{64}$" })),
   workflowBundleHash: Type.Optional(Type.String({ pattern: "^[a-f0-9]{64}$" })),
   needsHumanReview: Type.Optional(Type.Boolean()),
+  parentIssueId: Type.Optional(Type.String({ minLength: 1 })),
+  writeback: Type.Optional(Type.Boolean()),
 });
 
 const workflowRunCreateParameters = Type.Object({
   projectIdOrKey: Type.String({ minLength: 1 }),
   workflowRunId: Type.String({ minLength: 1 }),
   initialStageId: Type.Optional(Type.String({ minLength: 1 })),
+  parentIssueId: Type.Optional(Type.String({ minLength: 1 })),
+  live: Type.Optional(Type.Boolean()),
 });
 
 const workflowRunContextParameters = Type.Object({
   workflowRunId: Type.String({ minLength: 1 }),
+  parentIssueId: Type.Optional(Type.String({ minLength: 1 })),
+  live: Type.Optional(Type.Boolean()),
 });
 
 const workflowStageSeedParameters = Type.Object({
@@ -191,17 +216,25 @@ const workflowStageSeedParameters = Type.Object({
   attempt: Type.Optional(Type.Integer({ minimum: 1 })),
   issueId: Type.Optional(Type.String({ minLength: 1 })),
   assignedAgentId: Type.Optional(Type.String({ minLength: 1 })),
+  parentIssueId: Type.Optional(Type.String({ minLength: 1 })),
+  live: Type.Optional(Type.Boolean()),
 });
 
 const workflowStageTransitionParameters = Type.Object({
   workflowRunId: Type.String({ minLength: 1 }),
   stageId: Type.String({ minLength: 1 }),
   status: WorkflowStageStatusSchema,
+  live: Type.Optional(Type.Boolean()),
 });
 
 const workflowArtifactRecordParameters = Type.Object({
   workflowRunId: Type.String({ minLength: 1 }),
   artifact: WorkflowArtifactEnvelopeSchema,
+  live: Type.Optional(Type.Boolean()),
+});
+
+const workflowAutopilotTriggerParameters = Type.Object({
+  autopilotId: Type.String({ minLength: 1 }),
 });
 
 const workflowQuestionRecordParameters = Type.Object({
@@ -226,7 +259,7 @@ function workflowCatalogStoreFor(ctx: ExtensionContext): WorkflowCatalogStore {
 }
 
 function workflowBindingStoreFor(ctx: ExtensionContext): ProjectWorkflowBindingStore {
-  return new ProjectWorkflowBindingStore(ctx.cwd);
+  return new ProjectWorkflowBindingStore(ctx.cwd, { liveCli: workflowLiveCli });
 }
 
 function workflowRunStoreFor(ctx: ExtensionContext): WorkflowRunStateStore {
@@ -411,6 +444,43 @@ function pathWithinArtifactRoot(outputPath: string, artifactRoot: string): boole
   const cleanOutput = outputPath.replace(/\\/g, "/").replace(/^\.\//, "");
   const cleanRoot = artifactRoot.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/$/, "");
   return cleanOutput === cleanRoot || cleanOutput.startsWith(`${cleanRoot}/`);
+}
+
+async function buildWorkflowParentSummary(
+  ctx: ExtensionContext,
+  args: {
+    projectIdOrKey: string;
+    workflowRunId: string;
+    workflowStage: string;
+    workflowStatus: "pending" | "waiting" | "running" | "blocked" | "failed" | "completed";
+    workflowStatePointer?: string;
+    workflowStateHash?: string;
+    workflowBundleHash?: string;
+    needsHumanReview?: boolean;
+  },
+) {
+  const { binding, catalogEntry } = await resolveBindingAndManifest(ctx, args.projectIdOrKey);
+  const existingLedger = await workflowRunStoreFor(ctx).load(args.workflowRunId);
+  if (!existingLedger) throw new Error(`Workflow run not found: ${args.workflowRunId}`);
+  const statePointer =
+    args.workflowStatePointer || portableRelativePath(ctx.cwd, workflowRunStoreFor(ctx).ledgerPath(args.workflowRunId));
+  return createParentWorkflowIssueSummary({
+    binding,
+    workflowRunId: args.workflowRunId,
+    workflowBundleHash: args.workflowBundleHash ?? catalogEntry.manifest.derivedBundleHash,
+    workflowStage: args.workflowStage,
+    workflowStatus: args.workflowStatus,
+    workflowStatePointer: statePointer,
+    workflowStateHash: args.workflowStateHash ?? hashWorkflowRunLedger(existingLedger),
+    needsHumanReview: args.needsHumanReview,
+  });
+}
+
+function rethrowWorkflowProductGap(error: unknown): never {
+  if (error instanceof WorkflowProductGapError) {
+    throw new Error(`${error.message} File a product-gap child issue under the workflow parent before simulating success.`);
+  }
+  throw error;
 }
 
 export default function multicaSpineExtension(pi: ExtensionAPI) {
@@ -673,7 +743,7 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: "multica_workflow_parent_summary",
     label: "Multica Workflow Parent Summary",
-    description: "Build the compact parent workflow issue summary from a binding and workflow run state.",
+    description: "Build the compact parent workflow issue summary from a binding and workflow run state. Optionally write it to the parent issue via live Multica CLI metadata.",
     parameters: parentSummaryParameters,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const args = params as {
@@ -685,24 +755,27 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
         workflowStateHash?: string;
         workflowBundleHash?: string;
         needsHumanReview?: boolean;
+        parentIssueId?: string;
+        writeback?: boolean;
       };
-      const { binding, catalogEntry } = await resolveBindingAndManifest(ctx, args.projectIdOrKey);
-      const existingLedger = await workflowRunStoreFor(ctx).load(args.workflowRunId);
-      if (!existingLedger) throw new Error(`Workflow run not found: ${args.workflowRunId}`);
-      const statePointer = args.workflowStatePointer || portableRelativePath(ctx.cwd, workflowRunStoreFor(ctx).ledgerPath(args.workflowRunId));
-      const summary = createParentWorkflowIssueSummary({
-        binding,
-        workflowRunId: args.workflowRunId,
-        workflowBundleHash: args.workflowBundleHash ?? catalogEntry.manifest.derivedBundleHash,
-        workflowStage: args.workflowStage,
-        workflowStatus: args.workflowStatus,
-        workflowStatePointer: statePointer,
-        workflowStateHash: args.workflowStateHash ?? hashWorkflowRunLedger(existingLedger),
-        needsHumanReview: args.needsHumanReview,
-      });
+      const summary = await buildWorkflowParentSummary(ctx, args);
+      let metadata;
+      if (args.writeback) {
+        if (!args.parentIssueId) throw new Error("parentIssueId is required when writeback=true");
+        try {
+          metadata = await workflowLiveCli.writeParentSummary(args.parentIssueId, summary);
+        } catch (error) {
+          rethrowWorkflowProductGap(error);
+        }
+      }
       return {
-        content: [{ type: "text" as const, text: `workflowRunId: ${summary.workflow_run_id}\nworkflowStage: ${summary.workflow_stage}\nworkflowStatus: ${summary.workflow_status}` }],
-        details: { summary },
+        content: [
+          {
+            type: "text" as const,
+            text: `workflowRunId: ${summary.workflow_run_id}\nworkflowStage: ${summary.workflow_stage}\nworkflowStatus: ${summary.workflow_status}${args.writeback ? "\nwriteback: yes" : ""}`,
+          },
+        ],
+        details: { summary, metadata, writeback: Boolean(args.writeback) },
       };
     },
   });
@@ -710,10 +783,16 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: "multica_workflow_run_create",
     label: "Multica Workflow Run Create",
-    description: "Create one repo-local workflow run ledger from a persisted binding and catalog entry.",
+    description: "Create one repo-local workflow run ledger from a persisted binding and catalog entry. With live=true, write the parent summary to Multica.",
     parameters: workflowRunCreateParameters,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const args = params as { projectIdOrKey: string; workflowRunId: string; initialStageId?: string };
+      const args = params as {
+        projectIdOrKey: string;
+        workflowRunId: string;
+        initialStageId?: string;
+        parentIssueId?: string;
+        live?: boolean;
+      };
       const { binding, manifest, catalogEntry } = await resolveBindingAndManifest(ctx, args.projectIdOrKey);
       const initialStageId = args.initialStageId ?? resolveNextStageId(manifest);
       const store = workflowRunStoreFor(ctx);
@@ -731,57 +810,113 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
         const stage = seedWorkflowStage(ledger, manifest, binding, { stageId: initialStageId, attempt: 1 });
         ledger = await mutateWorkflow(ctx, () => store.upsertStage(args.workflowRunId, toStageUpsertInput(stage)));
       }
-      return workflowRunResult("workflow_run_create", ledger);
+      let parentMetadata;
+      if (args.live) {
+        if (!args.parentIssueId) throw new Error("parentIssueId is required when live=true");
+        const summary = await buildWorkflowParentSummary(ctx, {
+          projectIdOrKey: args.projectIdOrKey,
+          workflowRunId: args.workflowRunId,
+          workflowStage: ledger.currentStageId ?? initialStageId ?? "pending",
+          workflowStatus: ledger.workflowStatus,
+        });
+        try {
+          parentMetadata = await workflowLiveCli.writeParentSummary(args.parentIssueId, summary);
+        } catch (error) {
+          rethrowWorkflowProductGap(error);
+        }
+      }
+      const result = workflowRunResult("workflow_run_create", ledger);
+      return { ...result, details: { ...result.details, parentMetadata, live: Boolean(args.live) } };
     },
   });
 
   pi.registerTool({
     name: "multica_workflow_run_context",
     label: "Multica Workflow Run Context",
-    description: "Read one repo-local workflow run ledger and summary.",
+    description: "Read one repo-local workflow run ledger and summary. With live=true, also read parent issue metadata from Multica.",
     parameters: workflowRunContextParameters,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const args = params as { workflowRunId: string };
+      const args = params as { workflowRunId: string; parentIssueId?: string; live?: boolean };
       const ledger = await workflowRunStoreFor(ctx).load(args.workflowRunId);
       if (!ledger) throw new Error(`Workflow run not found: ${args.workflowRunId}`);
-      return workflowRunResult("workflow_run_context", ledger);
+      let parentMetadata;
+      if (args.live) {
+        if (!args.parentIssueId) throw new Error("parentIssueId is required when live=true");
+        try {
+          parentMetadata = await workflowLiveCli.readRunMetadata(args.parentIssueId);
+        } catch (error) {
+          rethrowWorkflowProductGap(error);
+        }
+      }
+      const result = workflowRunResult("workflow_run_context", ledger);
+      return { ...result, details: { ...result.details, parentMetadata, live: Boolean(args.live) } };
     },
   });
 
   pi.registerTool({
     name: "multica_workflow_stage_seed",
     label: "Multica Workflow Stage Seed",
-    description: "Seed the next or specified workflow stage using the binding's role route and manifest order.",
+    description: "Seed the next or specified workflow stage using the binding's role route and manifest order. With live=true, create and assign a Multica stage issue.",
     parameters: workflowStageSeedParameters,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const args = params as { workflowRunId: string; stageId?: string; attempt?: number; issueId?: string; assignedAgentId?: string };
+      const args = params as {
+        workflowRunId: string;
+        stageId?: string;
+        attempt?: number;
+        issueId?: string;
+        assignedAgentId?: string;
+        parentIssueId?: string;
+        live?: boolean;
+      };
       const store = workflowRunStoreFor(ctx);
       const ledger = await store.load(args.workflowRunId);
       if (!ledger) throw new Error(`Workflow run not found: ${args.workflowRunId}`);
       const binding = await workflowBindingStoreFor(ctx).getByProjectId(ledger.multicaProjectId);
       if (!binding) throw new Error(`Workflow binding not found for project: ${ledger.multicaProjectId}`);
       const manifest = await resolveManifestForLedger(ctx, ledger);
-      const stageId = args.stageId ?? resolveNextStageId(manifest, ledger.currentStageId);
-      if (!stageId) throw new Error(`No next stage available for workflow run: ${args.workflowRunId}`);
-      const existing = ledger.stages[stageId];
-      const stage = seedWorkflowStage(ledger, manifest, binding, {
-        stageId,
-        attempt: args.attempt ?? existing?.attempt ?? 1,
-        issueId: args.issueId,
-        assignedAgentId: args.assignedAgentId,
-      });
+      let stage: WorkflowStageState;
+      let liveIssue;
+      if (args.live) {
+        if (!args.parentIssueId) throw new Error("parentIssueId is required when live=true");
+        try {
+          const seeded = await seedWorkflowStageLive({
+            ledger,
+            manifest,
+            binding,
+            parentIssueId: args.parentIssueId,
+            stageId: args.stageId,
+            attempt: args.attempt,
+            liveCli: workflowLiveCli,
+          });
+          stage = seeded.stage;
+          liveIssue = { id: seeded.issueId, identifier: seeded.issueIdentifier };
+        } catch (error) {
+          rethrowWorkflowProductGap(error);
+        }
+      } else {
+        const stageId = args.stageId ?? resolveNextStageId(manifest, ledger.currentStageId);
+        if (!stageId) throw new Error(`No next stage available for workflow run: ${args.workflowRunId}`);
+        const existing = ledger.stages[stageId];
+        stage = seedWorkflowStage(ledger, manifest, binding, {
+          stageId,
+          attempt: args.attempt ?? existing?.attempt ?? 1,
+          issueId: args.issueId,
+          assignedAgentId: args.assignedAgentId,
+        });
+      }
       const updated = await mutateWorkflow(ctx, () => store.upsertStage(args.workflowRunId, toStageUpsertInput(stage)));
-      return workflowRunResult("workflow_stage_seed", updated);
+      const result = workflowRunResult("workflow_stage_seed", updated);
+      return { ...result, details: { ...result.details, liveIssue, live: Boolean(args.live) } };
     },
   });
 
   pi.registerTool({
     name: "multica_workflow_stage_transition",
     label: "Multica Workflow Stage Transition",
-    description: "Transition a seeded/produced workflow stage to the next status.",
+    description: "Transition a seeded/produced workflow stage to the next status. With live=true, mirror the transition on the stage issue via Multica CLI.",
     parameters: workflowStageTransitionParameters,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const args = params as { workflowRunId: string; stageId: string; status: WorkflowStageStatus };
+      const args = params as { workflowRunId: string; stageId: string; status: WorkflowStageStatus; live?: boolean };
       const store = workflowRunStoreFor(ctx);
       const ledger = await store.load(args.workflowRunId);
       if (!ledger) throw new Error(`Workflow run not found: ${args.workflowRunId}`);
@@ -793,7 +928,16 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
       if (args.status === "accepted" && !canAcceptProducedStage(stage, latestArtifact)) {
         throw new Error(`Cannot accept stage without produced status and artifact: ${args.stageId}`);
       }
-      const nextStage = transitionWorkflowStage(stage, args.status, latestArtifact);
+      let nextStage: WorkflowStageState;
+      if (args.live) {
+        try {
+          nextStage = await transitionWorkflowStageLive(workflowLiveCli, stage, args.status, latestArtifact);
+        } catch (error) {
+          rethrowWorkflowProductGap(error);
+        }
+      } else {
+        nextStage = transitionWorkflowStage(stage, args.status, latestArtifact);
+      }
       let updated = await mutateWorkflow(ctx, () => store.upsertStage(args.workflowRunId, toStageUpsertInput(nextStage)));
       if (args.status === "accepted") {
         const manifest = await resolveManifestForLedger(ctx, updated);
@@ -801,17 +945,18 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
           updated = await mutateWorkflow(ctx, () => store.setWorkflowStatus(args.workflowRunId, "completed"));
         }
       }
-      return workflowRunResult("workflow_stage_transition", updated);
+      const result = workflowRunResult("workflow_stage_transition", updated);
+      return { ...result, details: { ...result.details, live: Boolean(args.live) } };
     },
   });
 
   pi.registerTool({
     name: "multica_workflow_artifact_record",
     label: "Multica Workflow Artifact Record",
-    description: "Record one workflow artifact envelope in the run ledger.",
+    description: "Record one workflow artifact envelope in the run ledger. With live=true, write artifact lineage metadata to the producer stage issue.",
     parameters: workflowArtifactRecordParameters,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const args = params as { workflowRunId: string; artifact: WorkflowArtifactEnvelope };
+      const args = params as { workflowRunId: string; artifact: WorkflowArtifactEnvelope; live?: boolean };
       const runStore = workflowRunStoreFor(ctx);
       const existingLedger = await runStore.load(args.workflowRunId);
       if (!existingLedger) throw new Error(`Workflow run not found: ${args.workflowRunId}`);
@@ -821,7 +966,19 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
         throw new Error(`Artifact output path must stay under binding artifactRoot ${binding.artifactRoot}: ${args.artifact.outputPath}`);
       }
       const ledger = await mutateWorkflow(ctx, () => runStore.recordArtifact(args.workflowRunId, args.artifact));
-      return workflowRunResult("workflow_artifact_record", ledger);
+      let stageMetadata;
+      if (args.live) {
+        try {
+          stageMetadata = await workflowLiveCli.writeStageWriteback({
+            issueIdentifier: args.artifact.producerIssueId,
+            artifact: args.artifact,
+          });
+        } catch (error) {
+          rethrowWorkflowProductGap(error);
+        }
+      }
+      const result = workflowRunResult("workflow_artifact_record", ledger);
+      return { ...result, details: { ...result.details, stageMetadata, live: Boolean(args.live) } };
     },
   });
 
@@ -834,6 +991,25 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
       const args = params as { workflowRunId: string; question: WorkflowQuestionRecord };
       const ledger = await mutateWorkflow(ctx, () => workflowRunStoreFor(ctx).recordQuestion(args.workflowRunId, args.question));
       return workflowRunResult("workflow_question_record", ledger);
+    },
+  });
+
+  pi.registerTool({
+    name: "multica_workflow_autopilot_trigger",
+    label: "Multica Workflow Autopilot Trigger",
+    description: "Invoke one Multica Autopilot execution path via `multica autopilot trigger` for controller reconciliation.",
+    parameters: workflowAutopilotTriggerParameters,
+    async execute(_toolCallId, params) {
+      const args = params as { autopilotId: string };
+      try {
+        const result = await workflowLiveCli.triggerAutopilot(args.autopilotId);
+        return {
+          content: [{ type: "text" as const, text: `autopilot: ${args.autopilotId}\ntriggered: yes` }],
+          details: { autopilotId: args.autopilotId, result },
+        };
+      } catch (error) {
+        rethrowWorkflowProductGap(error);
+      }
     },
   });
 

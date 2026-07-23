@@ -4,7 +4,34 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-const { default: extension } = await import("../extensions/index.ts");
+const { default: extension, _setWorkflowLiveCliForTests } = await import("../extensions/index.ts");
+import { buildWorkflowLiveCli } from "../lib/workflow-live-cli.ts";
+import { createAutopilotClient, createIssueClient, createMetadataClient, createProjectClient } from "../lib/multica-cli.ts";
+
+function installFixtureWorkflowLiveCli() {
+  const runner = async (args) => {
+    if (args[0] === "project") {
+      return { exitCode: 0, stdout: JSON.stringify({ id: args[2] }), stderr: "" };
+    }
+    if (args[0] === "issue" && args[1] === "create") {
+      return { exitCode: 0, stdout: JSON.stringify({ id: "issue_fixture_1", status: "todo" }), stderr: "" };
+    }
+    if (args[0] === "issue" && args[2] === "metadata") {
+      return { exitCode: 0, stdout: "{}", stderr: "" };
+    }
+    return { exitCode: 0, stdout: "{}", stderr: "" };
+  };
+  _setWorkflowLiveCliForTests(
+    buildWorkflowLiveCli(
+      createIssueClient(runner),
+      createMetadataClient(runner),
+      createProjectClient(runner),
+      createAutopilotClient(runner),
+    ),
+  );
+}
+
+installFixtureWorkflowLiveCli();
 
 function createFakePi() {
   const tools = new Map();

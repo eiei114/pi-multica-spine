@@ -5,14 +5,17 @@ import { safeIssueIdentifier } from "./state-store.ts";
 import { SPINE_STATE_ROOT } from "./types.ts";
 import { ProjectWorkflowBindingSchema, type ProjectWorkflowBinding } from "./project-workflow-binding.ts";
 import { assertValid, validateSchema } from "./validation.ts";
+import type { WorkflowLiveCli } from "./workflow-live-cli.ts";
 
 export class ProjectWorkflowBindingStore {
   readonly cwd: string;
   readonly root: string;
+  readonly liveCli?: WorkflowLiveCli;
 
-  constructor(cwd: string) {
+  constructor(cwd: string, options: { liveCli?: WorkflowLiveCli } = {}) {
     this.cwd = cwd;
     this.root = join(cwd, SPINE_STATE_ROOT, "workflow-bindings");
+    this.liveCli = options.liveCli;
   }
 
   bindingPath(multicaProjectId: string): string {
@@ -21,6 +24,9 @@ export class ProjectWorkflowBindingStore {
 
   async save(binding: ProjectWorkflowBinding): Promise<ProjectWorkflowBinding> {
     const validated = assertValid(validateSchema(ProjectWorkflowBindingSchema, binding), "Invalid project workflow binding");
+    if (this.liveCli) {
+      await this.liveCli.verifyProject(validated.multicaProjectId);
+    }
     const path = this.bindingPath(validated.multicaProjectId);
     return withFileLock(path, async () => {
       await writeJsonAtomic(path, validated);

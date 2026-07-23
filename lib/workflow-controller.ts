@@ -6,6 +6,8 @@ import type {
   WorkflowStageStatus,
 } from "./workflow-run-state.ts";
 import type { WorkflowCatalogManifest } from "./workflow-catalog.ts";
+import type { WorkflowLiveCli } from "./workflow-live-cli.ts";
+import { WORKFLOW_COMPLETION_AUTHORITY } from "./workflow-live-cli.ts";
 
 export interface EffectivePermissionInput {
   adapterRequest: string[];
@@ -113,6 +115,95 @@ export function transitionWorkflowStage(
 
 export function canAcceptProducedStage(stage: WorkflowStageState, artifact?: WorkflowArtifactEnvelope): boolean {
   return stage.status === "produced" && Boolean(artifact?.outputHash);
+}
+
+export function mapStageStatusToIssueStatus(stageStatus: WorkflowStageStatus): string {
+  switch (stageStatus) {
+    case "seeded":
+    case "waiting":
+      return "todo";
+    case "produced":
+      return "in_progress";
+    case "accepted":
+      return "done";
+    case "retrying":
+      return "in_progress";
+    case "failed":
+      return "blocked";
+    default:
+      return "in_progress";
+  }
+}
+
+export interface LiveStageSeedInput {
+  ledger: WorkflowRunStateLedger;
+  manifest: WorkflowCatalogManifest;
+  binding: ProjectWorkflowBinding;
+  parentIssueId: string;
+  stageId?: string;
+  attempt?: number;
+  titlePrefix?: string;
+  liveCli: WorkflowLiveCli;
+}
+
+export async function seedWorkflowStageLive(input: LiveStageSeedInput): Promise<{
+  stage: WorkflowStageState;
+  issueId: string;
+  issueIdentifier?: string;
+}> {
+  const stageId = input.stageId ?? resolveNextStageId(input.manifest, input.ledger.currentStageId);
+  if (!stageId) throw new Error(`No next stage available for workflow run: ${input.ledger.workflowRunId}`);
+  const manifestStage = input.manifest.stages.find((stage) => stage.stageId === stageId);
+  if (!manifestStage) throw new Error(`Cannot seed unknown manifest stage: ${stageId}`);
+  const assignedAgentId = input.binding.roleRoutes[manifestStage.role]?.agentId;
+  if (!assignedAgentId) {
+    throw new Error(`Binding missing role route for stage ${stageId} role ${manifestStage.role}`);
+  }
+  const attempt = input.attempt ?? input.ledger.stages[stageId]?.attempt ?? 1;
+  const title = `${input.titlePrefix ?? "Workflow stage"}: ${stageId} (attempt ${attempt})`;
+  const issue = await input.liveCli.createStageIssue({
+    title,
+    description: `Workflow run ${input.ledger.workflowRunId} stage ${stageId} attempt ${attempt}. completion_authority=${WORKFLOW_COMPLETION_AUTHORITY}`,
+    parentIssueId: input.parentIssueId,
+    projectId: input.binding.multicaProjectId,
+    assigneeId: assignedAgentId,
+    status: "todo",
+  });
+  await input.liveCli.writeStageWriteback({
+    issueIdentifier: issue.id,
+    extra: {
+      workflow_run_id: input.ledger.workflowRunId,
+      workflow_stage_id: stageId,
+      workflow_stage_attempt: attempt,
+      completion_authority: WORKFLOW_COMPLETION_AUTHORITY,
+    },
+  });
+  const stage = seedWorkflowStage(input.ledger, input.manifest, input.binding, {
+    stageId,
+    attempt,
+    issueId: issue.id,
+    assignedAgentId,
+  });
+  return { stage, issueId: issue.id, issueIdentifier: issue.identifier };
+}
+
+export async function transitionWorkflowStageLive(
+  liveCli: WorkflowLiveCli,
+  stage: WorkflowStageState,
+  nextStatus: WorkflowStageStatus,
+  artifact?: WorkflowArtifactEnvelope,
+): Promise<WorkflowStageState> {
+  const nextStage = transitionWorkflowStage(stage, nextStatus, artifact);
+  if (stage.issueId) {
+    await liveCli.transitionStageIssue(stage.issueId, mapStageStatusToIssueStatus(nextStatus));
+    if (artifact) {
+      await liveCli.writeStageWriteback({
+        issueIdentifier: stage.issueId,
+        artifact,
+      });
+    }
+  }
+  return nextStage;
 }
 
 export function summarizeControllerState(ledger: WorkflowRunStateLedger): {
