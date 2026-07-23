@@ -19,12 +19,20 @@ export const COVERAGE_HOTSPOTS = {
   "lib/npm-publish-classify.ts": { lines: 80, branches: 70, functions: 95 },
 };
 
-/** Integration-heavy files: excluded from hotspot enforcement (report-only). */
+/** Integration-heavy files: excluded from hotspot line enforcement (report-only). */
 export const COVERAGE_DENYLIST = new Set([
   "lib/workflow-sandbox-fixtures.ts",
   "lib/workflow-sandbox-campaign.ts",
   "lib/workflow-controller-autopilot.ts",
 ]);
+
+/** Branch coverage floors for sandbox/campaign modules (R-MNT-20). */
+export const COVERAGE_SANDBOX_BRANCH_FLOORS = {
+  "lib/workflow-sandbox-campaign.ts": 65,
+  "lib/workflow-sandbox-fixtures.ts": 30,
+  "lib/workflow-controller-autopilot.ts": 75,
+  "lib/workflow-sandbox-human-review.ts": 30,
+};
 
 function testArgs() {
   return readdirSync("tests")
@@ -91,6 +99,24 @@ export function evaluateCoverage(summary, thresholds = DEFAULT_THRESHOLDS) {
   return { ok: failures.length === 0, failures, summary, thresholds };
 }
 
+export function evaluateCoverageSandboxBranches(files, floors = COVERAGE_SANDBOX_BRANCH_FLOORS) {
+  const byFile = new Map(files.map((row) => [row.file, row]));
+  const failures = [];
+  const watched = [];
+  for (const [file, minimum] of Object.entries(floors)) {
+    const row = byFile.get(file);
+    if (!row) {
+      failures.push(`${file}: missing from coverage report`);
+      continue;
+    }
+    watched.push(file);
+    if (row.branches < minimum) {
+      failures.push(`${file}: branches ${row.branches.toFixed(2)}% < ${minimum}%`);
+    }
+  }
+  return { ok: failures.length === 0, failures, watched };
+}
+
 export function evaluateCoverageHotspots(files, hotspots = COVERAGE_HOTSPOTS, denylist = COVERAGE_DENYLIST) {
   const byFile = new Map(files.map((row) => [row.file, row]));
   const failures = [];
@@ -129,6 +155,7 @@ export function runCoverageGate(inputPath) {
   const summary = parseCoverageSummary(output);
   const gate = evaluateCoverage(summary);
   const hotspots = evaluateCoverageHotspots(summary.files ?? parseCoverageFileRows(output));
+  const sandboxBranches = evaluateCoverageSandboxBranches(summary.files ?? parseCoverageFileRows(output));
   if (!gate.ok) {
     console.error(gate.failures.join("\n"));
     console.error(`coverage summary (${summary.fileCount} ts files): lines=${summary.lines.toFixed(2)}% branches=${summary.branches.toFixed(2)}% functions=${summary.functions.toFixed(2)}%`);
@@ -139,8 +166,13 @@ export function runCoverageGate(inputPath) {
     console.error(hotspots.failures.join("\n"));
     return 1;
   }
+  if (!sandboxBranches.ok) {
+    console.error("coverage sandbox branch failures:");
+    console.error(sandboxBranches.failures.join("\n"));
+    return 1;
+  }
   console.log(
-    `coverage gate ok (${summary.fileCount} ts files): lines=${summary.lines.toFixed(2)}% branches=${summary.branches.toFixed(2)}% functions=${summary.functions.toFixed(2)}%; hotspots=${hotspots.watched.length} denylist=${hotspots.denylist.length}`,
+    `coverage gate ok (${summary.fileCount} ts files): lines=${summary.lines.toFixed(2)}% branches=${summary.branches.toFixed(2)}% functions=${summary.functions.toFixed(2)}%; hotspots=${hotspots.watched.length} sandboxBranches=${sandboxBranches.watched.length} denylist=${hotspots.denylist.length}`,
   );
   return 0;
 }

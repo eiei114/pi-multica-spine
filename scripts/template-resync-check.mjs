@@ -13,6 +13,13 @@ const repoRoot = join(scriptDir, "..");
 export const TEMPLATE_RESYNC_BASELINE = {
   templateRef: "pi-extension-template@0.1.6",
   piPeerBaseline: "0.80.x",
+  piPeerPackages: [
+    "@earendil-works/pi-agent-core",
+    "@earendil-works/pi-ai",
+    "@earendil-works/pi-coding-agent",
+    "@earendil-works/pi-tui",
+  ],
+  expectedPeerMajor: "0.80",
   lastReviewed: "2026-07-24",
 };
 
@@ -76,6 +83,29 @@ function extractOnBlock(content) {
   return match?.[1] ?? "";
 }
 
+export function evaluatePiPeerVersions(packageJson, baseline = TEMPLATE_RESYNC_BASELINE) {
+  const failures = [];
+  const observed = {};
+  for (const pkg of baseline.piPeerPackages) {
+    const peerRange = packageJson.peerDependencies?.[pkg];
+    const devRange = packageJson.devDependencies?.[pkg];
+    observed[pkg] = { peerRange, devRange };
+    if (peerRange !== "*") {
+      failures.push(`${pkg}: peerDependencies expected "*" got ${JSON.stringify(peerRange)}`);
+    }
+    if (!devRange || !String(devRange).includes(baseline.expectedPeerMajor)) {
+      failures.push(`${pkg}: devDependencies expected ${baseline.piPeerBaseline} range got ${JSON.stringify(devRange)}`);
+    }
+  }
+  return {
+    id: "pi-peer-versions",
+    ok: failures.length === 0,
+    note: `Pi peer packages align with template ${baseline.piPeerBaseline}`,
+    detail: failures.length === 0 ? "matched" : failures.join("; "),
+    observed,
+  };
+}
+
 export async function evaluateTemplateResyncRule(rule, readText) {
   const relativePath = rule.file;
   const content = await readText(relativePath);
@@ -109,6 +139,8 @@ export async function runTemplateResyncCheck(options = {}) {
   for (const rule of rules) {
     results.push(await evaluateTemplateResyncRule(rule, readText));
   }
+  const packageJson = options.packageJson ?? JSON.parse(await readText("package.json"));
+  results.push(evaluatePiPeerVersions(packageJson));
   const failures = results.filter((item) => !item.ok);
   return {
     ok: failures.length === 0,

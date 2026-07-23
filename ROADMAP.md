@@ -6,33 +6,33 @@
 
 | Item | Value |
 | --- | --- |
-| Published version | **0.7.3** (candidate) |
-| Working-tree version | `0.7.3` |
-| Examples | spine + full offline campaign through `final_package` |
+| Published version | **0.7.4** (candidate) |
+| Working-tree version | `0.7.4` |
+| Examples | spine + full offline campaign + sandbox rehearsal |
 | Production gate | **CLOSED** |
-| Absorbed seeds | ~~R-MNT-1..18~~ through v0.7.3 |
+| Absorbed seeds | ~~R-MNT-1..21~~ through v0.7.4 |
 
 ## Near-term lanes
 
 | Lane | Goal |
 | --- | --- |
-| **Live ops** | Sandbox → Maintenance rehearsal with real `multica` CLI (`check:sandbox-checklist --live`) |
-| **Coverage** | Raise branch coverage on sandbox/campaign modules |
+| **Live ops** | `npm run check:sandbox-rehearsal -- --execute` after `--live` checklist |
+| **Coverage** | Sandbox branch floors enforced; raise line coverage on integration modules |
 | **Production gate** | Human opens per `docs/production-gate-decision.md` only |
 
 ## Candidate seeds (next)
 
 | ID | Seed | Scope |
 | --- | --- | --- |
-| R-MNT-19 | Live sandbox apply + campaign rehearsal automation | ~90 min |
-| R-MNT-20 | Coverage branch floors for sandbox/campaign modules | ~60 min |
-| R-MNT-21 | Template re-sync when pi-extension-template peer bumps | periodic |
+| R-MNT-22 | Live sandbox campaign through `final_package` + human review | ~90 min |
+| R-MNT-23 | Maintenance production-run rehearsal automation | ~60 min |
+| R-MNT-24 | Raise sandbox/campaign line coverage floors | ~60 min |
 
 ## Completed seeds (reference)
 
 | ID | Done in |
 | --- | --- |
-| ~~R-MNT-1..15~~ | v0.6.0–v0.7.2 |
-| ~~R-MNT-16~~ | v0.7.3 — full offline campaign to `final_package` |
-| ~~R-MNT-17~~ | v0.7.3 — `workflow-sandbox-checklist.mjs` |
-| ~~R-MNT-18~~ | v0.7.3 — `template-resync-check.mjs` (DOT-823) |
+| ~~R-MNT-1..18~~ | v0.6.0–v0.7.3 |
+| ~~R-MNT-19~~ | v0.7.4 — sandbox rehearsal automation |
+| ~~R-MNT-20~~ | v0.7.4 — sandbox branch coverage floors |
+| ~~R-MNT-21~~ | v0.7.4 — template peer bump check |

@@ -6,6 +6,20 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-07-24
+
+### Added
+
+- `scripts/workflow-sandbox-rehearsal.mjs` — offline/live sandbox apply+campaign automation (R-MNT-19).
+- Sandbox module branch coverage floors in `coverage-gate.mjs` (R-MNT-20).
+- Pi peer version drift check in `template-resync-check.mjs` (R-MNT-21).
+- `--max-stage-cycles` flag on `workflow-sandbox-canary.mjs`.
+
+### Changed
+
+- CI runs `check:sandbox-rehearsal`.
+- ROADMAP: R-MNT-19..21 absorbed.
+
 ## [0.7.3] - 2026-07-24
 
 ### Added

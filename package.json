@@ -1,6 +1,6 @@
 {
   "name": "pi-multica-spine",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "Pi extension that keeps Multica work agents bound to issue, PR, evidence, and handoff contracts.",
   "type": "module",
   "license": "MIT",
@@ -40,7 +40,8 @@
     "check:coverage": "node scripts/coverage-gate.mjs",
     "check:template": "node scripts/template-resync-check.mjs",
     "check:sandbox-checklist": "node scripts/workflow-sandbox-checklist.mjs",
-    "ci": "npm run build && npm run typecheck && npm run check:coverage && npm run check:changelog && npm run check:template && npm run check:sandbox-checklist && npm run pack:check && npm run pack:smoke && node examples/minimal-walkthrough/run-walkthrough.mjs && node examples/workflow-campaign-walkthrough/run-walkthrough.mjs",
+    "check:sandbox-rehearsal": "node scripts/workflow-sandbox-rehearsal.mjs",
+    "ci": "npm run build && npm run typecheck && npm run check:coverage && npm run check:changelog && npm run check:template && npm run check:sandbox-checklist && npm run check:sandbox-rehearsal && npm run pack:check && npm run pack:smoke && node examples/minimal-walkthrough/run-walkthrough.mjs && node examples/workflow-campaign-walkthrough/run-walkthrough.mjs",
     "pack:check": "npm pack --dry-run",
     "pack:smoke": "node scripts/pack-smoke.mjs",
     "walkthrough": "node examples/minimal-walkthrough/run-walkthrough.mjs && node examples/workflow-campaign-walkthrough/run-walkthrough.mjs",
