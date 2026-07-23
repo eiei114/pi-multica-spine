@@ -25,6 +25,7 @@ coverage/
 .pi/logs/
 .pi/npm/
 .pi/git/
+.multica-spine/
 
 # OS/editor
 .DS_Store
