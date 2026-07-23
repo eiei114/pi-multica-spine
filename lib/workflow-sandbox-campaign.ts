@@ -106,8 +106,9 @@ export function buildStageArtifactContent(
       "# Question resolution",
       "",
       "## Q1: Should human-readable output use color?",
-      "- answer_status: unresolved",
-      "- reason: No user preference recorded during capture.",
+      "- answer_status: assumed",
+      "- decision: JSON output is default; `--human` enables summary; `--color` opt-in on TTY",
+      "- policy_key: color_output_policy=json_default_opt_in_color",
       `- rough_idea: ${roughIdea}`,
     ].join("\n");
   }
@@ -146,21 +147,45 @@ export async function writeImplementationArtifacts(canaryPath: string): Promise<
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-const path = process.argv[2];
-if (!path) {
-  console.error("usage: node src/digest.mjs <tasks.jsonl>");
+function parseConfig(argv) {
+  const config = { human: false, color: false, noColor: false, path: undefined };
+  for (const arg of argv) {
+    if (arg === "--human") config.human = true;
+    else if (arg === "--color") config.color = true;
+    else if (arg === "--no-color") config.noColor = true;
+    else if (!arg.startsWith("-")) config.path = arg;
+  }
+  return config;
+}
+
+const config = parseConfig(process.argv.slice(2));
+if (!config.path) {
+  console.error("usage: node src/digest.mjs [--human] [--color|--no-color] <tasks.jsonl>");
   process.exit(1);
 }
-const lines = readFileSync(path, "utf8").trim().split(/\\n+/).filter(Boolean);
+const lines = readFileSync(config.path, "utf8").trim().split(/\\n+/).filter(Boolean);
 const counts = {};
 for (const line of lines) {
   const record = JSON.parse(line);
   const status = String(record.status ?? "unknown");
   counts[status] = (counts[status] ?? 0) + 1;
 }
-const payload = { counts, lineCount: lines.length };
+const sorted = Object.fromEntries(Object.keys(counts).sort().map((k) => [k, counts[k]]));
+const payload = { counts: sorted, lineCount: lines.length };
 const digest = createHash("sha256").update(JSON.stringify(payload)).digest("hex");
-console.log(JSON.stringify({ ...payload, digest }));
+const result = { ...payload, digest };
+if (config.human) {
+  const color = !config.noColor && (config.color || Boolean(process.stdout.isTTY));
+  const paint = (text, code) => (color ? code + text + "\\u001B[0m" : text);
+  console.log(paint("JSONL digest summary", "\\u001B[1m"));
+  console.log(paint("lineCount", "\\u001B[36m") + ": " + result.lineCount);
+  for (const [status, count] of Object.entries(result.counts)) {
+    console.log("  " + paint(status, "\\u001B[32m") + ": " + count);
+  }
+  console.log(paint("digest", "\\u001B[33m") + ": " + result.digest);
+} else {
+  console.log(JSON.stringify(result));
+}
 `;
   await mkdir(join(canaryPath, "src"), { recursive: true });
   await writeFile(join(canaryPath, "src", "digest.mjs"), digestSource, "utf8");

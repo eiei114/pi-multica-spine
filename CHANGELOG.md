@@ -6,7 +6,21 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-07-23
+## [0.5.0] - 2026-07-23
+
+### Added
+
+- JSONL digest library and CLI (`lib/jsonl-digest.ts`, `scripts/jsonl-digest.mjs`) with stable sorted digests.
+- Human-readable summary mode (`--human`) and opt-in color (`--color` / `--no-color`).
+- Production workflow binding plan/apply (`lib/workflow-production-binding.ts`, `scripts/workflow-production-binding.mjs`).
+- Human final review CLI (`--human-review`, `lib/workflow-sandbox-human-review.ts`).
+- Full sandbox campaign driver (`lib/workflow-sandbox-campaign.ts`) and F1–F8 fixtures.
+
+### Changed
+
+- Color output preference resolved: JSON default; color opt-in on TTY.
+- Sandbox canary `--apply`, `--campaign`, and `--human-review` modes documented in runbook.
+- Package version advances to `0.5.0`.
 
 ### Added
 
