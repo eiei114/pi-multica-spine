@@ -10,7 +10,7 @@ This project follows semantic versioning.
 
 ### Added
 
-- `scripts/pack-smoke.mjs` / `npm run pack:smoke` — install packed tarball and exercise `jsonl-digest` CLI via `dist/`.
+- `scripts/pack-smoke.mjs` / `npm run pack:smoke` — install packed tarball and exercise `jsonl-digest` CLI via `dist/` (parses both array and object `npm pack --json` shapes).
 - `docs/workflow-ops-checklist.md` — short sandbox + Maintenance production-run path and failure recovery.
 - `docs/production-gate-decision.md` — Human Gate framework; `productionAllowed` stays `false`.
 
