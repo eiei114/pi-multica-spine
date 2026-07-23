@@ -25,10 +25,16 @@ export interface HumanFinalReviewResult {
   reviewArtifactPath: string;
 }
 
+export interface HumanFinalReviewHooks {
+  reviewArtifactPath?: string;
+  deliverablesVerified?: string[];
+  defaultNotes?: string;
+}
+
 export async function completeHumanFinalReview(
   state: CanaryCampaignState,
   input: HumanFinalReviewInput,
-  deps: { liveCli: WorkflowLiveCli; runStore?: WorkflowRunStateStore },
+  deps: { liveCli: WorkflowLiveCli; runStore?: WorkflowRunStateStore } & HumanFinalReviewHooks,
 ): Promise<HumanFinalReviewResult> {
   const runStore = deps.runStore ?? new WorkflowRunStateStore(state.canaryPath);
   const ledger = await runStore.load(state.workflowRunId);
@@ -74,7 +80,7 @@ export async function completeHumanFinalReview(
     }
   }
 
-  const reviewArtifactPath = join(
+  const reviewArtifactPath = deps.reviewArtifactPath ?? join(
     state.canaryPath,
     ".multica-spine/canary-artifacts",
     state.workflowRunId,
@@ -93,12 +99,14 @@ export async function completeHumanFinalReview(
     `- unresolved_preference_accepted: ${input.unresolvedAccepted ?? true}`,
     "",
     "## Notes",
-    input.notes ?? "Sandbox canary approved. Color output preference left unresolved by design.",
+    input.notes ?? deps.defaultNotes ?? "Sandbox canary approved. Color output preference left unresolved by design.",
     "",
     "## Deliverables verified",
-    "- JSONL digest CLI (`src/digest.mjs`) outputs stable counts + SHA-256 digest",
-    "- Hermes lane completed through `final_package` with live Multica evidence",
-    "- F1–F8 fixtures exercised in pi-multica-spine",
+    ...(deps.deliverablesVerified ?? [
+      "- JSONL digest CLI (`src/digest.mjs`) outputs stable counts + SHA-256 digest",
+      "- Hermes lane completed through `final_package` with live Multica evidence",
+      "- F1–F8 fixtures exercised in pi-multica-spine",
+    ]),
   ].join("\n");
   await writeFile(reviewArtifactPath, `${reviewBody}\n`, "utf8");
 

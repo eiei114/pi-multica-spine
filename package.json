@@ -1,6 +1,6 @@
 {
   "name": "pi-multica-spine",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Pi extension that keeps Multica work agents bound to issue, PR, evidence, and handoff contracts.",
   "type": "module",
   "license": "MIT",
@@ -37,7 +37,8 @@
     "pack:check": "npm pack --dry-run",
     "canary:dry-run": "node scripts/workflow-sandbox-canary.mjs --dry-run",
     "digest": "node scripts/jsonl-digest.mjs",
-    "production-binding:dry-run": "node scripts/workflow-production-binding.mjs --dry-run"
+    "production-binding:dry-run": "node scripts/workflow-production-binding.mjs --dry-run",
+    "production-run:dry-run": "node scripts/workflow-production-run.mjs --dry-run"
   },
   "pi": {
     "extensions": [

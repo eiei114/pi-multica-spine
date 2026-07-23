@@ -51,6 +51,18 @@ export interface CampaignRunResult {
   stopReason?: string;
 }
 
+export type StageArtifactContentBuilder = (
+  stageId: string,
+  manifest: WorkflowCatalogManifest,
+  ledger: WorkflowRunStateLedger,
+  roughIdea: string,
+) => string;
+
+export interface CampaignArtifactHooks {
+  buildStageArtifactContent?: StageArtifactContentBuilder;
+  onImplementationStage?: (repoPath: string) => Promise<void>;
+}
+
 function manifestStage(manifest: WorkflowCatalogManifest, stageId: string) {
   const stage = manifest.stages.find((item) => item.stageId === stageId);
   if (!stage) throw new Error(`Unknown manifest stage: ${stageId}`);
@@ -235,6 +247,7 @@ async function produceStageArtifact(
   binding: ProjectWorkflowBinding,
   runStore: WorkflowRunStateStore,
   roughIdea: string,
+  hooks: CampaignArtifactHooks = {},
 ): Promise<{ ledger: WorkflowRunStateLedger; artifact: WorkflowArtifactEnvelope }> {
   const stageId = ledger.currentStageId;
   if (!stageId) throw new Error("Ledger missing currentStageId");
@@ -246,14 +259,19 @@ async function produceStageArtifact(
     return { ledger, artifact };
   }
   if (stageId === "implementation") {
-    await writeImplementationArtifacts(canaryPath);
+    if (hooks.onImplementationStage) {
+      await hooks.onImplementationStage(canaryPath);
+    } else {
+      await writeImplementationArtifacts(canaryPath);
+    }
   }
   const manifestStageDef = manifestStage(manifest, stageId);
   const outputFile = manifestStageDef.outputs?.[0] ?? `${stageId}.md`;
   const outputPath = stageArtifactRelativePath(binding, state.workflowRunId, outputFile);
   const absolutePath = join(canaryPath, outputPath);
   await mkdir(join(canaryPath, binding.artifactRoot, state.workflowRunId), { recursive: true });
-  const content = buildStageArtifactContent(stageId, manifest, ledger, roughIdea);
+  const contentBuilder = hooks.buildStageArtifactContent ?? buildStageArtifactContent;
+  const content = contentBuilder(stageId, manifest, ledger, roughIdea);
   await writeFile(absolutePath, `${content}\n`, "utf8");
   const outputHash = sha256Hex(content);
   const artifact: WorkflowArtifactEnvelope = {
@@ -350,6 +368,8 @@ export async function runCanaryCampaign(
     runStore?: WorkflowRunStateStore;
     roughIdea?: string;
     maxStageCycles?: number;
+    buildStageArtifactContent?: StageArtifactContentBuilder;
+    onImplementationStage?: (repoPath: string) => Promise<void>;
   },
 ): Promise<CampaignRunResult> {
   const runStore = deps.runStore ?? new WorkflowRunStateStore(state.canaryPath);
@@ -360,6 +380,10 @@ export async function runCanaryCampaign(
     return loaded;
   });
   const roughIdea = deps.roughIdea ?? "JSONL digest CLI canary";
+  const artifactHooks: CampaignArtifactHooks = {
+    buildStageArtifactContent: deps.buildStageArtifactContent,
+    onImplementationStage: deps.onImplementationStage,
+  };
   const stages: CampaignStageResult[] = [];
   const controllerEvidence: unknown[] = [];
   let ledger = await runStore.load(state.workflowRunId);
@@ -423,6 +447,7 @@ export async function runCanaryCampaign(
       binding,
       runStore,
       roughIdea,
+      artifactHooks,
     );
     ledger = produced.ledger;
     const controller = await runControllerUntilIdle(

@@ -27,6 +27,15 @@ coverage/
 .pi/git/
 .multica-spine/
 
+# workflow run artifacts (local only)
+Artifacts/
+
+# local agent/multica context (not packaged)
+.agent_context/
+.multica/
+.pi/
+AGENTS.md
+
 # OS/editor
 .DS_Store
 Thumbs.db

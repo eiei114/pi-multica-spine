@@ -93,7 +93,7 @@ Replace `pi-multica-spine` with the exact `name` from `package.json` when you fo
 Pin a specific version when you want reproducible installs:
 
 ```bash
-pi install npm:pi-multica-spine@0.1.4
+pi install npm:pi-multica-spine@0.5.0
 ```
 
 Install into the current project instead of your user Pi settings:
@@ -179,9 +179,42 @@ State is repo-local:
 .multica-spine/workflow-catalog/<adapter>/v<version>.json
 .multica-spine/workflow-bindings/<project>.json
 .multica-spine/workflow-runs/<workflow-run-id>/state-ledger.json
+.multica-spine/production-run-state.json
+.multica-spine/canary-state.json
 ```
 
 Issue identifiers are stored canonically as opaque strings. Filenames are ASCII-safe slugs with a short hash suffix.
+
+## Workflow operations (v0.5.0+)
+
+Repo-local scripts drive the Hermes Idea-to-Build lane against live Multica projects. JSON is the default CLI output; pass `--human` for summaries and `--color` (TTY opt-in) when supported.
+
+| Script | Purpose |
+|---|---|
+| `scripts/jsonl-digest.mjs` | Stable JSONL counts + SHA-256 digest (`--human`, `--color`, `--no-color`) |
+| `scripts/workflow-sandbox-canary.mjs` | Sandbox-only canary: `--dry-run`, `--apply`, `--campaign`, `--human-review`, F1–F8 `--fixture` |
+| `scripts/workflow-production-binding.mjs` | Apply production-tier catalog + binding to `pi-multica-spine Maintenance` |
+| `scripts/workflow-production-run.mjs` | Production lane: `--start`, `--campaign`, `--human-review`, `--report` |
+
+Typical sandbox canary flow:
+
+```bash
+node scripts/workflow-sandbox-canary.mjs --dry-run
+node scripts/workflow-sandbox-canary.mjs --apply
+node scripts/workflow-sandbox-canary.mjs --campaign
+node scripts/workflow-sandbox-canary.mjs --human-review
+```
+
+Production binding + run (Maintenance project, `prRequired=true`):
+
+```bash
+node scripts/workflow-production-binding.mjs --apply
+node scripts/workflow-production-run.mjs --start
+node scripts/workflow-production-run.mjs --campaign
+node scripts/workflow-production-run.mjs --human-review
+```
+
+See [`docs/production-workflow-binding.md`](docs/production-workflow-binding.md) and [`docs/workflow-sandbox-canary-runbook.md`](docs/workflow-sandbox-canary-runbook.md).
 
 ## Package contents
 
@@ -189,7 +222,8 @@ Issue identifiers are stored canonically as opaque strings. Filenames are ASCII-
 |---|---|
 | `extensions/` | Pi TypeScript extension entrypoint (`index.ts`) |
 | `lib/` | Spine state store, state machine, PR binding checker, workflow catalog/binding/run ledger primitives, permission/controller helpers, and schemas |
-| `docs/` | Release and maintainer docs (`release.md`) |
+| `scripts/` | Workflow ops CLIs (`jsonl-digest`, sandbox canary, production binding/run) |
+| `docs/` | Release, workflow ops runbooks, and maintainer docs |
 | `README.md` | Public entrypoint (this file) |
 | `LICENSE` | MIT license |
 | `CHANGELOG.md` | Version history |
@@ -230,6 +264,8 @@ See [`docs/release.md`](docs/release.md) for setup details.
 `docs/` is optional supporting documentation. README stays the GitHub/npm entrypoint.
 
 - [`docs/release.md`](docs/release.md) — Trusted Publishing details (README Release summarizes the flow)
+- [`docs/production-workflow-binding.md`](docs/production-workflow-binding.md) — Maintenance-project production binding and run commands
+- [`docs/workflow-sandbox-canary-runbook.md`](docs/workflow-sandbox-canary-runbook.md) — Sandbox canary harness modes and safety checks
 - [`ROADMAP.md`](ROADMAP.md) — maintenance context, current release status, and bounded 30–90 minute seed candidates (repo-only, not packaged)
 
 ## Security

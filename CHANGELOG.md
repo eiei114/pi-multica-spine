@@ -6,6 +6,18 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-07-24
+
+### Added
+
+- Production workflow run CLI (`scripts/workflow-production-run.mjs`, `lib/workflow-production-run.ts`) with `--start`, `--campaign`, `--human-review`, and `--report`.
+- Campaign/human-review hooks for production-themed Hermes artifacts.
+- README workflow operations section for v0.5.0+ scripts and color policy.
+
+### Changed
+
+- Install pin example advances to `@0.5.0`.
+
 ## [0.5.0] - 2026-07-23
 
 ### Added
