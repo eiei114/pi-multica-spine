@@ -62,6 +62,7 @@ export function parseProductionRunArgs(argv = process.argv.slice(2)) {
       report: { type: "boolean", default: false },
       "repo-path": { type: "string", default: PRODUCTION_REPO_PATH },
       "project-id": { type: "string", default: PRODUCTION_PROJECT_ID },
+      "max-stage-cycles": { type: "string" },
     },
     allowPositionals: false,
   });
@@ -73,6 +74,7 @@ export function parseProductionRunArgs(argv = process.argv.slice(2)) {
     report: values.report ?? false,
     repoPath: values["repo-path"] ?? PRODUCTION_REPO_PATH,
     projectId: values["project-id"] ?? PRODUCTION_PROJECT_ID,
+    maxStageCycles: values["max-stage-cycles"] ? Number(values["max-stage-cycles"]) : undefined,
   };
 }
 
@@ -250,6 +252,7 @@ export async function runProductionCampaign(config) {
     roughIdea: state.roughIdea ?? plan.roughIdea ?? PRODUCTION_ROUGH_IDEA,
     buildStageArtifactContent: buildProductionStageArtifactContent,
     onImplementationStage: writeProductionImplementationArtifacts,
+    maxStageCycles: config.maxStageCycles,
   });
   state.lastCampaign = {
     at: new Date().toISOString(),

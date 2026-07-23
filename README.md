@@ -93,7 +93,7 @@ Replace `pi-multica-spine` with the exact `name` from `package.json` when you fo
 Pin a specific version when you want reproducible installs:
 
 ```bash
-pi install npm:pi-multica-spine@0.7.4
+pi install npm:pi-multica-spine@0.7.5
 ```
 
 Install into the current project instead of your user Pi settings:
@@ -236,7 +236,7 @@ npm install
 npm run ci
 ```
 
-`npm run ci` runs build, typecheck, coverage gate, changelog lint, template re-sync check, sandbox checklist, sandbox rehearsal, `pack:check`, `pack:smoke` (install tarball + digest CLI), both walkthrough smokes, and `npm pack --dry-run`.
+`npm run ci` runs build, typecheck, coverage gate, changelog lint, template re-sync check, sandbox checklist, sandbox full-closeout rehearsal, production rehearsal, `pack:check`, `pack:smoke` (install tarball + digest CLI), both walkthrough smokes, and `npm pack --dry-run`.
 
 Individual checks:
 

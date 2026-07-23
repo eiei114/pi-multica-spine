@@ -6,6 +6,7 @@ import {
   evaluateCoverage,
   evaluateCoverageHotspots,
   evaluateCoverageSandboxBranches,
+  evaluateCoverageSandboxLines,
   parseCoverageFileRows,
   parseCoverageSummary,
 } from "../scripts/coverage-gate.mjs";
@@ -71,6 +72,22 @@ test("evaluateCoverageSandboxBranches enforces sandbox module branch floors", ()
   const fail = evaluateCoverageSandboxBranches([
     ...files.filter((f) => f.file !== "lib/workflow-sandbox-fixtures.ts"),
     { file: "lib/workflow-sandbox-fixtures.ts", lines: 55, branches: 20, functions: 66 },
+  ]);
+  assert.equal(fail.ok, false);
+});
+
+test("evaluateCoverageSandboxLines enforces sandbox module line floors", () => {
+  const files = [
+    { file: "lib/workflow-sandbox-campaign.ts", lines: 90, branches: 68, functions: 90 },
+    { file: "lib/workflow-sandbox-fixtures.ts", lines: 51, branches: 33, functions: 66 },
+    { file: "lib/workflow-controller-autopilot.ts", lines: 76, branches: 78, functions: 80 },
+    { file: "lib/workflow-sandbox-human-review.ts", lines: 95, branches: 36, functions: 100 },
+  ];
+  const pass = evaluateCoverageSandboxLines(files);
+  assert.equal(pass.ok, true);
+  const fail = evaluateCoverageSandboxLines([
+    ...files.filter((f) => f.file !== "lib/workflow-sandbox-fixtures.ts"),
+    { file: "lib/workflow-sandbox-fixtures.ts", lines: 40, branches: 33, functions: 66 },
   ]);
   assert.equal(fail.ok, false);
 });

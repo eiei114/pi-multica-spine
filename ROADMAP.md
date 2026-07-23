@@ -6,33 +6,33 @@
 
 | Item | Value |
 | --- | --- |
-| Published version | **0.7.4** (candidate) |
-| Working-tree version | `0.7.4` |
-| Examples | spine + full offline campaign + sandbox rehearsal |
+| Published version | **0.7.5** (candidate) |
+| Working-tree version | `0.7.5` |
+| Examples | spine + full offline campaign + sandbox/production rehearsal |
 | Production gate | **CLOSED** |
-| Absorbed seeds | ~~R-MNT-1..21~~ through v0.7.4 |
+| Absorbed seeds | ~~R-MNT-1..24~~ through v0.7.5 |
 
 ## Near-term lanes
 
 | Lane | Goal |
 | --- | --- |
-| **Live ops** | `npm run check:sandbox-rehearsal -- --execute` after `--live` checklist |
-| **Coverage** | Sandbox branch floors enforced; raise line coverage on integration modules |
+| **Live ops** | `check:sandbox-rehearsal` / `check:production-rehearsal` with `--execute` |
+| **Coverage** | Sandbox line + branch floors enforced on integration modules |
 | **Production gate** | Human opens per `docs/production-gate-decision.md` only |
 
 ## Candidate seeds (next)
 
 | ID | Seed | Scope |
 | --- | --- | --- |
-| R-MNT-22 | Live sandbox campaign through `final_package` + human review | ~90 min |
-| R-MNT-23 | Maintenance production-run rehearsal automation | ~60 min |
-| R-MNT-24 | Raise sandbox/campaign line coverage floors | ~60 min |
+| R-MNT-25 | Live sandbox full closeout evidence capture | ~60 min |
+| R-MNT-26 | Production gate open rehearsal checklist | Human Gate |
+| R-MNT-27 | Raise integration module function coverage floors | ~60 min |
 
 ## Completed seeds (reference)
 
 | ID | Done in |
 | --- | --- |
-| ~~R-MNT-1..18~~ | v0.6.0–v0.7.3 |
-| ~~R-MNT-19~~ | v0.7.4 — sandbox rehearsal automation |
-| ~~R-MNT-20~~ | v0.7.4 — sandbox branch coverage floors |
-| ~~R-MNT-21~~ | v0.7.4 — template peer bump check |
+| ~~R-MNT-1..21~~ | v0.6.0–v0.7.4 |
+| ~~R-MNT-22~~ | v0.7.5 — sandbox full closeout rehearsal |
+| ~~R-MNT-23~~ | v0.7.5 — production-run rehearsal automation |
+| ~~R-MNT-24~~ | v0.7.5 — sandbox line coverage floors |
