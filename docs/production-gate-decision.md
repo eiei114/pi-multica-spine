@@ -25,6 +25,7 @@ Maintenance rehearsal **is allowed** with the gate closed (already proven).
 
 A human may set `productionAllowed=true` only when **all** of the following are true:
 
+0. [ ] Automated gate checklist green: `npm run check:production-gate` (gate remains CLOSED; human items still required).
 1. [ ] Ops checklist followed successfully on a fresh Maintenance rehearsal (`docs/workflow-ops-checklist.md`).
 2. [ ] Sandbox canary evidence still green within the last successful campaign window.
 3. [ ] Pack smoke (`npm run pack:smoke`) green on the candidate commit.

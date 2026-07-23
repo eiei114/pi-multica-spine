@@ -6,6 +6,7 @@
 import { pathToFileURL } from "node:url";
 
 import { runWorkflowSandboxChecklist } from "./workflow-sandbox-checklist.mjs";
+import { runSandboxCloseoutEvidence } from "./workflow-sandbox-closeout-evidence.mjs";
 import {
   applySandboxCanary,
   buildSandboxCanaryPlan,
@@ -102,6 +103,7 @@ export async function runWorkflowSandboxRehearsal(options = {}) {
       nextSteps: fullCloseout
         ? [
             "npm run check:sandbox-rehearsal",
+            "npm run check:sandbox-evidence",
             "npm run check:sandbox-checklist -- --live",
             "node scripts/workflow-sandbox-rehearsal.mjs --full-closeout --execute",
           ]
@@ -164,8 +166,16 @@ export async function runWorkflowSandboxRehearsal(options = {}) {
     campaignResult.plan.deliveryPolicy.productionAllowed === false &&
     (!fullCloseout || humanReview?.verdict === "approved");
 
+  let closeoutEvidence;
+  if (ok && fullCloseout) {
+    closeoutEvidence = await runSandboxCloseoutEvidence({
+      capture: true,
+      canaryPath,
+    });
+  }
+
   return {
-    ok,
+    ok: ok && (!closeoutEvidence || closeoutEvidence.ok),
     mode: fullCloseout ? "live-full-closeout" : "live-execute",
     canaryPath,
     steps,
@@ -184,6 +194,7 @@ export async function runWorkflowSandboxRehearsal(options = {}) {
       maxStageCycles,
     },
     humanReview,
+    closeoutEvidence,
   };
 }
 

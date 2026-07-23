@@ -28,7 +28,7 @@ Parent issue: **DOT-1116** (`done`)
 
 ## Published package
 
-- npm: `pi-multica-spine@0.6.0`
+- npm: `pi-multica-spine@0.7.6` (Maintenance lane automation through R-MNT-27)
 - ADR: `docs/adr/0001-maintenance-bundle-v0-6-0.md`
 - Domain glossary: `CONTEXT.md` (repo root)
 
