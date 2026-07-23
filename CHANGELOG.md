@@ -6,6 +6,20 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.6] - 2026-07-24
+
+### Added
+
+- `scripts/workflow-sandbox-closeout-evidence.mjs` — sandbox full closeout evidence schema + live capture (R-MNT-25).
+- `scripts/production-gate-checklist.mjs` — production gate open rehearsal checklist; gate stays CLOSED (R-MNT-26).
+- Sandbox module function coverage floors in `coverage-gate.mjs` (R-MNT-27).
+
+### Changed
+
+- CI runs `check:sandbox-evidence` and `check:production-gate`.
+- Live `--full-closeout --execute` rehearsal captures closeout evidence when successful.
+- ROADMAP: R-MNT-25..27 absorbed.
+
 ## [0.7.5] - 2026-07-24
 
 ### Added
