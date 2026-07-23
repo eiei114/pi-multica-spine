@@ -67,6 +67,12 @@ node scripts/workflow-production-run.mjs --report
 
 Artifacts land under `Artifacts/workflows/<workflow-run-id>/`. CLI state is persisted at `.multica-spine/production-run-state.json`.
 
+Runbook: [`docs/workflow-production-run-runbook.md`](workflow-production-run-runbook.md)
+
+### Daemon task context
+
+Workflow scripts auto-remove a stale `.multica/daemon_task_context.json` before live Multica calls (v0.5.2+). If you invoke `multica` directly, delete the marker when not inside an agent task.
+
 ## Difference from sandbox canary
 
 | | Sandbox canary | Production binding |

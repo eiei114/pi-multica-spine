@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+import { access, unlink } from "node:fs/promises";
+import { join } from "node:path";
 
 /**
  * Thin wrappers around the `multica` CLI for workflow-adapter live operations.
@@ -486,6 +488,23 @@ export const issueClient: IssueClient = createIssueClient(runMultica);
 
 /** Default project client backed by the real `multica` CLI. */
 export const projectClient: ProjectClient = createProjectClient(runMultica);
+
+const DAEMON_TASK_CONTEXT_RELATIVE = join(".multica", "daemon_task_context.json");
+
+/**
+ * Remove a leftover `.multica/daemon_task_context.json` marker when not running
+ * inside an agent task. Multica CLI rejects user tokens when this file exists.
+ */
+export async function clearStaleDaemonTaskContext(cwd = process.cwd()): Promise<boolean> {
+  const path = join(cwd, DAEMON_TASK_CONTEXT_RELATIVE);
+  try {
+    await access(path);
+  } catch {
+    return false;
+  }
+  await unlink(path);
+  return true;
+}
 
 /** Default autopilot client backed by the real `multica` CLI. */
 export const autopilotClient: AutopilotClient = createAutopilotClient(runMultica);

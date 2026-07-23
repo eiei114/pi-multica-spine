@@ -93,7 +93,7 @@ Replace `pi-multica-spine` with the exact `name` from `package.json` when you fo
 Pin a specific version when you want reproducible installs:
 
 ```bash
-pi install npm:pi-multica-spine@0.5.0
+pi install npm:pi-multica-spine@0.5.1
 ```
 
 Install into the current project instead of your user Pi settings:
@@ -214,7 +214,7 @@ node scripts/workflow-production-run.mjs --campaign
 node scripts/workflow-production-run.mjs --human-review
 ```
 
-See [`docs/production-workflow-binding.md`](docs/production-workflow-binding.md) and [`docs/workflow-sandbox-canary-runbook.md`](docs/workflow-sandbox-canary-runbook.md).
+See [`docs/production-workflow-binding.md`](docs/production-workflow-binding.md), [`docs/workflow-production-run-runbook.md`](docs/workflow-production-run-runbook.md), and [`docs/workflow-sandbox-canary-runbook.md`](docs/workflow-sandbox-canary-runbook.md).
 
 ## Package contents
 
@@ -265,6 +265,7 @@ See [`docs/release.md`](docs/release.md) for setup details.
 
 - [`docs/release.md`](docs/release.md) — Trusted Publishing details (README Release summarizes the flow)
 - [`docs/production-workflow-binding.md`](docs/production-workflow-binding.md) — Maintenance-project production binding and run commands
+- [`docs/workflow-production-run-runbook.md`](docs/workflow-production-run-runbook.md) — Production lane CLI modes and daemon context guard
 - [`docs/workflow-sandbox-canary-runbook.md`](docs/workflow-sandbox-canary-runbook.md) — Sandbox canary harness modes and safety checks
 - [`ROADMAP.md`](ROADMAP.md) — maintenance context, current release status, and bounded 30–90 minute seed candidates (repo-only, not packaged)
 

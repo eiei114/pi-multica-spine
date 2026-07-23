@@ -14,6 +14,7 @@ import {
   createIssueClient,
   createMetadataClient,
   createProjectClient,
+  clearStaleDaemonTaskContext,
   runMultica,
 } from "../lib/multica-cli.ts";
 import {
@@ -193,6 +194,7 @@ export async function startProductionWorkflowRun(config) {
   if (config.projectId !== PRODUCTION_PROJECT_ID) {
     throw new Error(`Refusing production run for unexpected project id: ${config.projectId}`);
   }
+  await clearStaleDaemonTaskContext(config.repoPath);
   const plan = buildProductionRunPlan(config.repoPath);
   await applyProductionWorkflowBinding({ repoPath: config.repoPath, projectId: config.projectId });
   let state = await loadProductionRunState(config.repoPath);
@@ -226,6 +228,7 @@ export async function startProductionWorkflowRun(config) {
 }
 
 export async function runProductionCampaign(config) {
+  await clearStaleDaemonTaskContext(config.repoPath);
   const plan = buildProductionRunPlan(config.repoPath);
   const state = await loadProductionRunState(config.repoPath);
   if (!state?.workflowRunId) {
@@ -254,6 +257,7 @@ export async function runProductionCampaign(config) {
 }
 
 export async function runProductionHumanReview(config, reviewInput = {}) {
+  await clearStaleDaemonTaskContext(config.repoPath);
   const state = await loadProductionRunState(config.repoPath);
   if (!state?.workflowRunId) {
     throw new Error(`Production run state not found. Run --start and --campaign first at ${config.repoPath}`);

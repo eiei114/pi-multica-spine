@@ -6,6 +6,19 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-07-24
+
+### Added
+
+- `clearStaleDaemonTaskContext()` in `lib/multica-cli.ts` for workflow CLI hygiene.
+- Production workflow run runbook (`docs/workflow-production-run-runbook.md`).
+
+### Changed
+
+- Sandbox canary and production run scripts auto-clear stale `.multica/daemon_task_context.json` before live Multica calls.
+- ROADMAP refreshed for v0.5.1 workflow ops and live lane evidence.
+- README install pin example advances to `@0.5.1`.
+
 ## [0.5.1] - 2026-07-24
 
 ### Added

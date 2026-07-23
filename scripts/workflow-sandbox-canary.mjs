@@ -16,6 +16,7 @@ import {
   createIssueClient,
   createMetadataClient,
   createProjectClient,
+  clearStaleDaemonTaskContext,
   runMultica,
 } from "../lib/multica-cli.ts";
 import { hashWorkflowRunLedger, WorkflowRunStateStore } from "../lib/workflow-run-state.ts";
@@ -402,6 +403,7 @@ export async function generateFinalPackage(canaryPath, state, runEvidence = {}) 
 
 export async function applySandboxCanary(config) {
   const plan = buildSandboxCanaryPlan(config);
+  await clearStaleDaemonTaskContext(plan.canaryPath);
   const initialCommit = await bootstrapSandboxRepo(plan.canaryPath);
   const project = await ensureCanaryProject(plan.canaryPath);
   if (BLOCKED_PROJECT_IDS.has(project.id)) {
@@ -449,6 +451,7 @@ export async function applySandboxCanary(config) {
 
 export async function runSandboxCampaign(config) {
   const plan = buildSandboxCanaryPlan(config);
+  await clearStaleDaemonTaskContext(plan.canaryPath);
   const state = await loadCanaryState(plan.canaryPath);
   if (!state?.workflowRunId) {
     throw new Error(`Canary state not found. Run --apply first at ${plan.canaryPath}`);
@@ -478,6 +481,7 @@ export async function runSandboxCampaign(config) {
 
 export async function runHumanFinalReview(config, reviewInput = {}) {
   const plan = buildSandboxCanaryPlan(config);
+  await clearStaleDaemonTaskContext(plan.canaryPath);
   const state = await loadCanaryState(plan.canaryPath);
   if (!state?.workflowRunId) {
     throw new Error(`Canary state not found. Run --apply and --campaign first at ${plan.canaryPath}`);

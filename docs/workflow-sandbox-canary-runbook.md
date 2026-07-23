@@ -28,6 +28,7 @@ node scripts/workflow-sandbox-canary.mjs --report
 2. Verify `deliveryPolicy.productionAllowed=false` and `releaseAllowed=false`.
 3. Do not pass production project IDs to `--apply`.
 4. Record live IDs only in investigation docs; never commit webhook tokens.
+5. If Multica CLI reports a daemon task marker, remove `.multica/daemon_task_context.json` or rely on automatic cleanup in `--apply` / `--campaign` / `--human-review` (v0.5.2+).
 
 ## Operations handoff
 
