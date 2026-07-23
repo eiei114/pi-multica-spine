@@ -231,6 +231,69 @@ test("artifact recording rejects paths outside the binding artifact root", async
   );
 });
 
+test("stage acceptance ignores artifacts from prior attempts", async () => {
+  const fake = createFakePi();
+  extension(fake.api);
+  const cwd = await mkdtemp(join(tmpdir(), "spine-workflow-attempt-artifact-"));
+  const ctx = fakeCtx(cwd);
+
+  await callTool(fake.tools, "multica_workflow_catalog_put", { manifest: sampleManifest() }, ctx);
+  for (const status of ["audited", "active"]) {
+    await callTool(fake.tools, "multica_workflow_catalog_transition", {
+      adapterId: "hermes-idea-workflow",
+      adapterVersion: 1,
+      status,
+    }, ctx);
+  }
+  await callTool(fake.tools, "multica_workflow_binding_put", { binding: sampleBinding() }, ctx);
+  await callTool(fake.tools, "multica_workflow_run_create", { projectIdOrKey: "proj_123", workflowRunId: "run_123" }, ctx);
+  await callTool(fake.tools, "multica_workflow_stage_transition", {
+    workflowRunId: "run_123",
+    stageId: "capture_interview",
+    status: "produced",
+  }, ctx);
+  await callTool(fake.tools, "multica_workflow_artifact_record", {
+    workflowRunId: "run_123",
+    artifact: {
+      artifactSchemaVersion: 1,
+      workflowRunId: "run_123",
+      stageId: "capture_interview",
+      producerIssueId: "issue_123",
+      producerRunId: "run_attempt_1",
+      attempt: 1,
+      adapterBundleHash: "b".repeat(64),
+      inputArtifactHashes: [],
+      outputPath: "Artifacts/workflows/run_123/attempt-1.md",
+      outputHash: "c".repeat(64),
+      status: "immutable",
+    },
+  }, ctx);
+  await callTool(fake.tools, "multica_workflow_stage_transition", {
+    workflowRunId: "run_123",
+    stageId: "capture_interview",
+    status: "retrying",
+  }, ctx);
+  await callTool(fake.tools, "multica_workflow_stage_seed", {
+    workflowRunId: "run_123",
+    stageId: "capture_interview",
+    attempt: 2,
+  }, ctx);
+  await callTool(fake.tools, "multica_workflow_stage_transition", {
+    workflowRunId: "run_123",
+    stageId: "capture_interview",
+    status: "produced",
+  }, ctx);
+
+  await assert.rejects(
+    () => callTool(fake.tools, "multica_workflow_stage_transition", {
+      workflowRunId: "run_123",
+      stageId: "capture_interview",
+      status: "accepted",
+    }, ctx),
+    /Cannot accept stage without produced status and artifact/,
+  );
+});
+
 test("workflow permission check surfaces granted and blocked capabilities", async () => {
   const fake = createFakePi();
   extension(fake.api);

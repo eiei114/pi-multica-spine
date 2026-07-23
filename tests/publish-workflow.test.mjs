@@ -16,7 +16,7 @@ function extractOnBlock(content) {
 test("publish.yml has no push trigger to prevent duplicate publish runs (DOT-881)", () => {
   const onBlock = extractOnBlock(publishWorkflow);
   assert.ok(
-    !/^\s+push:\s*$/m.test(onBlock),
+    !/^ {2}push\s*:/m.test(onBlock),
     "push trigger must be absent so a version bump publishes through one path only",
   );
 });
@@ -24,6 +24,7 @@ test("publish.yml has no push trigger to prevent duplicate publish runs (DOT-881
 test("publish.yml keeps workflow_dispatch for auto-release handoff", () => {
   const onBlock = extractOnBlock(publishWorkflow);
   assert.match(onBlock, /workflow_dispatch:/);
+  assert.match(onBlock, /workflow_dispatch:[\s\S]*?^ {4}inputs:\s*$[\s\S]*?^ {6}ref:\s*$/m);
 });
 
 test("publish.yml keeps release.published as a secondary publish path", () => {

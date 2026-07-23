@@ -1,7 +1,7 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, join, normalize } from "node:path";
+import { isAbsolute, join, posix } from "node:path";
 import { Type, type Static } from "typebox";
 import { sha256Hex } from "./hash.ts";
+import { readJsonFile, withFileLock, writeJsonAtomic } from "./json-file-store.ts";
 import { StringEnum } from "./schema.ts";
 import { safeIssueIdentifier } from "./state-store.ts";
 import { SPINE_STATE_ROOT } from "./types.ts";
@@ -22,6 +22,7 @@ export const WorkflowEventTypeSchema = StringEnum([
   "stage_updated",
   "artifact_recorded",
   "question_recorded",
+  "workflow_status_changed",
 ]);
 export type WorkflowEventType = Static<typeof WorkflowEventTypeSchema>;
 
@@ -104,27 +105,13 @@ export interface CreateWorkflowRunLedgerInput {
   initialStageId?: string;
 }
 
-async function readJson<T>(path: string): Promise<T | undefined> {
-  try {
-    return JSON.parse(await readFile(path, "utf8")) as T;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-    throw error;
-  }
-}
-
-async function writeJson(path: string, value: unknown): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-}
-
 function nowIso(): string {
   return new Date().toISOString();
 }
 
 function isProjectRelativePath(path: string): boolean {
   if (!path.trim() || isAbsolute(path) || /^[A-Za-z]:[\\/]/.test(path)) return false;
-  const normalized = normalize(path).replace(/\\/g, "/");
+  const normalized = posix.normalize(path.replace(/\\/g, "/"));
   return normalized !== ".." && !normalized.startsWith("../");
 }
 
@@ -201,7 +188,7 @@ export class WorkflowRunStateStore {
   }
 
   async load(workflowRunId: string): Promise<WorkflowRunStateLedger | undefined> {
-    const ledger = await readJson<WorkflowRunStateLedger>(this.ledgerPath(workflowRunId));
+    const ledger = await readJsonFile<WorkflowRunStateLedger>(this.ledgerPath(workflowRunId));
     if (!ledger) return undefined;
     if (ledger.workflowRunId !== workflowRunId) {
       throw new Error(`Workflow run id mismatch in ledger: expected ${workflowRunId}, got ${ledger.workflowRunId}`);
@@ -210,122 +197,148 @@ export class WorkflowRunStateStore {
   }
 
   async create(input: CreateWorkflowRunLedgerInput): Promise<WorkflowRunStateLedger> {
-    const existing = await this.load(input.workflowRunId);
-    if (existing) {
-      if (
-        existing.multicaProjectId !== input.multicaProjectId ||
-        existing.adapterId !== input.adapterId ||
-        existing.adapterVersion !== input.adapterVersion ||
-        existing.adapterBundleHash !== input.adapterBundleHash ||
-        existing.executionMode !== input.executionMode
-      ) {
-        throw new Error(`Workflow run ${input.workflowRunId} already exists with different binding metadata`);
+    const path = this.ledgerPath(input.workflowRunId);
+    return withFileLock(path, async () => {
+      const existing = await this.load(input.workflowRunId);
+      if (existing) {
+        const createdEvent = existing.events.find((event) => event.eventType === "run_created");
+        const seededStage = createdEvent?.details?.seededStage;
+        const existingInitialStageId = typeof seededStage === "string" ? seededStage : undefined;
+        if (
+          existing.multicaProjectId !== input.multicaProjectId ||
+          existing.adapterId !== input.adapterId ||
+          existing.adapterVersion !== input.adapterVersion ||
+          existing.adapterBundleHash !== input.adapterBundleHash ||
+          existing.executionMode !== input.executionMode ||
+          existingInitialStageId !== input.initialStageId
+        ) {
+          throw new Error(`Workflow run ${input.workflowRunId} already exists with different creation metadata`);
+        }
+        return existing;
       }
-      return existing;
-    }
 
-    const ledger = createWorkflowRunLedger(input);
-    await this.save(ledger);
-    return ledger;
+      const ledger = createWorkflowRunLedger(input);
+      return this.saveUnlocked(ledger);
+    });
   }
 
   async save(ledgerInput: WorkflowRunStateLedger): Promise<WorkflowRunStateLedger> {
     const ledger = assertValid(validateSchema(WorkflowRunStateLedgerSchema, ledgerInput), "Invalid workflow run ledger");
-    await writeJson(this.ledgerPath(ledger.workflowRunId), ledger);
-    return ledger;
+    return withFileLock(this.ledgerPath(ledger.workflowRunId), () => this.saveUnlocked(ledger));
   }
 
   async upsertStage(workflowRunId: string, stage: Omit<WorkflowStageState, "updatedAt">): Promise<WorkflowRunStateLedger> {
-    const ledger = await this.requireLedger(workflowRunId);
-    const timestamp = nowIso();
-    ledger.stages[stage.stageId] = {
-      ...stage,
-      updatedAt: timestamp,
-    };
-    ledger.currentStageId = stage.stageId;
-    ledger.workflowStatus = workflowStatusForStage(stage.status);
-    ledger.updatedAt = timestamp;
-    ledger.stateVersion += 1;
-    ledger.events.push({
-      eventId: `${stageAttemptKey(workflowRunId, stage.stageId, stage.attempt)}:${stage.status}:${ledger.stateVersion}`,
-      eventType: stage.status === "seeded" ? "stage_seeded" : "stage_updated",
-      stageId: stage.stageId,
-      timestamp,
-      details: { status: stage.status, issueId: stage.issueId, assignedAgentId: stage.assignedAgentId },
+    return withFileLock(this.ledgerPath(workflowRunId), async () => {
+      const ledger = await this.requireLedger(workflowRunId);
+      const timestamp = nowIso();
+      ledger.stages[stage.stageId] = {
+        ...stage,
+        updatedAt: timestamp,
+      };
+      ledger.currentStageId = stage.stageId;
+      ledger.workflowStatus = workflowStatusForStage(stage.status);
+      ledger.updatedAt = timestamp;
+      ledger.stateVersion += 1;
+      ledger.events.push({
+        eventId: `${stageAttemptKey(workflowRunId, stage.stageId, stage.attempt)}:${stage.status}:${ledger.stateVersion}`,
+        eventType: stage.status === "seeded" ? "stage_seeded" : "stage_updated",
+        stageId: stage.stageId,
+        timestamp,
+        details: { status: stage.status, issueId: stage.issueId, assignedAgentId: stage.assignedAgentId },
+      });
+      return this.saveUnlocked(ledger);
     });
-    return this.save(ledger);
   }
 
   async recordArtifact(workflowRunId: string, artifactInput: WorkflowArtifactEnvelope): Promise<WorkflowRunStateLedger> {
     const artifact = assertValid(validateSchema(WorkflowArtifactEnvelopeSchema, artifactInput), "Invalid workflow artifact envelope");
-    const ledger = await this.requireLedger(workflowRunId);
-    if (artifact.workflowRunId !== workflowRunId) {
-      throw new Error(`Artifact workflow run mismatch: expected ${workflowRunId}, got ${artifact.workflowRunId}`);
-    }
-    if (artifact.adapterBundleHash !== ledger.adapterBundleHash) {
-      throw new Error("Artifact adapter bundle hash does not match workflow run ledger");
-    }
-    if (!isProjectRelativePath(artifact.outputPath)) {
-      throw new Error(`Artifact output path must be project-relative: ${artifact.outputPath}`);
-    }
-    const stage = ledger.stages[artifact.stageId];
-    if (!stage) {
-      throw new Error(`Cannot record artifact for unknown stage: ${artifact.stageId}`);
-    }
-    if (artifact.attempt !== stage.attempt) {
-      throw new Error(`Artifact attempt mismatch for ${artifact.stageId}: expected ${stage.attempt}, got ${artifact.attempt}`);
-    }
-    const existingArtifact = ledger.artifacts.find((item) => item.outputHash === artifact.outputHash);
-    if (existingArtifact) {
-      if (JSON.stringify(existingArtifact) !== JSON.stringify(artifact)) {
-        throw new Error(`Artifact hash already exists with different envelope: ${artifact.outputHash}`);
+    return withFileLock(this.ledgerPath(workflowRunId), async () => {
+      const ledger = await this.requireLedger(workflowRunId);
+      if (artifact.workflowRunId !== workflowRunId) {
+        throw new Error(`Artifact workflow run mismatch: expected ${workflowRunId}, got ${artifact.workflowRunId}`);
       }
-      return ledger;
-    }
-    ledger.artifacts.push(artifact);
-    stage.artifactHashes = [...new Set([...stage.artifactHashes, artifact.outputHash])];
-    stage.updatedAt = nowIso();
-    ledger.updatedAt = stage.updatedAt;
-    ledger.stateVersion += 1;
-    ledger.events.push({
-      eventId: `${artifact.workflowRunId}:${artifact.stageId}:artifact:${artifact.outputHash.slice(0, 12)}`,
-      eventType: "artifact_recorded",
-      stageId: artifact.stageId,
-      timestamp: stage.updatedAt,
-      details: { outputPath: artifact.outputPath, outputHash: artifact.outputHash },
+      if (artifact.adapterBundleHash !== ledger.adapterBundleHash) {
+        throw new Error("Artifact adapter bundle hash does not match workflow run ledger");
+      }
+      if (!isProjectRelativePath(artifact.outputPath)) {
+        throw new Error(`Artifact output path must be project-relative: ${artifact.outputPath}`);
+      }
+      const stage = ledger.stages[artifact.stageId];
+      if (!stage) {
+        throw new Error(`Cannot record artifact for unknown stage: ${artifact.stageId}`);
+      }
+      if (artifact.attempt !== stage.attempt) {
+        throw new Error(`Artifact attempt mismatch for ${artifact.stageId}: expected ${stage.attempt}, got ${artifact.attempt}`);
+      }
+      const existingArtifact = ledger.artifacts.find((item) => item.outputHash === artifact.outputHash);
+      if (existingArtifact) {
+        if (sha256Hex(existingArtifact) !== sha256Hex(artifact)) {
+          throw new Error(`Artifact hash already exists with different envelope: ${artifact.outputHash}`);
+        }
+        return ledger;
+      }
+      ledger.artifacts.push(artifact);
+      stage.artifactHashes = [...new Set([...stage.artifactHashes, artifact.outputHash])];
+      stage.updatedAt = nowIso();
+      ledger.updatedAt = stage.updatedAt;
+      ledger.stateVersion += 1;
+      ledger.events.push({
+        eventId: `${artifact.workflowRunId}:${artifact.stageId}:artifact:${artifact.outputHash.slice(0, 12)}`,
+        eventType: "artifact_recorded",
+        stageId: artifact.stageId,
+        timestamp: stage.updatedAt,
+        details: { outputPath: artifact.outputPath, outputHash: artifact.outputHash },
+      });
+      return this.saveUnlocked(ledger);
     });
-    return this.save(ledger);
   }
 
   async recordQuestion(workflowRunId: string, questionInput: WorkflowQuestionRecord): Promise<WorkflowRunStateLedger> {
     const question = assertValid(validateSchema(WorkflowQuestionRecordSchema, questionInput), "Invalid workflow question record");
-    const ledger = await this.requireLedger(workflowRunId);
-    const existingQuestion = ledger.questions.find((item) => item.questionId === question.questionId);
-    if (existingQuestion) {
-      if (existingQuestion.answerHash !== question.answerHash) {
-        throw new Error(`Question ${question.questionId} already has a different answer hash`);
+    return withFileLock(this.ledgerPath(workflowRunId), async () => {
+      const ledger = await this.requireLedger(workflowRunId);
+      const existingQuestion = ledger.questions.find((item) => item.questionId === question.questionId);
+      if (existingQuestion) {
+        if (existingQuestion.answerHash !== question.answerHash) {
+          throw new Error(`Question ${question.questionId} already has a different answer hash`);
+        }
+        return ledger;
       }
-      return ledger;
-    }
-    ledger.questions.push(question);
-    ledger.updatedAt = nowIso();
-    ledger.stateVersion += 1;
-    ledger.events.push({
-      eventId: `${workflowRunId}:question:${question.questionId}`,
-      eventType: "question_recorded",
-      timestamp: ledger.updatedAt,
-      details: { questionTaskId: question.questionTaskId, answerStatus: question.answerStatus },
+      ledger.questions.push(question);
+      ledger.updatedAt = nowIso();
+      ledger.stateVersion += 1;
+      ledger.events.push({
+        eventId: `${workflowRunId}:question:${question.questionId}`,
+        eventType: "question_recorded",
+        timestamp: ledger.updatedAt,
+        details: { questionTaskId: question.questionTaskId, answerStatus: question.answerStatus },
+      });
+      return this.saveUnlocked(ledger);
     });
-    return this.save(ledger);
   }
 
   async setWorkflowStatus(workflowRunId: string, status: WorkflowRunStatus): Promise<WorkflowRunStateLedger> {
-    const ledger = await this.requireLedger(workflowRunId);
-    if (ledger.workflowStatus === status) return ledger;
-    ledger.workflowStatus = status;
-    ledger.updatedAt = nowIso();
-    ledger.stateVersion += 1;
-    return this.save(ledger);
+    return withFileLock(this.ledgerPath(workflowRunId), async () => {
+      const ledger = await this.requireLedger(workflowRunId);
+      if (ledger.workflowStatus === status) return ledger;
+      const oldStatus = ledger.workflowStatus;
+      ledger.workflowStatus = status;
+      ledger.updatedAt = nowIso();
+      ledger.stateVersion += 1;
+      ledger.events.push({
+        eventId: `${workflowRunId}:status:${oldStatus}:${status}:${ledger.stateVersion}`,
+        eventType: "workflow_status_changed",
+        timestamp: ledger.updatedAt,
+        details: { workflowRunId, oldStatus, newStatus: status },
+      });
+      return this.saveUnlocked(ledger);
+    });
+  }
+
+  private async saveUnlocked(ledgerInput: WorkflowRunStateLedger): Promise<WorkflowRunStateLedger> {
+    const ledger = assertValid(validateSchema(WorkflowRunStateLedgerSchema, ledgerInput), "Invalid workflow run ledger");
+    await writeJsonAtomic(this.ledgerPath(ledger.workflowRunId), ledger);
+    return ledger;
   }
 
   private async requireLedger(workflowRunId: string): Promise<WorkflowRunStateLedger> {

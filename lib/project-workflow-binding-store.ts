@@ -1,23 +1,10 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { readdir } from "node:fs/promises";
+import { join } from "node:path";
+import { readJsonFile, withFileLock, writeJsonAtomic } from "./json-file-store.ts";
 import { safeIssueIdentifier } from "./state-store.ts";
 import { SPINE_STATE_ROOT } from "./types.ts";
 import { ProjectWorkflowBindingSchema, type ProjectWorkflowBinding } from "./project-workflow-binding.ts";
 import { assertValid, validateSchema } from "./validation.ts";
-
-async function readJson<T>(path: string): Promise<T | undefined> {
-  try {
-    return JSON.parse(await readFile(path, "utf8")) as T;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-    throw error;
-  }
-}
-
-async function writeJson(path: string, value: unknown): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-}
 
 export class ProjectWorkflowBindingStore {
   readonly cwd: string;
@@ -34,12 +21,15 @@ export class ProjectWorkflowBindingStore {
 
   async save(binding: ProjectWorkflowBinding): Promise<ProjectWorkflowBinding> {
     const validated = assertValid(validateSchema(ProjectWorkflowBindingSchema, binding), "Invalid project workflow binding");
-    await writeJson(this.bindingPath(validated.multicaProjectId), validated);
-    return validated;
+    const path = this.bindingPath(validated.multicaProjectId);
+    return withFileLock(path, async () => {
+      await writeJsonAtomic(path, validated);
+      return validated;
+    });
   }
 
   async getByProjectId(multicaProjectId: string): Promise<ProjectWorkflowBinding | undefined> {
-    const binding = await readJson<ProjectWorkflowBinding>(this.bindingPath(multicaProjectId));
+    const binding = await readJsonFile<ProjectWorkflowBinding>(this.bindingPath(multicaProjectId));
     if (!binding) return undefined;
     return assertValid(validateSchema(ProjectWorkflowBindingSchema, binding), "Invalid project workflow binding");
   }
@@ -57,7 +47,7 @@ export class ProjectWorkflowBindingStore {
       const bindings: ProjectWorkflowBinding[] = [];
       for (const file of files) {
         if (!file.isFile() || !file.name.endsWith(".json")) continue;
-        const binding = await readJson<ProjectWorkflowBinding>(join(this.root, file.name));
+        const binding = await readJsonFile<ProjectWorkflowBinding>(join(this.root, file.name));
         if (binding) {
           bindings.push(assertValid(validateSchema(ProjectWorkflowBindingSchema, binding), "Invalid project workflow binding"));
         }

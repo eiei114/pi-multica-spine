@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -134,5 +134,110 @@ test("WorkflowRunStateStore rejects cross-run artifacts and conflicting question
   await assert.rejects(
     () => store.recordQuestion("run_123", { ...question, answerHash: "d".repeat(64) }),
     /already has a different answer hash/,
+  );
+});
+
+test("WorkflowRunStateStore rejects encoded path escapes and tolerates reordered duplicate envelopes", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "workflow-run-state-artifact-safety-"));
+  const store = new WorkflowRunStateStore(cwd);
+  await store.create({
+    workflowRunId: "run_123",
+    multicaProjectId: "proj_123",
+    adapterId: "hermes-idea-workflow",
+    adapterVersion: 1,
+    adapterBundleHash: "a".repeat(64),
+    executionMode: "interactive",
+    initialStageId: "capture_interview",
+  });
+
+  const artifact = {
+    artifactSchemaVersion: 1,
+    workflowRunId: "run_123",
+    stageId: "capture_interview",
+    producerIssueId: "issue_123",
+    producerRunId: "attempt_1",
+    attempt: 1,
+    adapterBundleHash: "a".repeat(64),
+    inputArtifactHashes: [],
+    outputPath: "Artifacts/run/00.md",
+    outputHash: "b".repeat(64),
+    status: "immutable",
+  };
+
+  await assert.rejects(
+    () => store.recordArtifact("run_123", { ...artifact, outputPath: "Artifacts\\..\\..\\secret.txt" }),
+    /must be project-relative/,
+  );
+  await store.recordArtifact("run_123", artifact);
+  const reorderedArtifact = {
+    status: artifact.status,
+    outputHash: artifact.outputHash,
+    outputPath: artifact.outputPath,
+    inputArtifactHashes: artifact.inputArtifactHashes,
+    adapterBundleHash: artifact.adapterBundleHash,
+    attempt: artifact.attempt,
+    producerRunId: artifact.producerRunId,
+    producerIssueId: artifact.producerIssueId,
+    stageId: artifact.stageId,
+    workflowRunId: artifact.workflowRunId,
+    artifactSchemaVersion: artifact.artifactSchemaVersion,
+  };
+  const ledger = await store.recordArtifact("run_123", reorderedArtifact);
+  assert.equal(ledger.artifacts.length, 1);
+});
+
+test("WorkflowRunStateStore serializes concurrent mutations and records status events", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "workflow-run-state-concurrency-"));
+  const store = new WorkflowRunStateStore(cwd);
+  await store.create({
+    workflowRunId: "run_123",
+    multicaProjectId: "proj_123",
+    adapterId: "hermes-idea-workflow",
+    adapterVersion: 1,
+    adapterBundleHash: "a".repeat(64),
+    executionMode: "interactive",
+  });
+
+  await Promise.all(Array.from({ length: 8 }, (_, index) => store.recordQuestion("run_123", {
+    questionId: `q${index}`,
+    questionTaskId: `task_${index}`,
+    resolverAgentId: "agent_1",
+    answerStatus: "researched",
+    sourceRefs: [],
+    confidence: "high",
+    answerHash: index.toString(16).padStart(64, "0"),
+  })));
+
+  const completed = await store.setWorkflowStatus("run_123", "completed");
+  const statusEvents = completed.events.filter((event) => event.eventType === "workflow_status_changed");
+  assert.equal(completed.questions.length, 8);
+  assert.equal(statusEvents.length, 1);
+  assert.deepEqual(statusEvents[0].details, {
+    workflowRunId: "run_123",
+    oldStatus: "pending",
+    newStatus: "completed",
+  });
+  const unchanged = await store.setWorkflowStatus("run_123", "completed");
+  assert.equal(unchanged.events.filter((event) => event.eventType === "workflow_status_changed").length, 1);
+  assert.ok((await readdir(store.runRootPath("run_123"))).every((name) => !name.endsWith(".lock") && !name.endsWith(".tmp")));
+});
+
+test("WorkflowRunStateStore rejects create calls with a different initial stage", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "workflow-run-state-create-idempotency-"));
+  const store = new WorkflowRunStateStore(cwd);
+  const input = {
+    workflowRunId: "run_123",
+    multicaProjectId: "proj_123",
+    adapterId: "hermes-idea-workflow",
+    adapterVersion: 1,
+    adapterBundleHash: "a".repeat(64),
+    executionMode: "interactive",
+    initialStageId: "capture_interview",
+  };
+  await store.create(input);
+  await store.create(input);
+  await assert.rejects(
+    () => store.create({ ...input, initialStageId: "spec_review" }),
+    /different creation metadata/,
   );
 });

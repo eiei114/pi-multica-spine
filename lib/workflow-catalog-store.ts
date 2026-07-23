@@ -1,5 +1,6 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { readdir } from "node:fs/promises";
+import { join } from "node:path";
+import { readJsonFile, withFileLock, writeJsonAtomic } from "./json-file-store.ts";
 import { safeIssueIdentifier } from "./state-store.ts";
 import {
   WorkflowCatalogEntrySchema,
@@ -11,20 +12,6 @@ import {
 } from "./workflow-catalog.ts";
 import { SPINE_STATE_ROOT } from "./types.ts";
 import { assertValid, validateSchema } from "./validation.ts";
-
-async function readJson<T>(path: string): Promise<T | undefined> {
-  try {
-    return JSON.parse(await readFile(path, "utf8")) as T;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-    throw error;
-  }
-}
-
-async function writeJson(path: string, value: unknown): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-}
 
 export class WorkflowCatalogStore {
   readonly cwd: string;
@@ -40,7 +27,7 @@ export class WorkflowCatalogStore {
   }
 
   async get(adapterId: string, adapterVersion: number): Promise<WorkflowCatalogEntry | undefined> {
-    const entry = await readJson<WorkflowCatalogEntry>(this.entryPath(adapterId, adapterVersion));
+    const entry = await readJsonFile<WorkflowCatalogEntry>(this.entryPath(adapterId, adapterVersion));
     if (!entry) return undefined;
     return assertValid(validateSchema(WorkflowCatalogEntrySchema, entry), "Invalid workflow catalog entry");
   }
@@ -49,33 +36,39 @@ export class WorkflowCatalogStore {
     if (status !== "quarantined") {
       throw new Error(`New workflow catalog entries must start quarantined; use transition after audit (received ${status})`);
     }
-    const candidate = createWorkflowCatalogEntry(manifest, status);
-    const existing = await this.get(manifest.adapterId, manifest.adapterVersion);
-    if (existing) {
-      if (existing.status !== "quarantined") {
-        throw new Error(`Cannot replace immutable ${existing.status} catalog entry: ${manifest.adapterId}@${manifest.adapterVersion}`);
+    const path = this.entryPath(manifest.adapterId, manifest.adapterVersion);
+    return withFileLock(path, async () => {
+      const candidate = createWorkflowCatalogEntry(manifest, status);
+      const existing = await this.get(manifest.adapterId, manifest.adapterVersion);
+      if (existing) {
+        if (existing.status !== "quarantined") {
+          throw new Error(`Cannot replace immutable ${existing.status} catalog entry: ${manifest.adapterId}@${manifest.adapterVersion}`);
+        }
+        if (existing.manifestDigest === candidate.manifestDigest) return existing;
+        const entry: WorkflowCatalogEntry = {
+          ...existing,
+          manifest: candidate.manifest,
+          manifestDigest: candidate.manifestDigest,
+          status,
+          updatedAt: new Date().toISOString(),
+        };
+        await writeJsonAtomic(path, entry);
+        return entry;
       }
-      if (existing.manifestDigest === candidate.manifestDigest) return existing;
-      const entry: WorkflowCatalogEntry = {
-        ...existing,
-        manifest: candidate.manifest,
-        manifestDigest: candidate.manifestDigest,
-        status,
-        updatedAt: new Date().toISOString(),
-      };
-      await writeJson(this.entryPath(manifest.adapterId, manifest.adapterVersion), entry);
-      return entry;
-    }
-    await writeJson(this.entryPath(manifest.adapterId, manifest.adapterVersion), candidate);
-    return candidate;
+      await writeJsonAtomic(path, candidate);
+      return candidate;
+    });
   }
 
   async transition(adapterId: string, adapterVersion: number, status: WorkflowCatalogStatus): Promise<WorkflowCatalogEntry> {
-    const existing = await this.get(adapterId, adapterVersion);
-    if (!existing) throw new Error(`Workflow catalog entry not found: ${adapterId}@${adapterVersion}`);
-    const entry = transitionWorkflowCatalogEntry(existing, status);
-    await writeJson(this.entryPath(adapterId, adapterVersion), entry);
-    return entry;
+    const path = this.entryPath(adapterId, adapterVersion);
+    return withFileLock(path, async () => {
+      const existing = await this.get(adapterId, adapterVersion);
+      if (!existing) throw new Error(`Workflow catalog entry not found: ${adapterId}@${adapterVersion}`);
+      const entry = transitionWorkflowCatalogEntry(existing, status);
+      await writeJsonAtomic(path, entry);
+      return entry;
+    });
   }
 
   async list(): Promise<WorkflowCatalogEntry[]> {
@@ -87,7 +80,7 @@ export class WorkflowCatalogStore {
         const versionFiles = await readdir(join(this.root, adapterDir.name), { withFileTypes: true });
         for (const versionFile of versionFiles) {
           if (!versionFile.isFile() || !versionFile.name.endsWith(".json")) continue;
-          const entry = await readJson<WorkflowCatalogEntry>(join(this.root, adapterDir.name, versionFile.name));
+          const entry = await readJsonFile<WorkflowCatalogEntry>(join(this.root, adapterDir.name, versionFile.name));
           if (entry) {
             entries.push(assertValid(validateSchema(WorkflowCatalogEntrySchema, entry), "Invalid workflow catalog entry"));
           }

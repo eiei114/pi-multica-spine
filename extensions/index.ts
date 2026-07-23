@@ -787,7 +787,9 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
       if (!ledger) throw new Error(`Workflow run not found: ${args.workflowRunId}`);
       const stage = ledger.stages[args.stageId];
       if (!stage) throw new Error(`Workflow stage not found: ${args.stageId}`);
-      const latestArtifact = [...ledger.artifacts].reverse().find((artifact) => artifact.stageId === args.stageId);
+      const latestArtifact = [...ledger.artifacts]
+        .reverse()
+        .find((artifact) => artifact.stageId === args.stageId && artifact.attempt === stage.attempt);
       if (args.status === "accepted" && !canAcceptProducedStage(stage, latestArtifact)) {
         throw new Error(`Cannot accept stage without produced status and artifact: ${args.stageId}`);
       }
