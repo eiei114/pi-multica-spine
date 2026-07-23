@@ -35,6 +35,7 @@ export const ProjectWorkflowBindingSchema = Type.Object({
   adapterId: Type.String({ minLength: 1 }),
   adapterVersion: Type.Integer({ minimum: 1 }),
   artifactRoot: Type.String({ minLength: 1 }),
+  enabledOptionalStages: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
   projectGrants: Type.Array(Type.String({ minLength: 1 })),
   humanOwnedActions: Type.Array(Type.String({ minLength: 1 })),
   roleRoutes: Type.Record(Type.String({ minLength: 1 }), WorkflowBindingRoleRouteSchema),
@@ -76,6 +77,7 @@ function validateBindingSemantics(binding: ProjectWorkflowBinding, manifest?: Wo
   const errors = [
     ...uniqueValues(binding.projectGrants, "duplicate-project-grant"),
     ...uniqueValues(binding.humanOwnedActions, "duplicate-human-owned-action"),
+    ...uniqueValues(binding.enabledOptionalStages ?? [], "duplicate-enabled-optional-stage"),
   ];
 
   if (!isRelativeArtifactRoot(binding.artifactRoot)) {
@@ -106,12 +108,16 @@ function validateBindingSemantics(binding: ProjectWorkflowBinding, manifest?: Wo
     }
 
     const manifestRoles = new Set(manifest.roles);
+    const optionalStages = new Set(manifest.stages.filter((stage) => stage.optional).map((stage) => stage.stageId));
     const boundRoles = Object.keys(binding.roleRoutes);
     for (const role of manifest.roles) {
       if (!binding.roleRoutes[role]) errors.push(`missing-role-route:${role}`);
     }
     for (const role of boundRoles) {
       if (!manifestRoles.has(role)) errors.push(`unknown-role-route:${role}`);
+    }
+    for (const stageId of binding.enabledOptionalStages ?? []) {
+      if (!optionalStages.has(stageId)) errors.push(`enabled-stage-is-not-optional:${stageId}`);
     }
   }
 

@@ -53,11 +53,20 @@ export function computeEffectivePermission(input: EffectivePermissionInput): Eff
   };
 }
 
-export function resolveNextStageId(manifest: WorkflowCatalogManifest, currentStageId?: string): string | undefined {
-  if (!currentStageId) return manifest.stages[0]?.stageId;
-  const index = manifest.stages.findIndex((stage) => stage.stageId === currentStageId);
-  if (index < 0) throw new Error(`Unknown stage in manifest: ${currentStageId}`);
-  return manifest.stages[index + 1]?.stageId;
+export function resolveNextStageId(
+  manifest: WorkflowCatalogManifest,
+  currentStageId?: string,
+  enabledOptionalStages: readonly string[] = [],
+): string | undefined {
+  const enabledOptional = new Set(enabledOptionalStages);
+  const startIndex = currentStageId ? manifest.stages.findIndex((stage) => stage.stageId === currentStageId) + 1 : 0;
+  if (currentStageId && startIndex === 0) throw new Error(`Unknown stage in manifest: ${currentStageId}`);
+  for (let index = startIndex; index < manifest.stages.length; index += 1) {
+    const stage = manifest.stages[index];
+    if (stage.optional && !enabledOptional.has(stage.stageId)) continue;
+    return stage.stageId;
+  }
+  return undefined;
 }
 
 export function seedWorkflowStage(
@@ -114,7 +123,7 @@ export function transitionWorkflowStage(
 }
 
 export function canAcceptProducedStage(stage: WorkflowStageState, artifact?: WorkflowArtifactEnvelope): boolean {
-  return stage.status === "produced" && Boolean(artifact?.outputHash);
+  return stage.status === "produced" && artifact?.status === "immutable" && Boolean(artifact.outputHash);
 }
 
 export function mapStageStatusToIssueStatus(stageStatus: WorkflowStageStatus): string {
@@ -151,7 +160,11 @@ export async function seedWorkflowStageLive(input: LiveStageSeedInput): Promise<
   issueId: string;
   issueIdentifier?: string;
 }> {
-  const stageId = input.stageId ?? resolveNextStageId(input.manifest, input.ledger.currentStageId);
+  const stageId = input.stageId ?? resolveNextStageId(
+    input.manifest,
+    input.ledger.currentStageId,
+    input.binding.enabledOptionalStages,
+  );
   if (!stageId) throw new Error(`No next stage available for workflow run: ${input.ledger.workflowRunId}`);
   const manifestStage = input.manifest.stages.find((stage) => stage.stageId === stageId);
   if (!manifestStage) throw new Error(`Cannot seed unknown manifest stage: ${stageId}`);

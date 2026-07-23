@@ -65,11 +65,20 @@ The `multica_spine_metadata_*` tools are CLI wrappers around the `multica` CLI. 
 | `multica_workflow_stage_transition` | Transition a stage through `seeded / waiting / produced / accepted / retrying / failed`. `live=true` mirrors status on the stage issue. |
 | `multica_workflow_artifact_record` | Record a workflow artifact envelope in the ledger. `live=true` writes artifact lineage metadata to the producer issue. |
 | `multica_workflow_question_record` | Record a Question Task answer artifact in the ledger. |
+| `multica_workflow_hermes_manifest` | Return the dedicated Hermes Idea-to-Build manifest with both audited source bundles pinned by commit and content digest. |
+| `multica_workflow_hermes_question_answer` | Resolve the next Question Task serially and persist a provenance-bearing hashed Answer Artifact record. |
+| `multica_workflow_hermes_review_decide` | Record PASS / PASS WITH CHANGES / FAIL and enforce the two-cycle spec-fix cap. |
 | `multica_workflow_permission_check` | Compute effective permission as Adapter ∩ Project ∩ Stage ∩ Issue ∩ Agent capability. |
 | `multica_workflow_controller_tick` | Run one bounded Controller Autopilot tick (lease acquire, validate/seed, persist summary, release, or stop). Optional `live=true` writes parent summary metadata. |
 | `multica_workflow_autopilot_trigger` | Invoke `multica autopilot trigger` for controller reconciliation paths. |
 
 These workflow tools layer repo-local validation/state with optional **live Multica CLI** operations (`live` / `writeback`). Catalog/binding/run ledgers remain repo-local; stage issue create/assign/status, parent summary writeback, artifact lineage metadata, run metadata reads, and autopilot triggers go through the real `multica` executable via injectable runners (fixture-backed in tests).
+
+### Hermes Idea-to-Build Adapter
+
+`createHermesCompositeManifest()` defines the dedicated Capture → Question relay → Design → optional UI Brief → Implementation Spec → Build Handoff → independent Spec Review → Plan/Implement/Review/Verify → Final Package lane. It composes two audited Markdown workflow bundles pinned by full commit and canonical content SHA-256. Runtime loading is available only through `AuditedBundleLoader.loadByDigest`; source URLs are attribution metadata, not execution inputs.
+
+Hermes Question Tasks run serially by default. Answer Artifacts preserve status, confidence, source references, provenance, and deterministic hashes. User preferences may only come from an observed user statement or a declared Project Binding default; otherwise they remain unresolved. Artifact paths and lineage are validated, replacements use explicit supersession, and downstream artifacts become superseded when an upstream input changes. Spec Review allows at most two PASS WITH CHANGES fix cycles before producing a terminal human-review package.
 
 ## Install
 

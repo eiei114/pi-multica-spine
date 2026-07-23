@@ -12,6 +12,15 @@ export type WorkflowCatalogStatus = Static<typeof WorkflowCatalogStatusSchema>;
 export const WorkflowQuestionParallelismSchema = StringEnum(["serial", "bounded"]);
 export type WorkflowQuestionParallelism = Static<typeof WorkflowQuestionParallelismSchema>;
 
+export const WorkflowSourceBundleSchema = Type.Object({
+  name: Type.String({ minLength: 1, pattern: "^[a-z0-9][a-z0-9-]*$" }),
+  sourceUrl: Type.String({ minLength: 1 }),
+  sourceCommit: Type.String({ pattern: "^[a-f0-9]{40}$" }),
+  sourceContentHash: Sha256Hex,
+  license: Type.String({ minLength: 1 }),
+});
+export type WorkflowSourceBundle = Static<typeof WorkflowSourceBundleSchema>;
+
 export const WorkflowCatalogStageSchema = Type.Object({
   stageId: Type.String({ minLength: 1, pattern: "^[a-z0-9][a-z0-9_-]*$" }),
   role: Type.String({ minLength: 1 }),
@@ -27,6 +36,7 @@ export const WorkflowCatalogManifestSchema = Type.Object({
   sourceUrl: Type.String({ minLength: 1 }),
   sourceCommit: Type.String({ minLength: 7 }),
   sourceContentHash: Sha256Hex,
+  sourceBundles: Type.Optional(Type.Array(WorkflowSourceBundleSchema, { minItems: 1 })),
   derivedBundleHash: Sha256Hex,
   license: Type.String({ minLength: 1 }),
   auditToolVersion: Type.Integer({ minimum: 1 }),
@@ -66,6 +76,8 @@ function validateCatalogSemantics(manifest: WorkflowCatalogManifest): string[] {
     ...uniqueValues(manifest.humanGates, "duplicate-human-gate"),
     ...uniqueValues(manifest.compatibleFrom.map(String), "duplicate-compatible-from"),
     ...uniqueValues(manifest.stages.map((stage) => stage.stageId), "duplicate-stage"),
+    ...uniqueValues((manifest.sourceBundles ?? []).map((bundle) => bundle.name), "duplicate-source-bundle"),
+    ...uniqueValues((manifest.sourceBundles ?? []).map((bundle) => bundle.sourceContentHash), "duplicate-source-content-hash"),
   ];
 
   const roleSet = new Set(manifest.roles);
