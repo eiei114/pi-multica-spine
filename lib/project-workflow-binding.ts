@@ -2,6 +2,7 @@ import { isAbsolute, posix } from "node:path";
 import { Type, type Static } from "typebox";
 import type { WorkflowCatalogManifest } from "./workflow-catalog.ts";
 import { resolveStageActivation } from "./workflow-catalog.ts";
+import { WorkflowCapabilityPoolSchema } from "./workflow-routing.ts";
 import { StringEnum } from "./schema.ts";
 import { assertValid, type ValidationResult, uniqueValues, validateSchema } from "./validation.ts";
 
@@ -44,6 +45,7 @@ export const ProjectWorkflowBindingSchema = Type.Object({
   executionMode: WorkflowExecutionModeSchema,
   humanGate: WorkflowHumanGateSchema,
   deliveryPolicy: WorkflowDeliveryPolicySchema,
+  capabilityPools: Type.Optional(Type.Array(WorkflowCapabilityPoolSchema)),
   metadata: Type.Optional(Type.Record(Type.String({ minLength: 1 }), Type.String())),
 });
 export type ProjectWorkflowBinding = Static<typeof ProjectWorkflowBindingSchema>;
