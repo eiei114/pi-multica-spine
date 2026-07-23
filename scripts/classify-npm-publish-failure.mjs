@@ -3,10 +3,12 @@ import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
-import {
+import { importSpineLib } from "./spine-lib-import.mjs";
+
+const {
   classifyNpmPublishFailure,
   shouldTreatNpmPublishFailureAsSuccess,
-} from "../dist/lib/npm-publish-classify.js";
+} = await importSpineLib(import.meta.url, "npm-publish-classify.ts");
 
 function readStderr(path) {
   return readFileSync(path, "utf8");

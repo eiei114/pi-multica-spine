@@ -3,11 +3,13 @@ import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
-import {
+import { importSpineLib } from "./spine-lib-import.mjs";
+
+const {
   digestJsonlFileContent,
   formatJsonlDigestHuman,
   formatJsonlDigestJson,
-} from "../dist/lib/jsonl-digest.js";
+} = await importSpineLib(import.meta.url, "jsonl-digest.ts");
 
 function stdoutIsTty() {
   return Boolean(process.stdout.isTTY);

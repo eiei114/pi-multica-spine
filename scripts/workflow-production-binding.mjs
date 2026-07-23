@@ -4,24 +4,31 @@ import { access } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
-import { createHermesCompositeManifest } from "../dist/lib/hermes-adapter.js";
-import { ProjectWorkflowBindingStore } from "../dist/lib/project-workflow-binding-store.js";
-import { WorkflowCatalogStore } from "../dist/lib/workflow-catalog-store.js";
-import {
+import { importSpineLibs } from "./spine-lib-import.mjs";
+
+const {
+  createHermesCompositeManifest,
+  ProjectWorkflowBindingStore,
+  WorkflowCatalogStore,
   buildProductionBindingPlan,
   buildProductionWorkflowBinding,
   PRODUCTION_PROJECT_ID,
   PRODUCTION_REPO_PATH,
   PRODUCTION_DAEMON_ID,
-} from "../dist/lib/workflow-production-binding.js";
-import { buildWorkflowLiveCli } from "../dist/lib/workflow-live-cli.js";
-import {
+  buildWorkflowLiveCli,
   createAutopilotClient,
   createIssueClient,
   createMetadataClient,
   createProjectClient,
   runMultica,
-} from "../dist/lib/multica-cli.js";
+} = await importSpineLibs(import.meta.url, [
+  "hermes-adapter.ts",
+  "project-workflow-binding-store.ts",
+  "workflow-catalog-store.ts",
+  "workflow-production-binding.ts",
+  "workflow-live-cli.ts",
+  "multica-cli.ts",
+]);
 
 export function parseProductionBindingArgs(argv = process.argv.slice(2)) {
   const { values } = parseArgs({
