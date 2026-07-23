@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  evaluatePiPeerVersions,
   evaluateTemplateResyncRule,
   runTemplateResyncCheck,
   TEMPLATE_RESYNC_RULES,
@@ -10,7 +11,15 @@ import {
 test("runTemplateResyncCheck passes on current repo baseline", async () => {
   const report = await runTemplateResyncCheck();
   assert.equal(report.ok, true, report.failures.join("; "));
-  assert.equal(report.results.length, TEMPLATE_RESYNC_RULES.length);
+  assert.equal(report.results.length, TEMPLATE_RESYNC_RULES.length + 1);
+});
+
+test("evaluatePiPeerVersions flags drift from template peer baseline", () => {
+  const result = evaluatePiPeerVersions({
+    peerDependencies: { "@earendil-works/pi-ai": "^0.79.0" },
+    devDependencies: { "@earendil-works/pi-ai": "^0.79.0" },
+  });
+  assert.equal(result.ok, false);
 });
 
 test("evaluateTemplateResyncRule flags missing publish curl pre-check", async () => {

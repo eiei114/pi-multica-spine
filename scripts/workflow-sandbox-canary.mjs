@@ -65,6 +65,7 @@ export function parseWorkflowSandboxCanaryArgs(argv = process.argv.slice(2)) {
       "human-review": { type: "boolean", default: false },
       "canary-path": { type: "string", default: DEFAULT_CANARY_PATH },
       "project-id": { type: "string" },
+      "max-stage-cycles": { type: "string" },
     },
     allowPositionals: false,
   });
@@ -78,6 +79,7 @@ export function parseWorkflowSandboxCanaryArgs(argv = process.argv.slice(2)) {
     humanReview: values["human-review"] ?? false,
     canaryPath: values["canary-path"] ?? DEFAULT_CANARY_PATH,
     projectId: values["project-id"],
+    maxStageCycles: values["max-stage-cycles"] ? Number(values["max-stage-cycles"]) : undefined,
   };
 }
 
@@ -482,6 +484,7 @@ export async function runSandboxCampaign(config) {
   const campaign = await runCanaryCampaign(state, {
     liveCli,
     roughIdea: plan.roughIdea,
+    maxStageCycles: config.maxStageCycles,
   });
   state.lastCampaign = {
     at: new Date().toISOString(),

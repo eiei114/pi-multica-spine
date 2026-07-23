@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { validateChangelog } from "../scripts/check-changelog.mjs";
-import { evaluateCoverage, evaluateCoverageHotspots, parseCoverageFileRows, parseCoverageSummary } from "../scripts/coverage-gate.mjs";
+import {
+  evaluateCoverage,
+  evaluateCoverageHotspots,
+  evaluateCoverageSandboxBranches,
+  parseCoverageFileRows,
+  parseCoverageSummary,
+} from "../scripts/coverage-gate.mjs";
 
 test("validateChangelog accepts current changelog shape", () => {
   const content = `## [Unreleased]\n\n## [0.6.0] - 2026-07-24\n\n### Added\n- item\n`;
@@ -49,6 +55,22 @@ test("evaluateCoverageHotspots enforces per-file floors", () => {
   const fail = evaluateCoverageHotspots([
     ...files.filter((f) => f.file !== "lib/hash.ts"),
     { file: "lib/hash.ts", lines: 50, branches: 50, functions: 50 },
+  ]);
+  assert.equal(fail.ok, false);
+});
+
+test("evaluateCoverageSandboxBranches enforces sandbox module branch floors", () => {
+  const files = [
+    { file: "lib/workflow-sandbox-campaign.ts", lines: 90, branches: 68, functions: 90 },
+    { file: "lib/workflow-sandbox-fixtures.ts", lines: 55, branches: 33, functions: 66 },
+    { file: "lib/workflow-controller-autopilot.ts", lines: 76, branches: 78, functions: 80 },
+    { file: "lib/workflow-sandbox-human-review.ts", lines: 96, branches: 36, functions: 100 },
+  ];
+  const pass = evaluateCoverageSandboxBranches(files);
+  assert.equal(pass.ok, true);
+  const fail = evaluateCoverageSandboxBranches([
+    ...files.filter((f) => f.file !== "lib/workflow-sandbox-fixtures.ts"),
+    { file: "lib/workflow-sandbox-fixtures.ts", lines: 55, branches: 20, functions: 66 },
   ]);
   assert.equal(fail.ok, false);
 });
