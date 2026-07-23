@@ -53,6 +53,7 @@ test("extension registers MVP tools", () => {
     "multica_workflow_catalog_list",
     "multica_workflow_catalog_put",
     "multica_workflow_catalog_transition",
+    "multica_workflow_controller_tick",
     "multica_workflow_parent_summary",
     "multica_workflow_permission_check",
     "multica_workflow_question_record",
