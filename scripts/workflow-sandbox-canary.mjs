@@ -21,6 +21,7 @@ import {
 import { hashWorkflowRunLedger, WorkflowRunStateStore } from "../lib/workflow-run-state.ts";
 import { runCanaryCampaign } from "../lib/workflow-sandbox-campaign.ts";
 import { FIXTURE_NAMES, runFixture } from "../lib/workflow-sandbox-fixtures.ts";
+import { completeHumanFinalReview } from "../lib/workflow-sandbox-human-review.ts";
 
 const CANARY_PROJECT_NAME = "pi-multica-spine Idea-to-Build Canary";
 const DEFAULT_CANARY_PATH = "C:/Users/Keisu/Projects/Sandbox/pi-multica-spine-idea-to-build-canary";
@@ -43,6 +44,7 @@ export function parseWorkflowSandboxCanaryArgs(argv = process.argv.slice(2)) {
       fixture: { type: "string" },
       report: { type: "boolean", default: false },
       campaign: { type: "boolean", default: false },
+      "human-review": { type: "boolean", default: false },
       "canary-path": { type: "string", default: DEFAULT_CANARY_PATH },
       "project-id": { type: "string" },
     },
@@ -55,6 +57,7 @@ export function parseWorkflowSandboxCanaryArgs(argv = process.argv.slice(2)) {
     fixture: values.fixture,
     report: values.report ?? false,
     campaign: values.campaign ?? false,
+    humanReview: values["human-review"] ?? false,
     canaryPath: values["canary-path"] ?? DEFAULT_CANARY_PATH,
     projectId: values["project-id"],
   };
@@ -70,7 +73,7 @@ export function buildSandboxCanaryPlan(config = parseWorkflowSandboxCanaryArgs()
   return {
     projectName: CANARY_PROJECT_NAME,
     canaryPath: config.canaryPath,
-    mode: config.report ? "report" : config.campaign ? "campaign" : config.apply ? "apply" : config.resumeRunId ? "resume" : config.fixture ? "fixture" : "dry-run",
+    mode: config.report ? "report" : config.humanReview ? "human-review" : config.campaign ? "campaign" : config.apply ? "apply" : config.resumeRunId ? "resume" : config.fixture ? "fixture" : "dry-run",
     resumeRunId: config.resumeRunId,
     fixture: config.fixture,
     controllerAgentId: CONTROLLER_AGENT_ID,
@@ -383,9 +386,11 @@ export async function generateFinalPackage(canaryPath, state, runEvidence = {}) 
     "05-test-evidence.md": `- npm run ci pass on pi-multica-spine\n- campaign stages: ${runEvidence.stages?.length ?? 0}\n`,
     "06-failure-fixtures.md": FIXTURE_NAMES.map((name) => `- ${name}`).join("\n") + "\n",
     "07-assumptions-and-open-questions.md": "- Color output preference unresolved\n",
-    "08-human-actions-remaining.md": runEvidence.completed
-      ? "- Human final review on final_package stage\n"
-      : "- Resume campaign with --campaign until workflowStatus=completed\n- Human final review on final_package stage\n",
+    "08-human-actions-remaining.md": state.humanFinalReview
+      ? "- Human final review completed (see 10-human-final-review.md)\n"
+      : runEvidence.completed
+        ? "- Human final review on final_package stage (run --human-review)\n"
+        : "- Resume campaign with --campaign until workflowStatus=completed\n- Human final review on final_package stage\n",
     "09-operations-handoff.md": "See docs/workflow-sandbox-canary-runbook.md in pi-multica-spine.\n",
   };
   for (const [name, content] of Object.entries(files)) {
@@ -470,9 +475,37 @@ export async function runSandboxCampaign(config) {
   return { plan, state, campaign, finalPackage };
 }
 
+export async function runHumanFinalReview(config, reviewInput = {}) {
+  const plan = buildSandboxCanaryPlan(config);
+  const state = await loadCanaryState(plan.canaryPath);
+  if (!state?.workflowRunId) {
+    throw new Error(`Canary state not found. Run --apply and --campaign first at ${plan.canaryPath}`);
+  }
+  const liveCli = buildWorkflowLiveCli(
+    createIssueClient(runMultica),
+    createMetadataClient(runMultica),
+    createProjectClient(runMultica),
+    createAutopilotClient(runMultica),
+  );
+  const review = await completeHumanFinalReview(state, {
+    verdict: "approved",
+    reviewer: "Keisu (human operator)",
+    notes: "Sandbox Idea-to-Build canary approved. Unresolved color preference documented and accepted.",
+    unresolvedAccepted: true,
+    ...reviewInput,
+  }, { liveCli });
+  state.humanFinalReview = {
+    at: new Date().toISOString(),
+    ...review,
+  };
+  await saveCanaryState(plan.canaryPath, state);
+  const finalPackage = await generateFinalPackage(plan.canaryPath, state, state.lastCampaign ?? {});
+  return { plan, state, review, finalPackage };
+}
+
 async function main() {
   const config = parseWorkflowSandboxCanaryArgs();
-  if (config.dryRun || (!config.apply && !config.resume && !config.report && !config.fixture && !config.campaign)) {
+  if (config.dryRun || (!config.apply && !config.resume && !config.report && !config.fixture && !config.campaign && !config.humanReview)) {
     console.log(JSON.stringify({ ...buildSandboxCanaryPlan(config), fixtures: FIXTURE_NAMES }, null, 2));
     return;
   }
@@ -485,6 +518,11 @@ async function main() {
   }
   if (config.fixture) {
     const result = await runFixture(config.fixture);
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  if (config.humanReview) {
+    const result = await runHumanFinalReview(config);
     console.log(JSON.stringify(result, null, 2));
     return;
   }
