@@ -6,6 +6,12 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Run-only Controller Autopilot tick loop (`lib/workflow-controller-autopilot.ts`) with lease/fencing, bounded event reconcile, orphan adoption, and generic reconciler guard for `workflow_controller`-owned stages.
+- `multica_workflow_controller_tick` experimental tool to execute exactly one bounded controller action per tick with optional live parent summary writeback.
+- Tests for duplicate/stale event rejection, double-acquire reject path, orphan adoption, produced-stage validation, and summary persistence (`tests/workflow-controller-autopilot.test.mjs`).
+
 ## [0.2.1] - 2026-07-23
 
 ### Added

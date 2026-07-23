@@ -66,6 +66,7 @@ The `multica_spine_metadata_*` tools are CLI wrappers around the `multica` CLI. 
 | `multica_workflow_artifact_record` | Record a workflow artifact envelope in the ledger. `live=true` writes artifact lineage metadata to the producer issue. |
 | `multica_workflow_question_record` | Record a Question Task answer artifact in the ledger. |
 | `multica_workflow_permission_check` | Compute effective permission as Adapter ∩ Project ∩ Stage ∩ Issue ∩ Agent capability. |
+| `multica_workflow_controller_tick` | Run one bounded Controller Autopilot tick (lease acquire, validate/seed, persist summary, release, or stop). Optional `live=true` writes parent summary metadata. |
 | `multica_workflow_autopilot_trigger` | Invoke `multica autopilot trigger` for controller reconciliation paths. |
 
 These workflow tools layer repo-local validation/state with optional **live Multica CLI** operations (`live` / `writeback`). Catalog/binding/run ledgers remain repo-local; stage issue create/assign/status, parent summary writeback, artifact lineage metadata, run metadata reads, and autopilot triggers go through the real `multica` executable via injectable runners (fixture-backed in tests).

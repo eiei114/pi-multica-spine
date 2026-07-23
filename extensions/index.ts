@@ -43,6 +43,10 @@ import {
   transitionWorkflowStageLive,
 } from "../lib/workflow-controller.ts";
 import {
+  runControllerAutopilotTick,
+  WorkflowControllerLeaseStore,
+} from "../lib/workflow-controller-autopilot.ts";
+import {
   type WorkflowCatalogEntry,
   type WorkflowCatalogManifest,
   WorkflowCatalogManifestSchema,
@@ -237,6 +241,13 @@ const workflowAutopilotTriggerParameters = Type.Object({
   autopilotId: Type.String({ minLength: 1 }),
 });
 
+const workflowControllerTickParameters = Type.Object({
+  workflowRunId: Type.String({ minLength: 1 }),
+  holderId: Type.String({ minLength: 1 }),
+  parentIssueId: Type.Optional(Type.String({ minLength: 1 })),
+  live: Type.Optional(Type.Boolean()),
+});
+
 const workflowQuestionRecordParameters = Type.Object({
   workflowRunId: Type.String({ minLength: 1 }),
   question: WorkflowQuestionRecordSchema,
@@ -252,6 +263,10 @@ const workflowPermissionCheckParameters = Type.Object({
 
 function storeFor(ctx: ExtensionContext): SpineStateStore {
   return new SpineStateStore(ctx.cwd);
+}
+
+function workflowControllerLeaseStoreFor(ctx: ExtensionContext): WorkflowControllerLeaseStore {
+  return new WorkflowControllerLeaseStore(ctx.cwd);
 }
 
 function workflowCatalogStoreFor(ctx: ExtensionContext): WorkflowCatalogStore {
@@ -1047,6 +1062,79 @@ export default function multicaSpineExtension(pi: ExtensionAPI) {
       const args = params as { workflowRunId: string; question: WorkflowQuestionRecord };
       const ledger = await mutateWorkflow(ctx, () => workflowRunStoreFor(ctx).recordQuestion(args.workflowRunId, args.question));
       return workflowRunResult("workflow_question_record", ledger);
+    },
+  });
+
+  pi.registerTool({
+    name: "multica_workflow_controller_tick",
+    label: "Multica Workflow Controller Tick",
+    description:
+      "Run one bounded Controller Autopilot tick: acquire lease, validate one produced stage or seed one next stage, persist summary, release, or stop. Does not perform worker implementation/review work.",
+    parameters: workflowControllerTickParameters,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const args = params as {
+        workflowRunId: string;
+        holderId: string;
+        parentIssueId?: string;
+        live?: boolean;
+      };
+      const runStore = workflowRunStoreFor(ctx);
+      const ledger = await runStore.load(args.workflowRunId);
+      if (!ledger) throw new Error(`Workflow run not found: ${args.workflowRunId}`);
+      const binding = await workflowBindingStoreFor(ctx).getByProjectId(ledger.multicaProjectId);
+      if (!binding) throw new Error(`Workflow binding not found for project: ${ledger.multicaProjectId}`);
+      const manifest = await resolveManifestForLedger(ctx, ledger);
+      const leaseStore = workflowControllerLeaseStoreFor(ctx);
+      const lease = await leaseStore.load(args.workflowRunId);
+      const statePointer = portableRelativePath(ctx.cwd, runStore.ledgerPath(args.workflowRunId));
+      let tick;
+      try {
+        tick = await mutateWorkflow(ctx, () =>
+          runControllerAutopilotTick(
+            {
+              workflowRunId: args.workflowRunId,
+              holderId: args.holderId,
+              ledger,
+              lease,
+              manifest,
+              binding,
+              parentIssueId: args.parentIssueId,
+              liveCli: args.live ? workflowLiveCli : undefined,
+              statePointer,
+            },
+            { leaseStore, runStore },
+          ),
+        );
+      } catch (error) {
+        rethrowWorkflowProductGap(error);
+      }
+      const summary = summarizeControllerState(tick.ledger);
+      const lines = [
+        `action: ${tick.action}`,
+        `stopped: ${tick.stopped ? "yes" : "no"}`,
+        tick.reason ? `reason: ${tick.reason}` : undefined,
+        `workflowRunId: ${summary.workflowRunId}`,
+        `workflowStatus: ${summary.workflowStatus}`,
+        `currentStageId: ${summary.currentStageId ?? "-"}`,
+        `stateVersion: ${summary.stateVersion}`,
+      ].filter(Boolean);
+      const result = workflowRunResult("workflow_controller_tick", tick.ledger);
+      return {
+        ...result,
+        content: [{ type: "text" as const, text: lines.join("\n") }],
+        details: {
+          ...result.details,
+          tick: {
+            action: tick.action,
+            stopped: tick.stopped,
+            reason: tick.reason,
+            lease: tick.lease,
+            reconcile: tick.reconcile,
+            parentMetadata: tick.parentMetadata,
+          },
+          live: Boolean(args.live),
+        },
+      };
     },
   });
 
