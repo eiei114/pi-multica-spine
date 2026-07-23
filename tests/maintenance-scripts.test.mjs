@@ -4,6 +4,7 @@ import test from "node:test";
 import { validateChangelog } from "../scripts/check-changelog.mjs";
 import {
   evaluateCoverage,
+  evaluateCoverageExtensionFunctions,
   evaluateCoverageHotspots,
   evaluateCoverageSandboxBranches,
   evaluateCoverageSandboxFunctions,
@@ -77,6 +78,17 @@ test("evaluateCoverageSandboxBranches enforces sandbox module branch floors", ()
   assert.equal(fail.ok, false);
 });
 
+test("evaluateCoverageExtensionFunctions enforces extension entry function floors", () => {
+  const pass = evaluateCoverageExtensionFunctions([
+    { file: "extensions/index.ts", lines: 75, branches: 68, functions: 76 },
+  ]);
+  assert.equal(pass.ok, true);
+  const fail = evaluateCoverageExtensionFunctions([
+    { file: "extensions/index.ts", lines: 75, branches: 68, functions: 70 },
+  ]);
+  assert.equal(fail.ok, false);
+});
+
 test("evaluateCoverageSandboxFunctions enforces sandbox module function floors", () => {
   const files = [
     { file: "lib/workflow-sandbox-campaign.ts", lines: 90, branches: 68, functions: 90 },
@@ -107,6 +119,14 @@ test("evaluateCoverageSandboxLines enforces sandbox module line floors", () => {
     { file: "lib/workflow-sandbox-fixtures.ts", lines: 40, branches: 33, functions: 66 },
   ]);
   assert.equal(fail.ok, false);
+});
+
+test("parseCoverageFileRows prefixes extensions section rows", () => {
+  const rows = parseCoverageFileRows(
+    "ℹ extensions                          |        |          |         |\nℹ  index.ts                          |  70.00 |    50.00 |   80.00 |",
+  );
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].file, "extensions/index.ts");
 });
 
 test("parseCoverageFileRows ignores dist js rows", () => {

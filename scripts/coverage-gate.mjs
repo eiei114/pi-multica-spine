@@ -50,6 +50,11 @@ export const COVERAGE_SANDBOX_FUNCTION_FLOORS = {
   "lib/workflow-sandbox-human-review.ts": 95,
 };
 
+/** Function coverage floors for Pi extension entry (R-MNT-30). */
+export const COVERAGE_EXTENSION_FUNCTION_FLOORS = {
+  "extensions/index.ts": 74,
+};
+
 function testArgs() {
   return readdirSync("tests")
     .filter((name) => name.endsWith(".test.mjs"))
@@ -72,7 +77,10 @@ export function parseCoverageFileRows(output) {
     if (!file.includes("/") && section === "lib") {
       file = `lib/${file}`;
     }
-    if (file.startsWith("lib/") || file === "extensions/index.ts" || file === "index.ts") {
+    if (!file.includes("/") && section === "extensions") {
+      file = `extensions/${file}`;
+    }
+    if (file.startsWith("lib/") || file.startsWith("extensions/")) {
       rows.push({
         file,
         lines: Number(fileMatch[2]),
@@ -113,6 +121,24 @@ export function evaluateCoverage(summary, thresholds = DEFAULT_THRESHOLDS) {
   if (summary.branches < thresholds.branches) failures.push(`branches ${summary.branches.toFixed(2)}% < ${thresholds.branches}%`);
   if (summary.functions < thresholds.functions) failures.push(`functions ${summary.functions.toFixed(2)}% < ${thresholds.functions}%`);
   return { ok: failures.length === 0, failures, summary, thresholds };
+}
+
+export function evaluateCoverageExtensionFunctions(files, floors = COVERAGE_EXTENSION_FUNCTION_FLOORS) {
+  const byFile = new Map(files.map((row) => [row.file, row]));
+  const failures = [];
+  const watched = [];
+  for (const [file, minimum] of Object.entries(floors)) {
+    const row = byFile.get(file);
+    if (!row) {
+      failures.push(`${file}: missing from coverage report`);
+      continue;
+    }
+    watched.push(file);
+    if (row.functions < minimum) {
+      failures.push(`${file}: functions ${row.functions.toFixed(2)}% < ${minimum}%`);
+    }
+  }
+  return { ok: failures.length === 0, failures, watched };
 }
 
 export function evaluateCoverageSandboxFunctions(files, floors = COVERAGE_SANDBOX_FUNCTION_FLOORS) {
@@ -210,6 +236,7 @@ export function runCoverageGate(inputPath) {
   const sandboxBranches = evaluateCoverageSandboxBranches(summary.files ?? parseCoverageFileRows(output));
   const sandboxLines = evaluateCoverageSandboxLines(summary.files ?? parseCoverageFileRows(output));
   const sandboxFunctions = evaluateCoverageSandboxFunctions(summary.files ?? parseCoverageFileRows(output));
+  const extensionFunctions = evaluateCoverageExtensionFunctions(summary.files ?? parseCoverageFileRows(output));
   if (!gate.ok) {
     console.error(gate.failures.join("\n"));
     console.error(`coverage summary (${summary.fileCount} ts files): lines=${summary.lines.toFixed(2)}% branches=${summary.branches.toFixed(2)}% functions=${summary.functions.toFixed(2)}%`);
@@ -235,8 +262,13 @@ export function runCoverageGate(inputPath) {
     console.error(sandboxFunctions.failures.join("\n"));
     return 1;
   }
+  if (!extensionFunctions.ok) {
+    console.error("coverage extension function failures:");
+    console.error(extensionFunctions.failures.join("\n"));
+    return 1;
+  }
   console.log(
-    `coverage gate ok (${summary.fileCount} ts files): lines=${summary.lines.toFixed(2)}% branches=${summary.branches.toFixed(2)}% functions=${summary.functions.toFixed(2)}%; hotspots=${hotspots.watched.length} sandboxBranches=${sandboxBranches.watched.length} sandboxLines=${sandboxLines.watched.length} sandboxFunctions=${sandboxFunctions.watched.length} denylist=${hotspots.denylist.length}`,
+    `coverage gate ok (${summary.fileCount} ts files): lines=${summary.lines.toFixed(2)}% branches=${summary.branches.toFixed(2)}% functions=${summary.functions.toFixed(2)}%; hotspots=${hotspots.watched.length} sandboxBranches=${sandboxBranches.watched.length} sandboxLines=${sandboxLines.watched.length} sandboxFunctions=${sandboxFunctions.watched.length} extensionFunctions=${extensionFunctions.watched.length} denylist=${hotspots.denylist.length}`,
   );
   return 0;
 }

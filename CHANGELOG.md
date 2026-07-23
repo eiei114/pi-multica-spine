@@ -6,6 +6,18 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.7] - 2026-07-24
+
+### Added
+
+- Live closeout evidence persists JSON + investigation markdown on `--capture` (R-MNT-28).
+- `docs/workflow-sandbox-live-execute-runbook.md` with failure matrix (R-MNT-29).
+- Extension entry function coverage floors in `coverage-gate.mjs` (R-MNT-30).
+
+### Changed
+
+- ROADMAP: R-MNT-28..30 absorbed.
+
 ## [0.7.6] - 2026-07-24
 
 ### Added
