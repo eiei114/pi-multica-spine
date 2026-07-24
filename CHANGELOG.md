@@ -6,6 +6,19 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.9] - 2026-07-24
+
+### Added
+
+- `/skill:idea-to-build` Pi skill (`skills/idea-to-build/`) — human-initiated Idea-to-Build workflow entry (R-MNT-37).
+- `scripts/workflow-idea-entry.mjs` bootstraps sandbox apply+campaign from a rough idea.
+- `--rough-idea` / `--rough-idea-file` on `workflow-sandbox-canary.mjs`.
+
+### Changed
+
+- CI runs `check:idea-entry`.
+- `package.json` ships `skills/` and registers `pi.skills`.
+
 ## [0.7.8] - 2026-07-24
 
 ### Added

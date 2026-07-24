@@ -62,7 +62,13 @@ export const TEMPLATE_RESYNC_RULES = [
     id: "package-pi-extensions-only",
     file: "package.json",
     pattern: /"extensions":\s*\[\s*"\.\/extensions"\s*\]/,
-    note: "Package ships extension entry only (no skills/prompts/themes scaffold)",
+    note: "Package ships extension entry (skills allowed via pi.skills)",
+  },
+  {
+    id: "package-pi-idea-skill",
+    file: "package.json",
+    pattern: /"skills":\s*\[\s*"\.\/skills\/idea-to-build"\s*\]/,
+    note: "Package registers idea-to-build slash entry skill",
   },
   {
     id: "package-public-publish",
