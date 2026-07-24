@@ -36,6 +36,8 @@ export interface AutomaticPromotionInput {
   workflowRunId: string;
   projectTitle: string;
   projectDescription: string;
+  /** Optional operator-pinned Project identity for a supervised promotion. */
+  expectedProjectId?: string;
   artifactBundleHash: string;
   artifacts: PromotionArtifactInput[];
   dryRun?: boolean;
@@ -245,6 +247,9 @@ export async function autoPromoteIdeaSession(
     projectDescription: input.projectDescription,
     client: deps.projects,
   });
+  if (input.expectedProjectId && resolved.project.id !== input.expectedProjectId) {
+    throw new Error(`Automatic promotion resolved unexpected Project: ${resolved.project.id}`);
+  }
   const binding = deps.buildBinding(resolved.project);
   assertPromotionEligible(input, binding);
   const routeGap = detectRouteGap({
