@@ -264,6 +264,21 @@ export function buildProjectGetArgs(projectId: string): string[] {
   return ["project", "get", projectId, "--output", "json"];
 }
 
+export function buildProjectListArgs(): string[] {
+  return ["project", "list", "--output", "json"];
+}
+
+export function buildProjectCreateArgs(input: { title: string; description: string; status?: string }): string[] {
+  const args = ["project", "create", "--title", input.title, "--description", input.description];
+  if (input.status) args.push("--status", input.status);
+  args.push("--output", "json");
+  return args;
+}
+
+export function buildProjectStatusArgs(projectId: string, status: string): string[] {
+  return ["project", "status", projectId, "--set", status, "--output", "json"];
+}
+
 export function buildAutopilotTriggerArgs(autopilotId: string): string[] {
   return ["autopilot", "trigger", autopilotId, "--output", "json"];
 }
@@ -433,7 +448,10 @@ export interface IssueClient {
 }
 
 export interface ProjectClient {
+  list(options?: RunMulticaOptions): Promise<Record<string, unknown>[]>;
   get(projectId: string, options?: RunMulticaOptions): Promise<Record<string, unknown>>;
+  create(input: { title: string; description: string; status?: string }, options?: RunMulticaOptions): Promise<Record<string, unknown>>;
+  setStatus(projectId: string, status: string, options?: RunMulticaOptions): Promise<Record<string, unknown>>;
 }
 
 export interface AutopilotClient {
@@ -467,9 +485,21 @@ export function createIssueClient(runner: MulticaRunner): IssueClient {
 
 export function createProjectClient(runner: MulticaRunner): ProjectClient {
   return {
+    async list(options = {}) {
+      const result = await runner(buildProjectListArgs(), options);
+      return parseJsonArrayOutput(result.stdout, "multica project list");
+    },
     async get(projectId, options = {}) {
       const result = await runner(buildProjectGetArgs(projectId), options);
       return parseJsonOutput(result.stdout, "multica project");
+    },
+    async create(input, options = {}) {
+      const result = await runner(buildProjectCreateArgs(input), options);
+      return parseJsonOutput(result.stdout, "multica project create");
+    },
+    async setStatus(projectId, status, options = {}) {
+      const result = await runner(buildProjectStatusArgs(projectId, status), options);
+      return parseJsonOutput(result.stdout, "multica project status");
     },
   };
 }
