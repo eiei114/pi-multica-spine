@@ -87,7 +87,7 @@ test("buildIssueGetArgs, buildIssueUpdateArgs, buildProjectGetArgs, buildAutopil
   assert.deepEqual(buildProjectGetArgs("proj-1"), ["project", "get", "proj-1", "--output", "json"]);
   assert.deepEqual(buildProjectListArgs(), ["project", "list", "--output", "json"]);
   assert.deepEqual(buildProjectCreateArgs({ title: "App", description: "desc", status: "planned" }), ["project", "create", "--title", "App", "--description", "desc", "--status", "planned", "--output", "json"]);
-  assert.deepEqual(buildProjectStatusArgs("proj-1", "active"), ["project", "status", "proj-1", "--set", "active", "--output", "json"]);
+  assert.deepEqual(buildProjectStatusArgs("proj-1", "active"), ["project", "status", "proj-1", "active", "--output", "json"]);
   assert.deepEqual(buildAutopilotTriggerArgs("auto-1"), ["autopilot", "trigger", "auto-1", "--output", "json"]);
 });
 

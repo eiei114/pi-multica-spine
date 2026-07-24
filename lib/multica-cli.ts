@@ -276,7 +276,7 @@ export function buildProjectCreateArgs(input: { title: string; description: stri
 }
 
 export function buildProjectStatusArgs(projectId: string, status: string): string[] {
-  return ["project", "status", projectId, "--set", status, "--output", "json"];
+  return ["project", "status", projectId, status, "--output", "json"];
 }
 
 export function buildAutopilotTriggerArgs(autopilotId: string): string[] {
