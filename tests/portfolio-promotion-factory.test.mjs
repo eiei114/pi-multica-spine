@@ -42,6 +42,7 @@ test("explicit factory has no ambient side effects and uses literal project CLI 
   await deps.projects.create({ title: "New", description: "desc" });
   await deps.activateProject("p1");
   assert.deepEqual(calls.map((args) => args.slice(0, 2)), [["project", "list"], ["project", "create"], ["project", "status"]]);
+  assert.deepEqual(calls[2], ["project", "status", "p1", "in_progress", "--output", "json"]);
   assert.equal(deps.buildBinding({ id: "p1", title: "Daily Relic iOS", status: "planned" }).humanGate, "final_only");
 });
 

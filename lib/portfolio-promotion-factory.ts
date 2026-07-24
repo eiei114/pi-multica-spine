@@ -110,7 +110,7 @@ export function createExplicitPortfolioPromotionFactory(input: {
       const created = await issues.create({ ...parent, status: "todo" });
       return { id: created.id, identifier: created.identifier };
     },
-    async activateProject(projectId) { await projects.setStatus(projectId, "active"); },
+    async activateProject(projectId) { await projects.setStatus(projectId, "in_progress"); },
     liveCli: createWorkflowLiveCli(runner),
     runStore: new WorkflowRunStateStore(input.cwd),
     bindingStore: new ProjectWorkflowBindingStore(input.cwd),
