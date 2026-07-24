@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { importSpineLibs } from "./spine-lib-import.mjs";
 
@@ -20,7 +20,9 @@ const {
 ]);
 
 function required(argv, flag) {
-  const value = argv[argv.indexOf(flag) + 1];
+  const index = argv.indexOf(flag);
+  if (index < 0) throw new Error(`${flag} is required`);
+  const value = argv[index + 1];
   if (!value || value.startsWith("--")) throw new Error(`${flag} is required`);
   return value;
 }
@@ -34,13 +36,21 @@ export function parseSupervisedPilotArgs(argv = process.argv.slice(2)) {
   };
 }
 
-async function writePilotEvidence(path, evidence, write = async (target, content) => {
+async function writePilotEvidence(root, evidence, write = async (target, content) => {
   await mkdir(dirname(target), { recursive: true });
   await writeFile(target, content, "utf8");
 }) {
   const content = `${JSON.stringify(evidence, null, 2)}\n`;
-  await write(path, content);
-  return { path, hash: sha256Hex(content) };
+  const hash = sha256Hex(content);
+  const path = join(root, "portfolio-supervised-pilot", `${hash}.json`);
+  try {
+    const existing = await readFile(path, "utf8");
+    if (existing !== content) throw new Error(`Pilot evidence hash collision: ${path}`);
+  } catch (error) {
+    if (error?.code === "ENOENT") await write(path, content);
+    else throw error;
+  }
+  return { path, hash };
 }
 
 /**
@@ -57,7 +67,8 @@ export async function runPortfolioSupervisedPilot(input, collaborators = {}) {
   if (config.projectTitle !== config.supervisedPilot.projectTitle) {
     throw new Error("Supervised pilot project title must exactly match factory projectTitle");
   }
-  const lane = await new IdeaLocalLaneStore(input.canaryPath).load();
+  const laneStore = new IdeaLocalLaneStore(input.canaryPath);
+  const lane = await laneStore.load();
   if (!lane || lane.status !== "promotion_ready" || lane.currentStageId !== "build_handoff") {
     throw new Error("Supervised pilot requires a promotion-ready build_handoff lane");
   }
@@ -70,22 +81,25 @@ export async function runPortfolioSupervisedPilot(input, collaborators = {}) {
     && project.status === "planned"
   ));
   if (matches.length !== 1) throw new Error("Supervised pilot requires exactly one configured planned Project");
+  const selectedProject = matches[0];
   const promotion = await promote({
     sessionId: lane.sessionId,
     workflowRunId: lane.workflowRunId,
     projectTitle: config.projectTitle,
     projectDescription: config.projectDescription,
+    expectedProjectId: selectedProject.id,
     artifactBundleHash: artifacts.artifactBundleHash,
     artifacts: artifacts.artifacts.map((artifact) => ({ stageId: artifact.stageId, outputPath: artifact.outputPath, outputHash: artifact.contentHash })),
   }, deps);
   if (!["promoted", "reused"].includes(promotion.mode)) {
     throw new Error(`Supervised pilot did not complete promotion: ${promotion.mode}`);
   }
+  const promotedLane = await laneStore.bindImplementationProject(selectedProject);
   const evidence = {
     schemaVersion: 1,
     kind: "portfolio_supervised_pilot",
     project: config.supervisedPilot,
-    sessionId: lane.sessionId,
+    sessionId: promotedLane.sessionId,
     workflowRunId: lane.workflowRunId,
     artifactBundleHash: artifacts.artifactBundleHash,
     promotionMode: promotion.mode,
