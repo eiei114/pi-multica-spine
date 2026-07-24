@@ -70,7 +70,7 @@ test("validateProjectWorkflowBinding rejects missing role routes and invalid aut
   const result = validateProjectWorkflowBinding(binding, sampleManifest());
   assert.equal(result.ok, false);
   assert.ok(result.errors.includes("missing-role-route:reviewer"));
-  assert.ok(result.errors.includes("autonomous-until-final-requires-start-and-final-human-gate"));
+  assert.ok(result.errors.includes("autonomous-until-final-requires-final-human-gate"));
 });
 
 test("validateProjectWorkflowBinding rejects Windows-style artifact root traversal on every platform", () => {

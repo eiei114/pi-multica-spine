@@ -88,7 +88,7 @@ export function createHermesCompositeManifest(): WorkflowCatalogManifest {
       "multica_workflow_hermes_review_decide",
     ],
     sideEffects: ["multica_issue_write", "project_artifact_write"],
-    humanGates: ["start", "final_review"],
+    humanGates: ["final_review"],
     roles: HERMES_ROLES,
     stages: HERMES_STAGES.map((stage) => ({
       ...stage,

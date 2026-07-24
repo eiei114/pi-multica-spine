@@ -18,3 +18,14 @@ test("stage advance changes only the local lane by one stage", async () => {
   assert.equal("implementationProjectId" in state, false);
   assert.equal((await store.load()).currentStageId, "question_resolution");
 });
+
+test("stage advance can autonomously reach promotion readiness", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "idea-stage-auto-"));
+  const store = new IdeaLocalLaneStore(cwd);
+  await store.create({ sessionId: "idea-auto", workflowRunId: "idea-auto", roughIdea: "A sufficiently long local idea" });
+
+  const state = await advanceIdeaLocalStage(cwd, { toPromotionReady: true });
+
+  assert.equal(state.status, "promotion_ready");
+  assert.equal(state.currentStageId, "build_handoff");
+});

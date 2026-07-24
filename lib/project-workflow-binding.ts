@@ -9,7 +9,7 @@ import { assertValid, type ValidationResult, uniqueValues, validateSchema } from
 export const WorkflowExecutionModeSchema = StringEnum(["interactive", "autonomous_until_final"]);
 export type WorkflowExecutionMode = Static<typeof WorkflowExecutionModeSchema>;
 
-export const WorkflowHumanGateSchema = StringEnum(["manual", "start_only", "start_and_final"]);
+export const WorkflowHumanGateSchema = StringEnum(["manual", "start_only", "start_and_final", "final_only"]);
 export type WorkflowHumanGate = Static<typeof WorkflowHumanGateSchema>;
 
 export const WorkflowAutoAdvancePolicySchema = StringEnum(["manual", "after_accept", "autonomous"]);
@@ -87,8 +87,8 @@ function validateBindingSemantics(binding: ProjectWorkflowBinding, manifest?: Wo
     errors.push("artifact-root-must-be-project-relative");
   }
 
-  if (binding.executionMode === "autonomous_until_final" && binding.humanGate !== "start_and_final") {
-    errors.push("autonomous-until-final-requires-start-and-final-human-gate");
+  if (binding.executionMode === "autonomous_until_final" && !["start_and_final", "final_only"].includes(binding.humanGate)) {
+    errors.push("autonomous-until-final-requires-final-human-gate");
   }
 
   const requiredHumanActions: string[] = [];

@@ -20,7 +20,7 @@ Human-initiated entry into the **Hermes Idea-to-Build** workflow on the **sandbo
 2. If the rough idea is not already in the message after the command, ask once: **「どんなアイデアを作りたいですか？」**
 3. Do not debate the idea at length — capture it verbatim (light formatting OK).
 4. Bootstrap the workflow only (see below). Do not advance a campaign during entry.
-5. Reply with: `workflowRunId`, current stage, and the single next stage that waits for explicit human approval. Do not report a Multica parent or Project before `build_handoff`.
+5. Advance the local lane to `promotion_ready` without per-stage human approval. Do not report a Multica parent or Project before promotion preflight succeeds.
 
 ## Bootstrap (live)
 
@@ -41,9 +41,8 @@ node scripts/workflow-idea-entry.mjs --rough-idea-file /tmp/rough-idea.txt --exe
 
 ## Stage-advance contract
 
-- Entry stops after bootstrap. Never add `--run-full-campaign` during normal skill use.
-- Before advancing, report the current stage, the one stage to be advanced, and its side-effect boundary.
-- Advance only one local idea stage after the user explicitly requests it.
+- Entry advances the local lane through validated stages without waiting for a per-stage request.
+- Use `node scripts/workflow-idea-stage-advance.mjs --canary-path <session-path> --to-promotion-ready`.
 - Do not invoke the legacy `workflow-sandbox-canary.mjs` for a product idea. It is a separate Multica rehearsal harness.
 - At `build_handoff`, reuse an exact-title planned Multica Project when one exists; otherwise create an implementation Project. Only then bind the implementation work to Spine.
 
@@ -58,7 +57,7 @@ node scripts/workflow-idea-entry.mjs --rough-idea "<ROUGH_IDEA>" --dry-run --jso
 After `--execute`:
 
 1. A local sandbox path and session manifest are created.
-2. The session is ready at `capture` and waits for explicit approval before any later stage.
+2. The session advances through local artifact contracts to `promotion_ready`.
 3. No Project, parent issue, Autopilot, resource, or Spine state is created.
 
 At `build_handoff`, the implementation lane creates or reuses its Project, attaches implementation resources, and begins using Spine. Until then, the user does **not** need to run `multica` commands.

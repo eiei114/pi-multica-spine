@@ -99,6 +99,13 @@ export class IdeaLocalLaneStore {
     });
   }
 
+  async advanceToPromotionReady(): Promise<IdeaLocalLaneState> {
+    let state = await this.load();
+    if (!state) throw new Error("Local idea lane not found");
+    while (state.status === "waiting") state = await this.advance();
+    return state;
+  }
+
   static bindImplementationProject(
     state: IdeaLocalLaneState,
     project: { id: string; title: string },
