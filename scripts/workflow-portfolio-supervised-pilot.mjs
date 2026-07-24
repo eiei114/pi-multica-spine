@@ -31,6 +31,7 @@ export function parseSupervisedPilotArgs(argv = process.argv.slice(2)) {
   return {
     canaryPath: required(argv, "--canary-path"),
     factoryConfigPath: required(argv, "--factory-config"),
+    reviewInputPath: required(argv, "--review-input"),
     evidenceOutput: required(argv, "--evidence-output"),
     apply: argv.includes("--apply"),
   };
@@ -63,6 +64,11 @@ export async function runPortfolioSupervisedPilot(input, collaborators = {}) {
   const createFactory = collaborators.createFactory ?? createExplicitPortfolioPromotionFactory;
   const promote = collaborators.promote ?? autoPromoteIdeaSession;
   const config = await loadConfig(input.factoryConfigPath);
+  const reviewContent = await readFile(input.reviewInputPath, "utf8");
+  const acceptanceCriteria = reviewContent.split(/\r?\n/)
+    .map((line) => line.match(/^\s*- \[ \] (.+)$/)?.[1])
+    .filter(Boolean);
+  if (acceptanceCriteria.length === 0) throw new Error("Supervised pilot review input requires unchecked acceptance criteria");
   if (!config.supervisedPilot) throw new Error("Supervised pilot requires supervisedPilot project id/title in factory config");
   if (config.projectTitle !== config.supervisedPilot.projectTitle) {
     throw new Error("Supervised pilot project title must exactly match factory projectTitle");
@@ -90,6 +96,12 @@ export async function runPortfolioSupervisedPilot(input, collaborators = {}) {
     expectedProjectId: selectedProject.id,
     artifactBundleHash: artifacts.artifactBundleHash,
     artifacts: artifacts.artifacts.map((artifact) => ({ stageId: artifact.stageId, outputPath: artifact.outputPath, outputHash: artifact.contentHash })),
+    specReviewInput: {
+      outputPath: input.reviewInputPath,
+      outputHash: sha256Hex(reviewContent),
+      content: reviewContent,
+      acceptanceCriteria,
+    },
   }, deps);
   if (!["promoted", "reused"].includes(promotion.mode)) {
     throw new Error(`Supervised pilot did not complete promotion: ${promotion.mode}`);
