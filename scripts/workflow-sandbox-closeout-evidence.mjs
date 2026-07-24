@@ -3,7 +3,8 @@
  * Sandbox full closeout evidence capture (R-MNT-25, R-MNT-28).
  * Offline validates evidence schema for CI; --capture reads live canary state and persists JSON + investigation note.
  */
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir, readFile } from "node:fs/promises";
+import { access, constants } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -28,6 +29,78 @@ export function defaultCloseoutEvidencePaths(root = repoRoot, capturedAt = new D
   };
 }
 
+export const CLOSEOUT_EVIDENCE_REFERENCE_FIXTURE = join(
+  repoRoot,
+  "tests/fixtures/sandbox-closeout-evidence.reference.json",
+);
+
+export function buildReferenceCloseoutEvidence() {
+  return buildCloseoutEvidenceRecord({
+    projectId: "reference-project",
+    parentIssueId: "parent-ref",
+    parentIdentifier: "DOT-REFERENCE",
+    workflowRunId: "canary-reference",
+    canaryPath: "/tmp/reference",
+    ledgerHash: "a".repeat(64),
+    capturedAt: "2026-07-24T00:00:00.000Z",
+    campaign: {
+      completed: true,
+      currentStageId: HERMES_FINAL_STAGE_ID,
+      workflowStatus: "completed",
+      stageCount: 12,
+      stopReason: "completed",
+    },
+    humanReview: {
+      verdict: "approved",
+      ledgerHash: "a".repeat(64),
+      reviewArtifactPath: "/tmp/final/10-human-final-review.md",
+    },
+  });
+}
+
+export async function loadCloseoutEvidenceFixture(fixturePath = CLOSEOUT_EVIDENCE_REFERENCE_FIXTURE) {
+  const raw = await readFile(fixturePath, "utf8");
+  return JSON.parse(raw);
+}
+
+export async function validateCloseoutEvidenceFixture(fixturePath = CLOSEOUT_EVIDENCE_REFERENCE_FIXTURE) {
+  try {
+    await access(fixturePath, constants.F_OK);
+  } catch {
+    return { ok: false, failures: [`fixture missing: ${fixturePath}`] };
+  }
+  let record;
+  try {
+    record = await loadCloseoutEvidenceFixture(fixturePath);
+  } catch (error) {
+    return {
+      ok: false,
+      failures: [`fixture parse error: ${error instanceof Error ? error.message : String(error)}`],
+    };
+  }
+  const validation = validateCloseoutEvidence(record);
+  if (!validation.ok) {
+    return { ok: false, record, validation, failures: validation.failures };
+  }
+  const reference = buildReferenceCloseoutEvidence();
+  const drift = [];
+  for (const key of ["schemaVersion", "lane", "workflowRunId", "projectId", "parentIssueId"]) {
+    if (record[key] !== reference[key]) {
+      drift.push(`fixture drift: ${key} expected ${reference[key]} got ${record[key]}`);
+    }
+  }
+  if (record.campaign?.currentStageId !== reference.campaign?.currentStageId) {
+    drift.push("fixture drift: campaign.currentStageId");
+  }
+  return {
+    ok: drift.length === 0,
+    record,
+    validation,
+    failures: drift,
+    fixturePath,
+  };
+}
+
 export function parseSandboxCloseoutEvidenceArgs(argv = process.argv.slice(2)) {
   const capture = argv.includes("--capture");
   const json = argv.includes("--json") || !argv.includes("--plain");
@@ -35,7 +108,8 @@ export function parseSandboxCloseoutEvidenceArgs(argv = process.argv.slice(2)) {
   const outArg = argv.find((arg, index) => argv[index - 1] === "--out");
   const noteArg = argv.find((arg, index) => argv[index - 1] === "--note-path");
   const skipNote = argv.includes("--skip-note");
-  return { capture, json, canaryPath: canaryPathArg, outPath: outArg, notePath: noteArg, skipNote };
+  const fixtureArg = argv.find((arg, index) => argv[index - 1] === "--fixture-path");
+  return { capture, json, canaryPath: canaryPathArg, outPath: outArg, notePath: noteArg, skipNote, fixturePath: fixtureArg };
 }
 
 export function buildCloseoutEvidenceRecord(input) {
@@ -209,28 +283,23 @@ export async function runSandboxCloseoutEvidence(options = {}) {
     return { ok: true, mode: "live-capture", record, validation, artifacts };
   }
 
-  const reference = buildCloseoutEvidenceRecord({
-    projectId: "reference-project",
-    parentIssueId: "parent-ref",
-    workflowRunId: "canary-reference",
-    canaryPath: "/tmp/reference",
-    ledgerHash: "a".repeat(64),
-    campaign: {
-      completed: true,
-      currentStageId: HERMES_FINAL_STAGE_ID,
-      workflowStatus: "completed",
-      stageCount: 12,
-      stopReason: "completed",
-    },
-    humanReview: {
-      verdict: "approved",
-      ledgerHash: "a".repeat(64),
-      reviewArtifactPath: "/tmp/final/10-human-final-review.md",
-    },
-  });
+  const reference = buildReferenceCloseoutEvidence();
   const referenceValidation = validateCloseoutEvidence(reference);
   if (!referenceValidation.ok) {
     return { ok: false, mode: "offline-schema", referenceValidation };
+  }
+
+  const fixturePath = options.fixturePath ?? CLOSEOUT_EVIDENCE_REFERENCE_FIXTURE;
+  const fixtureCheck = await validateCloseoutEvidenceFixture(fixturePath);
+  if (!fixtureCheck.ok) {
+    return {
+      ok: false,
+      mode: "offline-schema",
+      reference,
+      referenceValidation,
+      fixtureCheck,
+      failures: fixtureCheck.failures,
+    };
   }
 
   if (canaryPath) {
@@ -258,12 +327,14 @@ export async function runSandboxCloseoutEvidence(options = {}) {
     mode: "offline-schema",
     reference,
     validation: referenceValidation,
+    fixture: fixtureCheck,
     note: "pass --capture --canary-path after live full closeout to persist JSON + investigation note",
   };
 }
 
 async function main() {
-  const { capture, json, canaryPath, outPath, notePath, skipNote } = parseSandboxCloseoutEvidenceArgs();
+  const { capture, json, canaryPath, outPath, notePath, skipNote, fixturePath } =
+    parseSandboxCloseoutEvidenceArgs();
   const defaults = defaultCloseoutEvidencePaths();
   const report = await runSandboxCloseoutEvidence({
     capture,
@@ -271,6 +342,7 @@ async function main() {
     outPath: outPath ?? (capture ? defaults.jsonPath : undefined),
     notePath: notePath ?? (capture && !skipNote ? defaults.notePath : undefined),
     skipNote,
+    fixturePath,
   });
   if (json) {
     console.log(JSON.stringify(report, null, 2));

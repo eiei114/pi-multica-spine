@@ -17,7 +17,8 @@ Short path to run Multica work through the workflow adapter **without** opening 
 0d. Closeout evidence (CI): `npm run check:sandbox-evidence`. Live capture after full closeout: `node scripts/workflow-sandbox-closeout-evidence.mjs --capture --canary-path <path>` (writes JSON + investigation note).
 0e. **Live execute runbook:** [`workflow-sandbox-live-execute-runbook.md`](workflow-sandbox-live-execute-runbook.md).
 0f. Maintenance rehearsal (CI): `npm run check:production-rehearsal`. Live: `node scripts/workflow-production-rehearsal.mjs --execute`.
-0g. Production gate checklist (CI): `npm run check:production-gate` — validates prerequisites while gate remains **CLOSED**.
+0g. **Production live execute runbook:** [`workflow-production-live-execute-runbook.md`](workflow-production-live-execute-runbook.md).
+0h. Production gate checklist (CI): `npm run check:production-gate` — validates prerequisites while gate remains **CLOSED**.
 1. `npm run build` (or `npm run ci`) so `dist/lib` exists for CLI imports.
 2. `multica` authenticated with a **user** token.
 3. No stale daemon marker — auto-cleared in v0.5.2+; manual: `rm -f .multica/daemon_task_context.json`.
@@ -49,6 +50,8 @@ node scripts/workflow-production-run.mjs --report
 ```
 
 Details: [`workflow-production-run-runbook.md`](workflow-production-run-runbook.md).
+
+For live `--execute` rehearsal, see [`workflow-production-live-execute-runbook.md`](workflow-production-live-execute-runbook.md).
 
 ## Failure recovery
 

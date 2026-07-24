@@ -6,6 +6,19 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.8] - 2026-07-24
+
+### Added
+
+- `docs/workflow-production-live-execute-runbook.md` — Maintenance live `--execute` path + failure matrix (R-MNT-31).
+- Extension entry line coverage floors in `coverage-gate.mjs` (R-MNT-32).
+- Committed closeout evidence reference fixture validated in CI (R-MNT-33).
+
+### Changed
+
+- `check:sandbox-evidence` validates `tests/fixtures/sandbox-closeout-evidence.reference.json`.
+- ROADMAP: R-MNT-31..33 absorbed.
+
 ## [0.7.7] - 2026-07-24
 
 ### Added

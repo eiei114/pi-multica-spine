@@ -6,33 +6,33 @@
 
 | Item | Value |
 | --- | --- |
-| Published version | **0.7.6** → **0.7.7** (candidate) |
-| Working-tree version | `0.7.7` |
-| Examples | spine + offline campaign + sandbox/production rehearsal + closeout evidence notes |
+| Published version | **0.7.7** → **0.7.8** (candidate) |
+| Working-tree version | `0.7.8` |
+| Examples | spine + offline campaign + sandbox/production live runbooks + closeout fixture |
 | Production gate | **CLOSED** |
-| Absorbed seeds | ~~R-MNT-1..30~~ through v0.7.7 |
+| Absorbed seeds | ~~R-MNT-1..33~~ through v0.7.8 |
 
 ## Near-term lanes
 
 | Lane | Goal |
 | --- | --- |
-| **Live ops** | Execute sandbox full closeout per live runbook; commit evidence notes |
-| **Coverage** | Extension line/branch floors (optional follow-up) |
+| **Live ops** | Execute Maintenance full closeout per production live runbook |
+| **Coverage** | Extension branch floors (optional follow-up) |
 | **Production gate** | Human opens per `docs/production-gate-decision.md` only |
 
 ## Candidate seeds (next)
 
 | ID | Seed | Scope |
 | --- | --- | --- |
-| R-MNT-31 | Live production `--execute` runbook + failure matrix | ~60 min |
-| R-MNT-32 | Extension module line coverage floors | ~60 min |
-| R-MNT-33 | Closeout evidence CI fixture from reference record | ~45 min |
+| R-MNT-34 | Production closeout evidence capture (Maintenance lane) | ~60 min |
+| R-MNT-35 | Extension module branch coverage floors | ~60 min |
+| R-MNT-36 | Live ops checklist unification (sandbox + production) | ~45 min |
 
 ## Completed seeds (reference)
 
 | ID | Done in |
 | --- | --- |
-| ~~R-MNT-1..27~~ | v0.6.0–v0.7.6 |
-| ~~R-MNT-28~~ | v0.7.7 — closeout evidence investigation note persistence |
-| ~~R-MNT-29~~ | v0.7.7 — live sandbox execute runbook |
-| ~~R-MNT-30~~ | v0.7.7 — extension function coverage floors |
+| ~~R-MNT-1..30~~ | v0.6.0–v0.7.7 |
+| ~~R-MNT-31~~ | v0.7.8 — production live execute runbook |
+| ~~R-MNT-32~~ | v0.7.8 — extension line coverage floors |
+| ~~R-MNT-33~~ | v0.7.8 — closeout evidence CI fixture |

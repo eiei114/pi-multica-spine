@@ -62,3 +62,5 @@ rm -f .multica/daemon_task_context.json
 Live run records: `docs/investigations/2026-07-24-production-workflow-run-evidence.md` (DOT-1137).
 
 See also [`docs/production-workflow-binding.md`](production-workflow-binding.md).
+
+For live `--execute` rehearsal and failure recovery, see [`workflow-production-live-execute-runbook.md`](workflow-production-live-execute-runbook.md).

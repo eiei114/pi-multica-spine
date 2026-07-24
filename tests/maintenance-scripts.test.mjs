@@ -5,6 +5,7 @@ import { validateChangelog } from "../scripts/check-changelog.mjs";
 import {
   evaluateCoverage,
   evaluateCoverageExtensionFunctions,
+  evaluateCoverageExtensionLines,
   evaluateCoverageHotspots,
   evaluateCoverageSandboxBranches,
   evaluateCoverageSandboxFunctions,
@@ -74,6 +75,17 @@ test("evaluateCoverageSandboxBranches enforces sandbox module branch floors", ()
   const fail = evaluateCoverageSandboxBranches([
     ...files.filter((f) => f.file !== "lib/workflow-sandbox-fixtures.ts"),
     { file: "lib/workflow-sandbox-fixtures.ts", lines: 55, branches: 20, functions: 66 },
+  ]);
+  assert.equal(fail.ok, false);
+});
+
+test("evaluateCoverageExtensionLines enforces extension entry line floors", () => {
+  const pass = evaluateCoverageExtensionLines([
+    { file: "extensions/index.ts", lines: 75, branches: 68, functions: 76 },
+  ]);
+  assert.equal(pass.ok, true);
+  const fail = evaluateCoverageExtensionLines([
+    { file: "extensions/index.ts", lines: 70, branches: 68, functions: 76 },
   ]);
   assert.equal(fail.ok, false);
 });
