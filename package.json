@@ -44,7 +44,7 @@
     "check:sandbox-rehearsal": "node scripts/workflow-sandbox-rehearsal.mjs --full-closeout",
     "check:production-rehearsal": "node scripts/workflow-production-rehearsal.mjs",
     "check:sandbox-evidence": "node scripts/workflow-sandbox-closeout-evidence.mjs",
-    "check:idea-entry": "node scripts/workflow-idea-entry.mjs --rough-idea \"CI offline idea entry validation seed\" --dry-run --session-suffix ci --sessions-root C:/tmp/pi-multica-spine-idea-ci",
+    "check:idea-entry": "node scripts/workflow-idea-entry.mjs --rough-idea \"CI offline idea entry validation seed\" --dry-run --session-suffix ci --sessions-root .ci-tmp/idea-sessions",
     "check:maintenance-entry": "node scripts/workflow-maintenance-entry.mjs --maintenance-brief \"CI offline maintenance entry validation seed\" --dry-run",
     "check:production-gate": "node scripts/production-gate-checklist.mjs",
     "ci": "npm run build && npm run typecheck && npm run check:coverage && npm run check:changelog && npm run check:template && npm run check:sandbox-checklist && npm run check:sandbox-rehearsal && npm run check:sandbox-evidence && npm run check:idea-entry && npm run check:idea-status && npm run check:live-sandbox-smoke && npm run check:maintenance-entry && npm run check:production-rehearsal && npm run check:production-gate && npm run pack:check && npm run pack:smoke && node examples/minimal-walkthrough/run-walkthrough.mjs && node examples/workflow-campaign-walkthrough/run-walkthrough.mjs",
@@ -55,9 +55,9 @@
     "digest": "node scripts/jsonl-digest.mjs",
     "production-binding:dry-run": "node scripts/workflow-production-binding.mjs --dry-run",
     "production-run:dry-run": "node scripts/workflow-production-run.mjs --dry-run",
-    "check:idea-status": "node scripts/workflow-idea-status.mjs --json --sessions-root C:/tmp/pi-multica-spine-status-ci",
+    "check:idea-status": "node scripts/workflow-idea-status.mjs --json --sessions-root .ci-tmp/idea-sessions",
     "check:live-sandbox-smoke": "node scripts/workflow-live-sandbox-smoke.mjs",
-    "check:vault-idea-entry": "node scripts/workflow-vault-idea-entry.mjs --rough-idea \"CI offline vault idea entry validation seed\" --dry-run --vault-root C:/tmp/pi-multica-spine-vault-idea-ci --session-suffix vault-ci"
+    "check:vault-idea-entry": "node scripts/workflow-vault-idea-entry.mjs --rough-idea \"CI offline vault idea entry validation seed\" --dry-run --vault-root .ci-tmp/vault --sessions-root .ci-tmp/idea-sessions --session-suffix vault-ci"
   },
   "pi": {
     "extensions": [
