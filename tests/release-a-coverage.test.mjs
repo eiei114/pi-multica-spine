@@ -72,10 +72,14 @@ test("manifest writeOnce and patch", async () => {
 test("vault idea note validation", () => {
   const md = buildVaultIdeaNoteMarkdown("A sufficiently long product idea", { status: "planned", parentIdentifier: "DOT-1", workflowRunId: "run1", canaryPath: "/tmp" });
   assert.equal(validateVaultIdeaNoteForWrite(md).ok, true);
-  assert.match(parseVaultIdeaNoteFrontmatter(md).workflow_lane, /idea-to-build/);
+  const parsed = parseVaultIdeaNoteFrontmatter(md);
+  assert.equal(parsed.workflow_lane, "idea-to-build");
+  assert.equal(parsed.workflow_run_id, "run1");
+  const minimal = buildVaultIdeaNoteMarkdown("A sufficiently long product idea");
+  assert.equal(validateVaultIdeaNoteForWrite(minimal).ok, true);
   for (const bad of ["no frontmatter", "---\nfoo: bar\n---\n", "---\nidea_note_schema_version: 9\nstatus: planned\nready_for_multica: false\nworkflow_lane: idea-to-build\n---\n"]) {
-    const parsed = parseVaultIdeaNoteFrontmatter(bad);
-    assert.ok("error" in parsed);
+    const badParsed = parseVaultIdeaNoteFrontmatter(bad);
+    assert.ok("error" in badParsed);
     assert.equal(validateVaultIdeaNoteForWrite(bad).ok, false);
   }
 });

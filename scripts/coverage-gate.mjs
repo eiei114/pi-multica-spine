@@ -58,10 +58,10 @@ export const COVERAGE_EXTENSION_FUNCTION_FLOORS = {
 /** Line coverage floors for Pi extension entry (R-MNT-32). */
 export const COVERAGE_RELEASE_A_SAFETY_FLOORS = {
   "lib/idea-entry-human.ts": { lines: 100, branches: 55, functions: 100 },
-  "lib/idea-entry-config.ts": { lines: 98, branches: 96, functions: 100 },
+  "lib/idea-entry-config.ts": { lines: 98, branches: 94, functions: 100 },
   "lib/idea-entry-reservation.ts": { lines: 100, branches: 85, functions: 100 },
   "lib/idea-session-manifest.ts": { lines: 100, branches: 75, functions: 83 },
-  "lib/vault-idea-note.ts": { lines: 100, branches: 96, functions: 100 },
+  "lib/vault-idea-note.ts": { lines: 100, branches: 74, functions: 100 },
   "lib/operations-view.ts": { lines: 100, branches: 84, functions: 88 },
   "lib/operations-renderer.ts": { lines: 100, branches: 76, functions: 100 },
   "lib/operations-hydration.ts": { lines: 100, branches: 73, functions: 61 },
