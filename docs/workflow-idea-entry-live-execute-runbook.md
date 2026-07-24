@@ -49,6 +49,21 @@ This stops after creating the local session manifest and initial `capture` state
 
 At `build_handoff`, select an exact-title planned Project when present; otherwise create an implementation Project. Attach implementation resources and bind Work Agent Spine only after that selection. The legacy sandbox canary remains a separate rehearsal harness and is not a product-idea continuation path.
 
+Advance exactly one local stage after each explicit human approval; this command never contacts Multica:
+
+```bash
+node scripts/workflow-idea-stage-advance.mjs --canary-path <session-path>
+```
+
+After the command reports `currentStageId: "build_handoff"`, run it once more to reach `status: "promotion_ready"`. Inspect the default dry-run, then explicitly promote:
+
+```bash
+node scripts/workflow-idea-build-handoff.mjs --canary-path <session-path> --project-title "<EXACT_PROJECT_TITLE>"
+node scripts/workflow-idea-build-handoff.mjs --canary-path <session-path> --project-title "<EXACT_PROJECT_TITLE>" --apply
+```
+
+`--apply` lists Projects, reuses exactly one exact-title `planned` Project, or creates one. Duplicate planned titles fail closed. It records the selected Project in the local session and prints the mandatory `multica_spine_bind` handoff; perform that bind in the implementation agent session before creating implementation work.
+
 ### Plan first (no Multica mutations)
 
 ```bash
@@ -63,12 +78,6 @@ Only when intentionally resuming the shared canary repo:
 
 ```bash
 node scripts/workflow-idea-entry.mjs --rough-idea "<ROUGH_IDEA>" --reuse-default-canary --execute --json
-```
-
-### Resume after partial campaign
-
-```bash
-node scripts/workflow-sandbox-canary.mjs --canary-path <session-path> --campaign --max-stage-cycles 1
 ```
 
 ## Fresh session paths (R-MNT-38)

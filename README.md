@@ -212,6 +212,8 @@ Repo-local scripts drive the Hermes Idea-to-Build lane against live Multica proj
 |---|---|
 | `scripts/jsonl-digest.mjs` | Stable JSONL counts + SHA-256 digest (`--human`, `--color`, `--no-color`) |
 | `scripts/workflow-sandbox-canary.mjs` | Sandbox-only canary: `--dry-run`, `--apply`, one-stage `--campaign`, explicit `--run-full-campaign`, `--human-review`, F1–F8 `--fixture` |
+| `scripts/workflow-idea-stage-advance.mjs` | Advance exactly one persisted local Idea-to-Build stage; no Multica operations. |
+| `scripts/workflow-idea-build-handoff.mjs` | Dry-run or `--apply` the `build_handoff` Project reuse/create boundary; emits required Spine bind handoff. |
 | `scripts/workflow-production-binding.mjs` | Apply production-tier catalog + binding to `pi-multica-spine Maintenance` |
 | `scripts/workflow-production-run.mjs` | Production lane: `--start`, `--campaign`, `--human-review`, `--report` |
 

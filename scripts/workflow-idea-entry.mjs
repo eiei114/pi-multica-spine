@@ -23,11 +23,13 @@ const {
   normalizeRoughIdea,
   hashNormalizedInput,
   IdeaSessionManifestStore,
+  IdeaLocalLaneStore,
 } = await importSpineLibs(import.meta.url, [
   "idea-entry-human.ts",
   "idea-entry-config.ts",
   "idea-entry-reservation.ts",
   "idea-session-manifest.ts",
+  "idea-local-lane.ts",
 ]);
 
 export const MIN_ROUGH_IDEA_LENGTH = 12;
@@ -78,12 +80,22 @@ export function summarizeBootstrapRun(run = {}) {
   };
 }
 
-export async function bootstrapLocalIdeaSession({ canaryPath, sessionId, bootstrapSandboxRepo: bootstrap = bootstrapSandboxRepo }) {
+export async function bootstrapLocalIdeaSession({
+  canaryPath,
+  sessionId,
+  roughIdea,
+  bootstrapSandboxRepo: bootstrap = bootstrapSandboxRepo,
+}) {
   const initialCommit = await bootstrap(canaryPath);
-  return {
+  const lane = await new IdeaLocalLaneStore(canaryPath).create({
+    sessionId,
     workflowRunId: `idea-${sessionId}`,
-    currentStageId: "capture",
-    workflowStatus: "waiting",
+    roughIdea,
+  });
+  return {
+    workflowRunId: lane.workflowRunId,
+    currentStageId: lane.currentStageId,
+    workflowStatus: lane.status,
     initialCommit,
   };
 }
@@ -247,7 +259,7 @@ export async function runWorkflowIdeaEntry(options = {}) {
       nextSteps: [
         "Invoke /skill:idea-to-build then paste the rough idea",
         `node scripts/workflow-idea-entry.mjs --rough-idea ${JSON.stringify(roughIdea)} --execute --invocation-token ${invocationToken}`,
-        "node scripts/workflow-idea-entry.mjs --rough-idea \"<idea>\" --execute --run-full-campaign",
+        "After explicit approval, advance one local stage at a time; promote only after build_handoff is promotion_ready.",
       ],
     };
   }
@@ -266,6 +278,7 @@ export async function runWorkflowIdeaEntry(options = {}) {
   const localSession = await bootstrapLocalIdeaSession({
     canaryPath,
     sessionId: reservation.sessionId,
+    roughIdea,
   });
   const campaign = {
     completed: false,

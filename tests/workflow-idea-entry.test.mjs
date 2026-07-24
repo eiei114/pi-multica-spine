@@ -26,6 +26,7 @@ test("local idea bootstrap reaches capture without a Multica project or parent i
   const session = await bootstrapLocalIdeaSession({
     canaryPath: "C:/sandbox/daily-relic",
     sessionId: "daily-relic-20260724",
+    roughIdea: "Build a Daily Relic iOS game",
     bootstrapSandboxRepo: async () => "abc123",
   });
 
@@ -157,6 +158,8 @@ test("runWorkflowIdeaEntry offline plan uses fresh session by default", async ()
   assert.match(report.canaryPath, /ci-offline-/);
   assert.equal(report.plan.roughIdea, report.roughIdea);
   assert.equal(report.skillCommand, "/skill:idea-to-build");
+  assert.equal(report.nextSteps.some((step) => step.includes("--run-full-campaign")), false);
+  assert.match(report.nextSteps.at(-1), /advance one local stage/i);
 });
 
 test("runWorkflowIdeaEntry execute creates only a local capture session", async () => {
