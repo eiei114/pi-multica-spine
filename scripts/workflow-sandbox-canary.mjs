@@ -65,6 +65,7 @@ export function parseWorkflowSandboxCanaryArgs(argv = process.argv.slice(2)) {
       fixture: { type: "string" },
       report: { type: "boolean", default: false },
       campaign: { type: "boolean", default: false },
+      "run-full-campaign": { type: "boolean", default: false },
       "human-review": { type: "boolean", default: false },
       "canary-path": { type: "string", default: DEFAULT_CANARY_PATH },
       "project-id": { type: "string" },
@@ -81,6 +82,7 @@ export function parseWorkflowSandboxCanaryArgs(argv = process.argv.slice(2)) {
     fixture: values.fixture,
     report: values.report ?? false,
     campaign: values.campaign ?? false,
+    runFullCampaign: values["run-full-campaign"] ?? false,
     humanReview: values["human-review"] ?? false,
     canaryPath: values["canary-path"] ?? DEFAULT_CANARY_PATH,
     projectId: values["project-id"],
@@ -88,6 +90,14 @@ export function parseWorkflowSandboxCanaryArgs(argv = process.argv.slice(2)) {
     roughIdea: values["rough-idea"],
     roughIdeaFile: values["rough-idea-file"],
   };
+}
+
+export function resolveCampaignStageCycles(config) {
+  if (config.runFullCampaign) return config.maxStageCycles;
+  if (config.maxStageCycles !== undefined && config.maxStageCycles !== 1) {
+    throw new Error("Campaigns beyond one stage require --run-full-campaign");
+  }
+  return 1;
 }
 
 export function resolveRoughIdea(config) {
@@ -514,7 +524,7 @@ export async function runSandboxCampaign(config) {
   const campaign = await runCanaryCampaign(state, {
     liveCli,
     roughIdea: plan.roughIdea,
-    maxStageCycles: config.maxStageCycles,
+    maxStageCycles: resolveCampaignStageCycles(config),
   });
   state.lastCampaign = {
     at: new Date().toISOString(),

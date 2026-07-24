@@ -32,7 +32,8 @@ Short path to run Multica work through the workflow adapter **without** opening 
 ```bash
 node scripts/workflow-sandbox-canary.mjs --dry-run
 node scripts/workflow-sandbox-canary.mjs --apply
-node scripts/workflow-sandbox-canary.mjs --campaign
+node scripts/workflow-sandbox-canary.mjs --campaign --max-stage-cycles 1
+# After explicit approval, repeat the one-stage tick until currentStageId=final_package.
 node scripts/workflow-sandbox-canary.mjs --human-review
 node scripts/workflow-sandbox-canary.mjs --report
 ```

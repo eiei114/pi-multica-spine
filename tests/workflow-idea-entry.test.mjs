@@ -8,13 +8,16 @@ import {
   buildFreshCanaryPath,
   buildSandboxCanaryPlan,
   parseWorkflowSandboxCanaryArgs,
+  resolveCampaignStageCycles,
   resolveRoughIdea,
   slugifyRoughIdea,
 } from "../scripts/workflow-sandbox-canary.mjs";
 import {
+  buildLiveIdeaEntryNextSteps,
   parseWorkflowIdeaEntryArgs,
   resolveIdeaEntryCanaryPath,
   runWorkflowIdeaEntry,
+  summarizeBootstrapRun,
   validateRoughIdea,
 } from "../scripts/workflow-idea-entry.mjs";
 
@@ -60,8 +63,65 @@ test("buildSandboxCanaryPlan carries rough idea into plan", () => {
 test("parseWorkflowIdeaEntryArgs defaults to offline json", () => {
   const args = parseWorkflowIdeaEntryArgs([]);
   assert.equal(args.execute, false);
+  assert.equal(args.runFullCampaign, false);
   assert.equal(args.dryRun, true);
   assert.equal(args.json, true);
+});
+
+test("parseWorkflowIdeaEntryArgs requires explicit full campaign opt-in", () => {
+  const bootstrap = parseWorkflowIdeaEntryArgs(["--execute"]);
+  const fullCampaign = parseWorkflowIdeaEntryArgs(["--execute", "--run-full-campaign"]);
+  assert.equal(bootstrap.runFullCampaign, false);
+  assert.equal(fullCampaign.runFullCampaign, true);
+});
+
+test("summarizeBootstrapRun preserves the initial stage without advancing the campaign", () => {
+  const campaign = summarizeBootstrapRun({
+    stopReason: "no_pending_controller_work",
+    ledger: {
+      workflowStatus: "waiting",
+      currentStageId: "capture",
+      stages: { capture: { status: "seeded" } },
+    },
+  });
+  assert.deepEqual(campaign, {
+    completed: false,
+    workflowStatus: "waiting",
+    currentStageId: "capture",
+    stageCount: 1,
+    stopReason: "no_pending_controller_work",
+  });
+});
+
+test("sandbox campaign defaults to one stage and rejects unapproved multi-stage runs", () => {
+  assert.equal(resolveCampaignStageCycles(parseWorkflowSandboxCanaryArgs(["--campaign"])), 1);
+  assert.throws(
+    () => resolveCampaignStageCycles(parseWorkflowSandboxCanaryArgs(["--campaign", "--max-stage-cycles", "80"])),
+    /require --run-full-campaign/,
+  );
+  assert.equal(
+    resolveCampaignStageCycles(parseWorkflowSandboxCanaryArgs(["--campaign", "--run-full-campaign", "--max-stage-cycles", "80"])),
+    80,
+  );
+});
+
+test("live idea entry next steps retain the canary session and rough idea", () => {
+  const campaignStep = buildLiveIdeaEntryNextSteps({
+    canaryPath: "C:/sandbox/session-a",
+    roughIdea: "A product idea with a specific seed",
+    campaign: { completed: false },
+  });
+  assert.match(campaignStep[0], /--canary-path "C:\/sandbox\/session-a"/);
+  assert.match(campaignStep[0], /--rough-idea "A product idea with a specific seed"/);
+
+  const reviewStep = buildLiveIdeaEntryNextSteps({
+    canaryPath: "C:/sandbox/session-a",
+    roughIdea: "ignored after completion",
+    campaign: { completed: true },
+  });
+  assert.deepEqual(reviewStep, [
+    'node scripts/workflow-sandbox-canary.mjs --canary-path "C:/sandbox/session-a" --human-review',
+  ]);
 });
 
 test("validateRoughIdea rejects empty and short ideas", () => {
@@ -84,4 +144,3 @@ test("runWorkflowIdeaEntry offline plan uses fresh session by default", async ()
   assert.equal(report.plan.roughIdea, report.roughIdea);
   assert.equal(report.skillCommand, "/skill:idea-to-build");
 });
-

@@ -6,6 +6,14 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-24
+
+### Changed
+
+- `/skill:idea-to-build` and `workflow-idea-entry.mjs --execute` now stop after sandbox bootstrap and the initial `capture` stage.
+- Full campaign execution requires explicit `--run-full-campaign`; normal stage advancement uses a human-approved, one-stage `--campaign --max-stage-cycles 1` tick.
+- Idea-entry runbook documents the staged Autopilot contract and side-effect boundary.
+
 ## [0.8.0] - 2026-07-24
 
 ### Added

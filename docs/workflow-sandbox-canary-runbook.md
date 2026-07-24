@@ -6,7 +6,7 @@ This runbook covers the repo-local `scripts/workflow-sandbox-canary.mjs` harness
 
 - `--dry-run` — print target sandbox path, delivery policy, fixture list, and final package layout. No Multica mutations.
 - `--apply` — create sandbox project resources, binding, parent issue, and start a canary run. Rejects explicit production project IDs.
-- `--campaign` — drive the full Hermes stage chain from existing canary state (issue seeding, artifact production, controller ticks). Requires prior `--apply`.
+- `--campaign` — advance exactly one Hermes stage from existing canary state. Requires prior `--apply`. Add `--run-full-campaign` to permit more than one stage.
 - `--human-review` — approve (or reject) the completed canary run, sync parent metadata, close parent issue, and write `10-human-final-review.md`. Requires prior `--campaign` with `workflow_status=completed`.
 - `--resume <workflow-run-id>` — resume an existing canary run from ledger state.
 - `--fixture <name>` — execute one failure fixture in isolation (`F1_success_path` … `F8_stage_starvation`).
@@ -17,9 +17,18 @@ This runbook covers the repo-local `scripts/workflow-sandbox-canary.mjs` harness
 ```bash
 node scripts/workflow-sandbox-canary.mjs --dry-run
 node scripts/workflow-sandbox-canary.mjs --apply
-node scripts/workflow-sandbox-canary.mjs --campaign
+node scripts/workflow-sandbox-canary.mjs --campaign --max-stage-cycles 1
+# After explicit approval, repeat the one-stage tick until currentStageId=final_package.
 node scripts/workflow-sandbox-canary.mjs --human-review
 node scripts/workflow-sandbox-canary.mjs --report
+```
+
+Do not run `--human-review` after a single tick unless it reached `final_package`.
+
+Full campaign rehearsal only:
+
+```bash
+node scripts/workflow-sandbox-canary.mjs --campaign --run-full-campaign --max-stage-cycles 80
 ```
 
 ## Safety checks

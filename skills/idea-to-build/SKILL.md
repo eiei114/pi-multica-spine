@@ -19,8 +19,8 @@ Human-initiated entry into the **Hermes Idea-to-Build** workflow on the **sandbo
 1. Confirm the skill was invoked deliberately.
 2. If the rough idea is not already in the message after the command, ask once: **「どんなアイデアを作りたいですか？」**
 3. Do not debate the idea at length — capture it verbatim (light formatting OK).
-4. Bootstrap the workflow (see below).
-5. Reply with: parent issue id, `workflowRunId`, current stage, and what happens next.
+4. Bootstrap the workflow only (see below). Do not advance a campaign during entry.
+5. Reply with: parent issue id, `workflowRunId`, current stage, and the single next stage that waits for explicit human approval.
 
 ## Bootstrap (live)
 
@@ -37,6 +37,25 @@ Use a here-doc for multi-line ideas:
 node scripts/workflow-idea-entry.mjs --rough-idea-file /tmp/rough-idea.txt --execute --json
 ```
 
+`--execute` creates the sandbox project, parent issue, workflow ledger, controller Autopilot, and initial `capture` stage. It does **not** run a campaign.
+
+## Stage-advance contract
+
+- Entry stops after bootstrap. Never add `--run-full-campaign` during normal skill use.
+- Before advancing, report the current stage, the one stage to be advanced, and its side-effect boundary.
+- `--campaign` defaults to exactly one stage. Any value above one requires `--run-full-campaign`.
+- Advance only one stage after the user explicitly requests it. Use:
+
+  ```bash
+  node scripts/workflow-sandbox-canary.mjs --canary-path <session-path> --campaign --max-stage-cycles 1
+  ```
+
+- A full sandbox campaign is an exceptional, explicit command for rehearsals only:
+
+  ```bash
+  node scripts/workflow-idea-entry.mjs --rough-idea "<ROUGH_IDEA>" --execute --run-full-campaign --json
+  ```
+
 ## Bootstrap (plan only / no Multica mutations)
 
 ```bash
@@ -50,7 +69,7 @@ After `--execute`:
 1. Sandbox project binding (Hermes catalog, `productionAllowed=false`)
 2. Parent Workflow Issue created with the rough idea as description
 3. Workflow run ledger + controller autopilot
-4. `--campaign` drives stages: capture → question_resolution → design_doc → … → implementation
+4. The controller Autopilot seeds `capture` and waits. It advances subsequent stages only through explicitly requested, bounded campaign ticks.
 
 The user does **not** need to run `multica` commands manually.
 
@@ -65,10 +84,10 @@ Parse the JSON and tell the user:
 | `campaign.currentStageId` | Current Hermes stage |
 | `campaign.workflowStatus` | Run status |
 
-If campaign is not complete, note they can resume with:
+After the user explicitly approves the next stage, run one bounded tick:
 
 ```bash
-node scripts/workflow-sandbox-canary.mjs --campaign --max-stage-cycles 80
+node scripts/workflow-sandbox-canary.mjs --canary-path <session-path> --campaign --max-stage-cycles 1
 ```
 
 When `final_package` is reached:
@@ -100,5 +119,6 @@ Or invoke `/skill:idea-status`.
 | multica auth | re-authenticate user token |
 | prior parent already exists | omit `--reuse-default-canary`; each idea gets a fresh session path by default |
 | wrong session resumed | use `--canary-path` from dry-run JSON |
+| full campaign needed for a rehearsal | use explicit `--run-full-campaign`; never use it for gradual product work |
 
 See [`docs/workflow-idea-entry-live-execute-runbook.md`](../../docs/workflow-idea-entry-live-execute-runbook.md).
