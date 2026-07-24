@@ -49,6 +49,7 @@ const HERMES_STAGES = [
   { stageId: "build_handoff", role: "handoff_author", outputs: ["05-agent-build-handoff.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-implementation-doc/SKILL.md", "idea-to-implementation-doc/templates/agent-build-handoff-template.md"] },
   { stageId: HERMES_SPEC_REVIEW_STAGE_ID, role: "spec_reviewer", outputs: ["06-spec-review.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-superpowers-suite/SKILL.md"] },
   { stageId: HERMES_SPEC_FIX_STAGE_ID, role: "spec_author", activation: "controller_conditional" as const, outputs: ["06a-spec-fix.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-implementation-doc/SKILL.md"] },
+  { stageId: "scaffold_resolution", role: "scaffold_worker", activation: "controller_conditional" as const, outputs: ["06b-scaffold-receipt.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-implementation-doc/SKILL.md"] },
   { stageId: "implementation_plan", role: "planner", outputs: ["07-implementation-plan.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-writing-plans.md"] },
   { stageId: "implementation", role: "implementer", outputs: ["08-build-report.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-executing-plans.md", "superpowers-test-driven-development.md"] },
   { stageId: "spec_compliance_review", role: "spec_reviewer", outputs: ["09-spec-compliance-review.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-requesting-code-review.md"] },
