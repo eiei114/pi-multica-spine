@@ -9,6 +9,7 @@ This project follows semantic versioning.
 ### Added
 
 - Automatic Idea Portfolio Admission issues 04–11: hash-addressed local artifact lane, Portfolio Queue global-1 admission with dry-run/apply, Promotion Receipt recovery and route-gap skip, approved Build Template Catalog entries for SwiftUI iOS / Astro Web / Tauri Windows, resumable Scaffold Resolution, delivery lifecycle reconciliation, and fleet enablement preflight gate.
+- Portfolio fleet activation command, hash-verified evidence bundle, and fail-closed local-lane activation seam.
 
 ### Changed
 
