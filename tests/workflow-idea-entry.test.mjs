@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import { mkdtemp } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 
 import {
@@ -21,6 +22,11 @@ import {
   summarizeBootstrapRun,
   validateRoughIdea,
 } from "../scripts/workflow-idea-entry.mjs";
+import {
+  CI_OFFLINE_IDEA_ENTRY,
+  repairStaleCiIdeaEntryScratch,
+  runCiOfflineIdeaEntryCheck,
+} from "../scripts/ci-offline-idea-entry-check.mjs";
 
 test("local idea bootstrap reaches capture without a Multica project or parent issue", async () => {
   const session = await bootstrapLocalIdeaSession({
@@ -179,6 +185,67 @@ test("runWorkflowIdeaEntry execute creates only a local capture session", async 
   assert.equal("projectId" in report, false);
   assert.equal("parentIdentifier" in report, false);
   assert.match(report.result, /No Multica Project or Spine binding/);
+});
+
+test("repairStaleCiIdeaEntryScratch removes mismatched CI scratch state", async () => {
+  const root = await mkdtemp(join(tmpdir(), "idea-entry-repair-"));
+  const sessionsRoot = join(root, "sessions");
+  const canaryPath = join(
+    sessionsRoot,
+    "ci-offline-idea-entry-validation-seed-ci-offline-idea-entry-validation",
+  );
+  const manifestPath = join(canaryPath, ".multica-spine", "idea-session-manifest.json");
+  await mkdir(dirname(manifestPath), { recursive: true });
+  await writeFile(
+    manifestPath,
+    JSON.stringify({
+      schemaVersion: 1,
+      sessionId: "idea-stale000",
+      invocationToken: "stale-token",
+      normalizedInputHash: "a".repeat(64),
+      canaryPath,
+      lifecycleStatus: "planned",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    }),
+    "utf8",
+  );
+
+  const repaired = await repairStaleCiIdeaEntryScratch({
+    ...CI_OFFLINE_IDEA_ENTRY,
+    sessionsRoot: "sessions",
+    cwd: root,
+  });
+  assert.equal(repaired.repaired, true);
+  assert.equal(existsSync(manifestPath), false);
+});
+
+test("runCiOfflineIdeaEntryCheck is idempotent", async () => {
+  const root = await mkdtemp(join(tmpdir(), "idea-entry-ci-check-"));
+  const config = { ...CI_OFFLINE_IDEA_ENTRY, sessionsRoot: "sessions", cwd: root };
+  const first = await runCiOfflineIdeaEntryCheck(config);
+  const second = await runCiOfflineIdeaEntryCheck(config);
+  assert.equal(first.ok, true, first.error);
+  assert.equal(second.ok, true, second.error);
+  assert.equal(first.sessionId, second.sessionId);
+  assert.equal(first.canaryPath, second.canaryPath);
+});
+
+test("runWorkflowIdeaEntry offline plan is idempotent with a fixed invocation token", async () => {
+  const sessionsRoot = await mkdtemp(join(tmpdir(), "idea-entry-idempotent-"));
+  const options = {
+    roughIdea: "CI offline idea entry validation seed",
+    sessionSuffix: "ci-offline-idea-entry-validation",
+    sessionsRoot,
+    invocationToken: "ci-offline-idea-entry-validation",
+  };
+  const first = await runWorkflowIdeaEntry(options);
+  const second = await runWorkflowIdeaEntry(options);
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  assert.equal(first.sessionId, second.sessionId);
+  assert.equal(first.canaryPath, second.canaryPath);
+  assert.equal(first.invocationToken, second.invocationToken);
 });
 
 test("runWorkflowIdeaEntry rejects a full campaign before build_handoff", async () => {
