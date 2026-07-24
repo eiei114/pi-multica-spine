@@ -98,6 +98,18 @@ async function main() {
       throw new Error(`digest CLI output missing digest field: ${digestOut}`);
     }
 
+    const sessionsRoot = join(smokeRoot, "sessions");
+    const ideaStatusCli = join(pkgRoot, "scripts", "workflow-idea-status.mjs");
+    const ideaStatusEmptyOut = execFileSync(
+      process.execPath,
+      [ideaStatusCli, "--json", "--sessions-root", sessionsRoot],
+      { cwd: smokeRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    );
+    const ideaStatusEmpty = JSON.parse(ideaStatusEmptyOut);
+    if (!ideaStatusEmpty?.schemaVersion || ideaStatusEmpty.dataState !== "NO_IDEA_SESSIONS") {
+      throw new Error(`idea-status empty smoke failed: ${ideaStatusEmptyOut.slice(0, 400)}`);
+    }
+
     const ideaEntryCli = join(pkgRoot, "scripts", "workflow-idea-entry.mjs");
     const ideaEntryOut = execFileSync(
       process.execPath,
@@ -108,6 +120,8 @@ async function main() {
         "--dry-run",
         "--session-suffix",
         "pack-smoke",
+        "--sessions-root",
+        sessionsRoot,
       ],
       { cwd: smokeRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
     );
@@ -116,15 +130,14 @@ async function main() {
       throw new Error(`idea-entry smoke failed: ${ideaEntryOut.slice(0, 400)}`);
     }
 
-    const ideaStatusCli = join(pkgRoot, "scripts", "workflow-idea-status.mjs");
     const ideaStatusOut = execFileSync(
       process.execPath,
-      [ideaStatusCli, "--json", "--sessions-root", join(smokeRoot, "sessions")],
+      [ideaStatusCli, "--json", "--sessions-root", sessionsRoot, "--rebuild"],
       { cwd: smokeRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
     );
     const ideaStatus = JSON.parse(ideaStatusOut);
-    if (!ideaStatus?.schemaVersion || ideaStatus.dataState !== "NO_IDEA_SESSIONS") {
-      throw new Error(`idea-status smoke failed: ${ideaStatusOut.slice(0, 400)}`);
+    if (!ideaStatus?.schemaVersion || ideaStatus.summary.total < 1) {
+      throw new Error(`idea-status populated smoke failed: ${ideaStatusOut.slice(0, 400)}`);
     }
 
     const ideaToBuildSkill = join(pkgRoot, "skills", "idea-to-build", "SKILL.md");

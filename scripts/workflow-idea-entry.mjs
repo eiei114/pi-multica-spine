@@ -6,11 +6,7 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
-import { formatIdeaEntryHumanResult } from "../lib/idea-entry-human.ts";
-import { resolveIdeaEntryConfig } from "../lib/idea-entry-config.ts";
-import { IdeaInvocationReservationStore, normalizeRoughIdea } from "../lib/idea-entry-reservation.ts";
-import { IdeaSessionManifestStore } from "../lib/idea-session-manifest.ts";
-import { hashNormalizedInput } from "../lib/idea-entry-reservation.ts";
+import { importSpineLibs } from "./spine-lib-import.mjs";
 import { runWorkflowSandboxChecklist } from "./workflow-sandbox-checklist.mjs";
 import {
   applySandboxCanary,
@@ -21,6 +17,20 @@ import {
   runSandboxCampaign,
 } from "./workflow-sandbox-canary.mjs";
 import { FULL_LIVE_CAMPAIGN_STAGE_CYCLES } from "./workflow-sandbox-rehearsal.mjs";
+
+const {
+  formatIdeaEntryHumanResult,
+  resolveIdeaEntryConfig,
+  IdeaInvocationReservationStore,
+  normalizeRoughIdea,
+  hashNormalizedInput,
+  IdeaSessionManifestStore,
+} = await importSpineLibs(import.meta.url, [
+  "idea-entry-human.ts",
+  "idea-entry-config.ts",
+  "idea-entry-reservation.ts",
+  "idea-session-manifest.ts",
+]);
 
 export const MIN_ROUGH_IDEA_LENGTH = 12;
 

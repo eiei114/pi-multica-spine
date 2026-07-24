@@ -6,8 +6,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { resolveIdeaEntryConfig } from "../lib/idea-entry-config.ts";
-import { buildVaultIdeaNoteMarkdown, validateVaultIdeaNoteForWrite } from "../lib/vault-idea-note.ts";
+import { importSpineLibs } from "./spine-lib-import.mjs";
 import { slugifyRoughIdea } from "./workflow-sandbox-canary.mjs";
 import {
   loadRoughIdeaFromArgs,
@@ -15,6 +14,11 @@ import {
   runWorkflowIdeaEntry,
   validateRoughIdea,
 } from "./workflow-idea-entry.mjs";
+
+const { resolveIdeaEntryConfig, buildVaultIdeaNoteMarkdown, validateVaultIdeaNoteForWrite } = await importSpineLibs(import.meta.url, [
+  "idea-entry-config.ts",
+  "vault-idea-note.ts",
+]);
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 export const VAULT_IDEA_RELATIVE_DIR = "4_Project/Multica-Agent-Strategy/Ideas";
