@@ -1,6 +1,6 @@
 {
   "name": "pi-multica-spine",
-  "version": "0.7.8",
+  "version": "0.7.9",
   "description": "Pi extension that keeps Multica work agents bound to issue, PR, evidence, and handoff contracts.",
   "type": "module",
   "license": "MIT",
@@ -26,6 +26,7 @@
     "lib/",
     "docs/",
     "scripts/",
+    "skills/",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
@@ -43,8 +44,9 @@
     "check:sandbox-rehearsal": "node scripts/workflow-sandbox-rehearsal.mjs --full-closeout",
     "check:production-rehearsal": "node scripts/workflow-production-rehearsal.mjs",
     "check:sandbox-evidence": "node scripts/workflow-sandbox-closeout-evidence.mjs",
+    "check:idea-entry": "node scripts/workflow-idea-entry.mjs --rough-idea \"CI offline idea entry validation seed\" --dry-run",
     "check:production-gate": "node scripts/production-gate-checklist.mjs",
-    "ci": "npm run build && npm run typecheck && npm run check:coverage && npm run check:changelog && npm run check:template && npm run check:sandbox-checklist && npm run check:sandbox-rehearsal && npm run check:sandbox-evidence && npm run check:production-rehearsal && npm run check:production-gate && npm run pack:check && npm run pack:smoke && node examples/minimal-walkthrough/run-walkthrough.mjs && node examples/workflow-campaign-walkthrough/run-walkthrough.mjs",
+    "ci": "npm run build && npm run typecheck && npm run check:coverage && npm run check:changelog && npm run check:template && npm run check:sandbox-checklist && npm run check:sandbox-rehearsal && npm run check:sandbox-evidence && npm run check:idea-entry && npm run check:production-rehearsal && npm run check:production-gate && npm run pack:check && npm run pack:smoke && node examples/minimal-walkthrough/run-walkthrough.mjs && node examples/workflow-campaign-walkthrough/run-walkthrough.mjs",
     "pack:check": "npm pack --dry-run",
     "pack:smoke": "node scripts/pack-smoke.mjs",
     "walkthrough": "node examples/minimal-walkthrough/run-walkthrough.mjs && node examples/workflow-campaign-walkthrough/run-walkthrough.mjs",
@@ -56,6 +58,9 @@
   "pi": {
     "extensions": [
       "./extensions"
+    ],
+    "skills": [
+      "./skills/idea-to-build"
     ]
   },
   "publishConfig": {

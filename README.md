@@ -93,7 +93,18 @@ Replace `pi-multica-spine` with the exact `name` from `package.json` when you fo
 Pin a specific version when you want reproducible installs:
 
 ```bash
-pi install npm:pi-multica-spine@0.7.8
+pi install npm:pi-multica-spine@0.7.9
+
+### Idea-to-build entry skill
+
+After install, invoke explicitly (never auto-detected):
+
+```
+/skill:idea-to-build
+```
+
+Paste your rough idea, then the agent runs `scripts/workflow-idea-entry.mjs --execute` to start the sandbox Hermes workflow.
+
 ```
 
 Install into the current project instead of your user Pi settings:
@@ -236,7 +247,7 @@ npm install
 npm run ci
 ```
 
-`npm run ci` runs build, typecheck, coverage gate, changelog lint, template re-sync check, sandbox checklist, sandbox full-closeout rehearsal, sandbox closeout evidence, production rehearsal, production gate checklist, `pack:check`, `pack:smoke` (install tarball + digest CLI), both walkthrough smokes, and `npm pack --dry-run`.
+``npm run ci` runs build, typecheck, coverage gate, changelog lint, template re-sync check, sandbox checklist, sandbox full-closeout rehearsal, sandbox closeout evidence, production rehearsal, production gate checklist, `pack:check`, `pack:smoke` (install tarball + digest CLI), both walkthrough smokes, and `npm pack --dry-run`.
 
 Individual checks:
 

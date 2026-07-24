@@ -5,11 +5,14 @@ import test from "node:test";
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 const ciWorkflow = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
 
-test("package declares extension-only pi resources", () => {
-  assert.deepEqual(packageJson.pi, { extensions: ["./extensions"] });
+test("package declares extension and idea-to-build skill pi resources", () => {
+  assert.deepEqual(packageJson.pi, {
+    extensions: ["./extensions"],
+    skills: ["./skills/idea-to-build"],
+  });
   assert.ok(packageJson.files.includes("extensions/"));
+  assert.ok(packageJson.files.includes("skills/"));
   assert.ok(packageJson.files.includes("lib/"));
-  assert.ok(!packageJson.files.includes("skills/"));
   assert.ok(!packageJson.files.includes("prompts/"));
   assert.ok(!packageJson.files.includes("themes/"));
 });

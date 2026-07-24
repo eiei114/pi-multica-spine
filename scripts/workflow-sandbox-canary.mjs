@@ -50,6 +50,8 @@ const CONTROLLER_AGENT_ID = "58af011a-8a45-4dba-bca9-4bde1a81ebe5";
 const WORKER_AGENT_ID = "b37ce518-3592-4b31-ad02-df6a5bdd267e";
 const DAEMON_ID = "019e4c75-0504-7591-8646-260b510ce726";
 const MAX_CAMPAIGN_TICKS = 40;
+const DEFAULT_ROUGH_IDEA =
+  "Build a small TypeScript CLI that reads JSONL task records and outputs status counts plus a stable SHA-256 digest as JSON.";
 const STATE_RELATIVE = ".multica-spine/canary-state.json";
 
 export function parseWorkflowSandboxCanaryArgs(argv = process.argv.slice(2)) {
@@ -66,6 +68,8 @@ export function parseWorkflowSandboxCanaryArgs(argv = process.argv.slice(2)) {
       "canary-path": { type: "string", default: DEFAULT_CANARY_PATH },
       "project-id": { type: "string" },
       "max-stage-cycles": { type: "string" },
+      "rough-idea": { type: "string" },
+      "rough-idea-file": { type: "string" },
     },
     allowPositionals: false,
   });
@@ -80,7 +84,14 @@ export function parseWorkflowSandboxCanaryArgs(argv = process.argv.slice(2)) {
     canaryPath: values["canary-path"] ?? DEFAULT_CANARY_PATH,
     projectId: values["project-id"],
     maxStageCycles: values["max-stage-cycles"] ? Number(values["max-stage-cycles"]) : undefined,
+    roughIdea: values["rough-idea"],
+    roughIdeaFile: values["rough-idea-file"],
   };
+}
+
+export function resolveRoughIdea(config) {
+  if (config.roughIdea?.trim()) return config.roughIdea.trim();
+  return DEFAULT_ROUGH_IDEA;
 }
 
 export function buildSandboxCanaryPlan(config = parseWorkflowSandboxCanaryArgs()) {
@@ -105,8 +116,7 @@ export function buildSandboxCanaryPlan(config = parseWorkflowSandboxCanaryArgs()
       productionAllowed: false,
       destructiveAllowed: false,
     },
-    roughIdea:
-      "Build a small TypeScript CLI that reads JSONL task records and outputs status counts plus a stable SHA-256 digest as JSON.",
+    roughIdea: resolveRoughIdea(config),
     unresolvedPreference: "Resolved: JSON default; use --human and optional --color on TTY for summaries.",
     artifactRootTemplate: ".multica-spine/canary-artifacts/<workflow-run-id>",
     finalPackageFiles: [
@@ -435,7 +445,7 @@ export async function applySandboxCanary(config) {
     const parent = multicaJson([
       "issue", "create",
       "--project", project.id,
-      "--title", "Canary: JSONL digest CLI rough idea",
+      "--title", `Idea: ${plan.roughIdea.slice(0, 96).replace(/\s+/g, " ").trim()}`,
       "--description", plan.roughIdea,
       "--status", "in_progress",
       "--output", "json",
