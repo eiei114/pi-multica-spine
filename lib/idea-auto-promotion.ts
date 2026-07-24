@@ -194,13 +194,14 @@ export async function autoPromoteIdeaSession(
   input: AutomaticPromotionInput,
   deps: AutomaticPromotionDeps,
 ): Promise<AutomaticPromotionResult> {
-  const existingLedger = await deps.runStore.load(input.workflowRunId);
-  if (existingLedger) return { mode: "reused", ledger: existingLedger };
-
   const queueStore = deps.queueStore ?? new PortfolioQueueStore(deps.cwd);
   const receiptStore = deps.receiptStore ?? new PromotionReceiptStore(deps.cwd, input.sessionId);
   const queueState = await queueStore.load();
   const existingReceipt = await receiptStore.load();
+  const existingLedger = await deps.runStore.load(input.workflowRunId);
+  if (existingLedger && (!existingReceipt || existingReceipt.status === "completed")) {
+    return { mode: "reused", ledger: existingLedger };
+  }
   const plannedProjects = await deps.projects.list();
 
   if (input.dryRun) {
@@ -211,7 +212,7 @@ export async function autoPromoteIdeaSession(
     return { mode: "dry-run", plan: buildPortfolioAdmissionPlan(candidate), candidate };
   }
 
-  const resuming = existingReceipt?.status === "in_progress"
+  const resuming = existingReceipt && existingReceipt.status !== "completed"
     && queueState.activeSessionId === input.sessionId;
 
   let candidate: PortfolioCandidate | undefined;
@@ -282,6 +283,16 @@ export async function autoPromoteIdeaSession(
     await queueStore.admit(input.sessionId);
   }
 
+  const resumedParent = receipt.completedSteps.includes("parent_created") && receipt.identities.parentIssueId
+    ? { id: receipt.identities.parentIssueId }
+    : undefined;
+  const resumedLedger = receipt.completedSteps.includes("run_created")
+    ? await deps.runStore.load(input.workflowRunId)
+    : undefined;
+  if (receipt.completedSteps.includes("run_created") && !resumedLedger) {
+    throw new Error("Promotion receipt has run_created but workflow ledger is missing");
+  }
+
   let context: {
     project: ImplementationProject;
     binding: ProjectWorkflowBinding;
@@ -289,7 +300,7 @@ export async function autoPromoteIdeaSession(
     parent?: { id: string; identifier?: string };
     ledger?: NonNullable<Awaited<ReturnType<WorkflowRunStateStore["load"]>>>;
     firstStage?: Awaited<ReturnType<typeof seedWorkflowStageLive>>;
-  } = { project: resolved.project, binding, receipt };
+  } = { project: resolved.project, binding, receipt, parent: resumedParent, ledger: resumedLedger };
   let step = nextPromotionReceiptStep(receipt);
   try {
     while (step) {
