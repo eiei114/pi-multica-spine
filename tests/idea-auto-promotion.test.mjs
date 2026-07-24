@@ -208,6 +208,43 @@ test("partial promotion resumes after receipt failure without skipping", async (
   assert.equal(parentCreated, 2);
 });
 
+test("blocked artifact import resumes with durable parent and ledger context", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "auto-promotion-resume-ledger-"));
+  const runStore = new WorkflowRunStateStore(cwd);
+  const bindingStore = new ProjectWorkflowBindingStore(cwd);
+  const { PortfolioQueueStore } = await import("../lib/portfolio-queue.ts");
+  const { PromotionReceiptStore } = await import("../lib/promotion-receipt.ts");
+  const project = { id: "project", title: "Resume Ledger App", status: "planned" };
+  const originalRecordArtifact = runStore.recordArtifact.bind(runStore);
+  let failOnce = true;
+  runStore.recordArtifact = async (...args) => {
+    if (failOnce) {
+      failOnce = false;
+      throw new Error("simulated atomic artifact write failure");
+    }
+    return originalRecordArtifact(...args);
+  };
+  const liveCli = {
+    async verifyProject() {}, async getIssue() { return { id: "parent", project_id: "project" }; },
+    async createStageIssue() { return { id: "stage", identifier: "DOT-1", project_id: "project" }; },
+    async assignStageIssue() {}, async transitionStageIssue() {}, async writeParentSummary() {},
+    async writeStageWriteback() {}, async readRunMetadata() { return {}; }, async triggerAutopilot() { return {}; },
+  };
+  let parentCreated = 0;
+  const input = {
+    sessionId: "resume-ledger", workflowRunId: "resume-ledger", projectTitle: "Resume Ledger App", projectDescription: "desc",
+    artifactBundleHash: "e".repeat(64), artifacts: [{ stageId: "build_handoff", outputPath: "handoff", outputHash: "e".repeat(64) }],
+  };
+  const deps = {
+    cwd, projects: { async list() { return [project]; }, async create() { throw new Error("unexpected create"); } }, buildBinding: binding,
+    async createParentIssue() { parentCreated += 1; return { id: "parent", identifier: "DOT-0" }; }, activateProject: async () => {}, liveCli,
+    runStore, bindingStore, queueStore: new PortfolioQueueStore(cwd), receiptStore: new PromotionReceiptStore(cwd, "resume-ledger"),
+  };
+  assert.equal((await autoPromoteIdeaSession(input, deps)).mode, "failed");
+  assert.equal((await autoPromoteIdeaSession(input, deps)).mode, "promoted");
+  assert.equal(parentCreated, 1);
+});
+
 test("route gap skips candidate without creating agents", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "auto-promotion-route-gap-"));
   const project = { id: "project", title: "Gap App", status: "planned" };
