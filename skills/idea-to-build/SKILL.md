@@ -77,6 +77,14 @@ When `final_package` is reached:
 node scripts/workflow-sandbox-canary.mjs --human-review
 ```
 
+Track status any time with:
+
+```bash
+node scripts/workflow-idea-status.mjs --json
+```
+
+Or invoke `/skill:idea-status`.
+
 ## Policy
 
 - **Never** set `productionAllowed=true`.

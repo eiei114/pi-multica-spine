@@ -56,6 +56,19 @@ export const COVERAGE_EXTENSION_FUNCTION_FLOORS = {
 };
 
 /** Line coverage floors for Pi extension entry (R-MNT-32). */
+export const COVERAGE_RELEASE_A_SAFETY_FLOORS = {
+  "lib/idea-entry-human.ts": { lines: 100, branches: 55, functions: 100 },
+  "lib/idea-entry-config.ts": { lines: 98, branches: 94, functions: 100 },
+  "lib/idea-entry-reservation.ts": { lines: 100, branches: 85, functions: 100 },
+  "lib/idea-session-manifest.ts": { lines: 100, branches: 75, functions: 83 },
+  "lib/vault-idea-note.ts": { lines: 100, branches: 74, functions: 100 },
+  "lib/operations-view.ts": { lines: 100, branches: 84, functions: 88 },
+  "lib/operations-renderer.ts": { lines: 100, branches: 76, functions: 100 },
+  "lib/operations-hydration.ts": { lines: 100, branches: 73, functions: 61 },
+  "lib/retention-classifier.ts": { lines: 95, branches: 52, functions: 83 },
+  "lib/workflow-human-final-review-journal.ts": { lines: 99, branches: 85, functions: 95 },
+};
+
 export const COVERAGE_EXTENSION_LINE_FLOORS = {
   "extensions/index.ts": 74,
 };
@@ -260,6 +273,7 @@ export function runCoverageGate(inputPath) {
   const sandboxLines = evaluateCoverageSandboxLines(summary.files ?? parseCoverageFileRows(output));
   const sandboxFunctions = evaluateCoverageSandboxFunctions(summary.files ?? parseCoverageFileRows(output));
   const extensionFunctions = evaluateCoverageExtensionFunctions(summary.files ?? parseCoverageFileRows(output));
+  const releaseASafety = evaluateCoverageHotspots(summary.files ?? parseCoverageFileRows(output), COVERAGE_RELEASE_A_SAFETY_FLOORS, new Set());
   const extensionLines = evaluateCoverageExtensionLines(summary.files ?? parseCoverageFileRows(output));
   if (!gate.ok) {
     console.error(gate.failures.join("\n"));
@@ -289,6 +303,11 @@ export function runCoverageGate(inputPath) {
   if (!extensionFunctions.ok) {
     console.error("coverage extension function failures:");
     console.error(extensionFunctions.failures.join("\n"));
+    return 1;
+  }
+  if (!releaseASafety.ok) {
+    console.error("coverage release-a safety failures:");
+    console.error(releaseASafety.failures.join("\n"));
     return 1;
   }
   if (!extensionLines.ok) {

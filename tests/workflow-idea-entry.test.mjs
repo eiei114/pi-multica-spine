@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
@@ -68,14 +71,16 @@ test("validateRoughIdea rejects empty and short ideas", () => {
 });
 
 test("runWorkflowIdeaEntry offline plan uses fresh session by default", async () => {
+  const sessionsRoot = await mkdtemp(join(tmpdir(), "idea-entry-"));
   const report = await runWorkflowIdeaEntry({
     roughIdea: "Build a habit tracker CLI with JSON export and weekly digest",
-    sessionSuffix: "ci-offline-session",
+    sessionSuffix: `ci-offline-${Date.now()}`,
+    sessionsRoot,
   });
   assert.equal(report.ok, true);
   assert.equal(report.mode, "offline-plan");
   assert.equal(report.freshSession, true);
-  assert.match(report.canaryPath, /ci-offline-session$/);
+  assert.match(report.canaryPath, /ci-offline-/);
   assert.equal(report.plan.roughIdea, report.roughIdea);
   assert.equal(report.skillCommand, "/skill:idea-to-build");
 });

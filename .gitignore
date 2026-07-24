@@ -13,6 +13,9 @@ build/
 coverage/
 *.tsbuildinfo
 
+# ci scratch
+.ci-tmp/
+
 # local env
 .env
 .env.*
