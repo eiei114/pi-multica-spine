@@ -6,6 +6,17 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-07-25
+
+### Added
+
+- Automatic Idea Portfolio Admission issues 04–11: hash-addressed local artifact lane, Portfolio Queue global-1 admission with dry-run/apply, Promotion Receipt recovery and route-gap skip, approved Build Template Catalog entries for SwiftUI iOS / Astro Web / Tauri Windows, resumable Scaffold Resolution, delivery lifecycle reconciliation, and fleet enablement preflight gate.
+
+### Changed
+
+- `autoPromoteIdeaSession` now orchestrates queue fencing, receipt-based resume, project activation after all initial identities exist, and fail-closed route/template handling.
+- Hermes workflow manifest includes `scaffold_resolution` between accepted `spec_review` and `implementation_plan`.
+
 ## [0.11.0] - 2026-07-25
 
 ### Added
