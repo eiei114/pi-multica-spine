@@ -36,6 +36,10 @@ export const PortfolioPromotionFactoryConfigSchema = Type.Object({
   projectKey: Type.Optional(Type.String({ minLength: 1 })),
   enabledOptionalStages: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
   metadata: Type.Optional(Type.Record(Type.String({ minLength: 1 }), Type.String())),
+  supervisedPilot: Type.Optional(Type.Object({
+    projectId: Type.String({ minLength: 1 }),
+    projectTitle: Type.String({ minLength: 1 }),
+  })),
 });
 export type PortfolioPromotionFactoryConfig = Static<typeof PortfolioPromotionFactoryConfigSchema>;
 
