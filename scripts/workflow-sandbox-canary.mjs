@@ -252,7 +252,11 @@ export async function bootstrapSandboxRepo(canaryPath) {
   if (!(await pathExists(join(canaryPath, ".git")))) {
     execFileSync("git", ["init"], { cwd: canaryPath, stdio: "inherit" });
     execFileSync("git", ["add", "README.md", "package.json", "tasks.sample.jsonl"], { cwd: canaryPath, stdio: "inherit" });
-    execFileSync("git", ["commit", "-m", "chore: initialize sandbox canary repo"], { cwd: canaryPath, stdio: "inherit" });
+    execFileSync("git", [
+      "-c", "user.name=pi-multica-spine sandbox",
+      "-c", "user.email=pi-multica-spine-sandbox@invalid",
+      "commit", "-m", "chore: initialize sandbox canary repo",
+    ], { cwd: canaryPath, stdio: "inherit" });
   }
   return execFileSync("git", ["rev-parse", "HEAD"], { cwd: canaryPath, encoding: "utf8" }).trim();
 }

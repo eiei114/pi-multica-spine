@@ -6,6 +6,13 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-07-24
+
+### Changed
+
+- `/skill:idea-to-build --execute` now creates only a local `capture` session. It no longer creates a Multica Project, parent issue, Controller Autopilot, resource, or Work Agent Spine binding before `build_handoff`.
+- Documented `build_handoff` as the boundary that reuses an exact-title planned Project or creates an implementation Project before Spine-governed implementation begins.
+
 ## [0.10.0] - 2026-07-24
 
 ### Changed

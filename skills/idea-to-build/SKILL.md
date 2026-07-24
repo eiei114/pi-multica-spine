@@ -1,6 +1,6 @@
 ---
 name: idea-to-build
-description: Start the Hermes Idea-to-Build Multica workflow after the human explicitly invokes this skill. Use ONLY when the user runs /skill:idea-to-build (never auto-detect). Collect the rough idea, then bootstrap sandbox apply+campaign in the background.
+description: Start a local Hermes Idea-to-Build session after the human explicitly invokes this skill. Use ONLY when the user runs /skill:idea-to-build (never auto-detect). Keep Multica Project and Spine binding deferred until build_handoff.
 disable-model-invocation: true
 compatibility: Requires multica CLI (user token), npm run build, and pi-multica-spine scripts on PATH or repo root.
 ---
@@ -20,7 +20,7 @@ Human-initiated entry into the **Hermes Idea-to-Build** workflow on the **sandbo
 2. If the rough idea is not already in the message after the command, ask once: **「どんなアイデアを作りたいですか？」**
 3. Do not debate the idea at length — capture it verbatim (light formatting OK).
 4. Bootstrap the workflow only (see below). Do not advance a campaign during entry.
-5. Reply with: parent issue id, `workflowRunId`, current stage, and the single next stage that waits for explicit human approval.
+5. Reply with: `workflowRunId`, current stage, and the single next stage that waits for explicit human approval. Do not report a Multica parent or Project before `build_handoff`.
 
 ## Bootstrap (live)
 
@@ -37,24 +37,15 @@ Use a here-doc for multi-line ideas:
 node scripts/workflow-idea-entry.mjs --rough-idea-file /tmp/rough-idea.txt --execute --json
 ```
 
-`--execute` creates the sandbox project, parent issue, workflow ledger, controller Autopilot, and initial `capture` stage. It does **not** run a campaign.
+`--execute` creates only a local sandbox session and the initial `capture` state. It creates **no** Multica Project, parent issue, Controller Autopilot, or Work Agent Spine binding.
 
 ## Stage-advance contract
 
 - Entry stops after bootstrap. Never add `--run-full-campaign` during normal skill use.
 - Before advancing, report the current stage, the one stage to be advanced, and its side-effect boundary.
-- `--campaign` defaults to exactly one stage. Any value above one requires `--run-full-campaign`.
-- Advance only one stage after the user explicitly requests it. Use:
-
-  ```bash
-  node scripts/workflow-sandbox-canary.mjs --canary-path <session-path> --campaign --max-stage-cycles 1
-  ```
-
-- A full sandbox campaign is an exceptional, explicit command for rehearsals only:
-
-  ```bash
-  node scripts/workflow-idea-entry.mjs --rough-idea "<ROUGH_IDEA>" --execute --run-full-campaign --json
-  ```
+- Advance only one local idea stage after the user explicitly requests it.
+- Do not invoke the legacy `workflow-sandbox-canary.mjs` for a product idea. It is a separate Multica rehearsal harness.
+- At `build_handoff`, reuse an exact-title planned Multica Project when one exists; otherwise create an implementation Project. Only then bind the implementation work to Spine.
 
 ## Bootstrap (plan only / no Multica mutations)
 
@@ -62,16 +53,15 @@ node scripts/workflow-idea-entry.mjs --rough-idea-file /tmp/rough-idea.txt --exe
 node scripts/workflow-idea-entry.mjs --rough-idea "<ROUGH_IDEA>" --dry-run --json
 ```
 
-## What happens in Multica
+## What happens before Multica
 
 After `--execute`:
 
-1. Sandbox project binding (Hermes catalog, `productionAllowed=false`)
-2. Parent Workflow Issue created with the rough idea as description
-3. Workflow run ledger + controller autopilot
-4. The controller Autopilot seeds `capture` and waits. It advances subsequent stages only through explicitly requested, bounded campaign ticks.
+1. A local sandbox path and session manifest are created.
+2. The session is ready at `capture` and waits for explicit approval before any later stage.
+3. No Project, parent issue, Autopilot, resource, or Spine state is created.
 
-The user does **not** need to run `multica` commands manually.
+At `build_handoff`, the implementation lane creates or reuses its Project, attaches implementation resources, and begins using Spine. Until then, the user does **not** need to run `multica` commands.
 
 ## Report back
 
@@ -79,22 +69,9 @@ Parse the JSON and tell the user:
 
 | Field | Meaning |
 |-------|---------|
-| `parentIdentifier` | Multica parent issue (e.g. DOT-xxxx) |
-| `workflowRunId` | Workflow run id |
+| `workflowRunId` | Local idea session id |
 | `campaign.currentStageId` | Current Hermes stage |
 | `campaign.workflowStatus` | Run status |
-
-After the user explicitly approves the next stage, run one bounded tick:
-
-```bash
-node scripts/workflow-sandbox-canary.mjs --canary-path <session-path> --campaign --max-stage-cycles 1
-```
-
-When `final_package` is reached:
-
-```bash
-node scripts/workflow-sandbox-canary.mjs --human-review
-```
 
 Track status any time with:
 
@@ -108,17 +85,15 @@ Or invoke `/skill:idea-status`.
 
 - **Never** set `productionAllowed=true`.
 - Do not rotate secrets, change billing, or run destructive production ops.
-- This skill targets the **sandbox canary** lane only (not Maintenance production-run).
+- This skill targets the local Idea-to-Build lane. The sandbox canary and Maintenance production-run remain separate rehearsal lanes.
 
 ## Troubleshooting
 
 | Issue | Action |
 |-------|--------|
 | `dist/lib` missing | `npm run build` |
-| daemon `mat_` token error | remove `.multica/daemon_task_context.json` in canary repo |
-| multica auth | re-authenticate user token |
-| prior parent already exists | omit `--reuse-default-canary`; each idea gets a fresh session path by default |
+| prior session already exists | omit `--reuse-default-canary`; each idea gets a fresh session path by default |
 | wrong session resumed | use `--canary-path` from dry-run JSON |
-| full campaign needed for a rehearsal | use explicit `--run-full-campaign`; never use it for gradual product work |
+| implementation must begin | complete `build_handoff`; then create or reuse the implementation Project and bind Spine |
 
 See [`docs/workflow-idea-entry-live-execute-runbook.md`](../../docs/workflow-idea-entry-live-execute-runbook.md).

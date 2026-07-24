@@ -9,14 +9,12 @@ import { pathToFileURL } from "node:url";
 import { importSpineLibs } from "./spine-lib-import.mjs";
 import { runWorkflowSandboxChecklist } from "./workflow-sandbox-checklist.mjs";
 import {
-  applySandboxCanary,
+  bootstrapSandboxRepo,
   buildFreshCanaryPath,
   buildSandboxCanaryPlan,
   DEFAULT_CANARY_PATH,
   parseWorkflowSandboxCanaryArgs,
-  runSandboxCampaign,
 } from "./workflow-sandbox-canary.mjs";
-import { FULL_LIVE_CAMPAIGN_STAGE_CYCLES } from "./workflow-sandbox-rehearsal.mjs";
 
 const {
   formatIdeaEntryHumanResult,
@@ -25,11 +23,13 @@ const {
   normalizeRoughIdea,
   hashNormalizedInput,
   IdeaSessionManifestStore,
+  IdeaLocalLaneStore,
 } = await importSpineLibs(import.meta.url, [
   "idea-entry-human.ts",
   "idea-entry-config.ts",
   "idea-entry-reservation.ts",
   "idea-session-manifest.ts",
+  "idea-local-lane.ts",
 ]);
 
 export const MIN_ROUGH_IDEA_LENGTH = 12;
@@ -61,7 +61,7 @@ export function parseWorkflowIdeaEntryArgs(argv = process.argv.slice(2)) {
     canaryPath: canaryPathArg,
     roughIdea: roughIdeaArg,
     roughIdeaFile: roughIdeaFileArg,
-    maxStageCycles: maxStageCyclesArg ? Number(maxStageCyclesArg) : FULL_LIVE_CAMPAIGN_STAGE_CYCLES,
+    maxStageCycles: maxStageCyclesArg ? Number(maxStageCyclesArg) : undefined,
     sessionSuffix: sessionSuffixArg,
     invocationToken: invocationTokenArg,
     vaultRoot: vaultRootArg,
@@ -80,14 +80,32 @@ export function summarizeBootstrapRun(run = {}) {
   };
 }
 
+export async function bootstrapLocalIdeaSession({
+  canaryPath,
+  sessionId,
+  roughIdea,
+  bootstrapSandboxRepo: bootstrap = bootstrapSandboxRepo,
+}) {
+  const initialCommit = await bootstrap(canaryPath);
+  const lane = await new IdeaLocalLaneStore(canaryPath).create({
+    sessionId,
+    workflowRunId: `idea-${sessionId}`,
+    roughIdea,
+  });
+  return {
+    workflowRunId: lane.workflowRunId,
+    currentStageId: lane.currentStageId,
+    workflowStatus: lane.status,
+    initialCommit,
+  };
+}
+
 export function buildLiveIdeaEntryNextSteps({ canaryPath, roughIdea, campaign }) {
   if (campaign.completed) {
-    return [
-      `node scripts/workflow-sandbox-canary.mjs --canary-path ${JSON.stringify(canaryPath)} --human-review`,
-    ];
+    return ["Implementation Project creation occurs at build_handoff, before implementation work starts."];
   }
   return [
-    `After explicit human approval: node scripts/workflow-sandbox-canary.mjs --canary-path ${JSON.stringify(canaryPath)} --campaign --max-stage-cycles 1 --rough-idea ${JSON.stringify(roughIdea)}`,
+    `After explicit human approval, advance one local idea stage for ${JSON.stringify(canaryPath)}. Do not create a Multica Project before build_handoff.`,
   ];
 }
 
@@ -215,7 +233,7 @@ export async function runWorkflowIdeaEntry(options = {}) {
   );
 
   const checklist = await runWorkflowSandboxChecklist({
-    live: options.execute ?? false,
+    live: false,
     canaryPath,
   });
   if (!checklist.ok) {
@@ -241,51 +259,49 @@ export async function runWorkflowIdeaEntry(options = {}) {
       nextSteps: [
         "Invoke /skill:idea-to-build then paste the rough idea",
         `node scripts/workflow-idea-entry.mjs --rough-idea ${JSON.stringify(roughIdea)} --execute --invocation-token ${invocationToken}`,
-        "node scripts/workflow-idea-entry.mjs --rough-idea \"<idea>\" --execute --run-full-campaign",
+        "After explicit approval, advance one local stage at a time; promote only after build_handoff is promotion_ready.",
       ],
     };
   }
 
-  const applyConfig = parseWorkflowSandboxCanaryArgs(canaryArgv(canaryPath, roughIdea, ["--apply"]));
-  const applyResult = await applySandboxCanary(applyConfig);
-  let campaign;
   if (options.runFullCampaign) {
-    const campaignConfig = parseWorkflowSandboxCanaryArgs(
-      canaryArgv(canaryPath, roughIdea, [
-        "--campaign",
-        "--run-full-campaign",
-        "--max-stage-cycles",
-        String(options.maxStageCycles ?? FULL_LIVE_CAMPAIGN_STAGE_CYCLES),
-      ]),
-    );
-    if (campaignConfig.maxStageCycles === undefined) {
-      campaignConfig.maxStageCycles = options.maxStageCycles ?? FULL_LIVE_CAMPAIGN_STAGE_CYCLES;
-    }
-    campaign = (await runSandboxCampaign(campaignConfig)).campaign;
-  } else {
-    campaign = summarizeBootstrapRun(applyResult.run);
+    await reservationStore.update(invocationToken, { status: "failed", error: "full campaign requires the deferred project-bound implementation lane" });
+    return {
+      ok: false,
+      mode: "validation",
+      error: "--run-full-campaign is unavailable before build_handoff creates or reuses an implementation project",
+      sessionId: reservation.sessionId,
+      invocationToken,
+    };
   }
 
-  const ok =
-    Boolean(applyResult.state?.workflowRunId) &&
-    Boolean(campaign) &&
-    plan.deliveryPolicy.productionAllowed === false;
+  const localSession = await bootstrapLocalIdeaSession({
+    canaryPath,
+    sessionId: reservation.sessionId,
+    roughIdea,
+  });
+  const campaign = {
+    completed: false,
+    workflowStatus: localSession.workflowStatus,
+    currentStageId: localSession.currentStageId,
+    stageCount: 1,
+    stopReason: "local_capture_ready",
+  };
+
+  const ok = Boolean(localSession.workflowRunId) && plan.deliveryPolicy.productionAllowed === false;
 
   if (ok) {
     await manifestStore.patch({
-      workflowRunId: applyResult.state?.workflowRunId,
-      parentIdentifier: applyResult.state?.parentIdentifier,
-      parentIssueId: applyResult.state?.parentIssueId,
-      lifecycleStatus: campaign.completed ? "final_package" : "active",
+      workflowRunId: localSession.workflowRunId,
+      lifecycleStatus: "active",
     });
     await reservationStore.update(invocationToken, {
       status: "completed",
-      workflowRunId: applyResult.state?.workflowRunId,
-      parentIdentifier: applyResult.state?.parentIdentifier,
-      resultPointer: applyResult.state?.workflowRunId,
+      workflowRunId: localSession.workflowRunId,
+      resultPointer: localSession.workflowRunId,
     });
   } else {
-    await reservationStore.update(invocationToken, { status: "failed", error: "live start incomplete" });
+    await reservationStore.update(invocationToken, { status: "failed", error: "local idea bootstrap incomplete" });
   }
 
   return {
@@ -297,15 +313,13 @@ export async function runWorkflowIdeaEntry(options = {}) {
     checklist,
     sessionId: reservation.sessionId,
     invocationToken,
-    parentIdentifier: applyResult.state?.parentIdentifier,
-    workflowRunId: applyResult.state?.workflowRunId,
-    projectId: applyResult.state?.projectId,
+    workflowRunId: localSession.workflowRunId,
     campaign,
     result: ok
-      ? `Started sandbox idea session ${reservation.sessionId} with parent ${applyResult.state?.parentIdentifier ?? "(pending)"}`
-      : "Sandbox idea entry did not complete",
-    next: applyResult.state?.workflowRunId
-      ? `/skill:idea-status --workflow-run-id ${applyResult.state.workflowRunId}`
+      ? `Started local idea session ${reservation.sessionId} at capture. No Multica Project or Spine binding exists before build_handoff.`
+      : "Local idea entry did not complete",
+    next: localSession.workflowRunId
+      ? `/skill:idea-status --workflow-run-id ${localSession.workflowRunId}`
       : "/skill:idea-to-build",
     nextSteps: buildLiveIdeaEntryNextSteps({ canaryPath, roughIdea, campaign }),
   };

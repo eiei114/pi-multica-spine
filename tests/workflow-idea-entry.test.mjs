@@ -13,6 +13,7 @@ import {
   slugifyRoughIdea,
 } from "../scripts/workflow-sandbox-canary.mjs";
 import {
+  bootstrapLocalIdeaSession,
   buildLiveIdeaEntryNextSteps,
   parseWorkflowIdeaEntryArgs,
   resolveIdeaEntryCanaryPath,
@@ -20,6 +21,22 @@ import {
   summarizeBootstrapRun,
   validateRoughIdea,
 } from "../scripts/workflow-idea-entry.mjs";
+
+test("local idea bootstrap reaches capture without a Multica project or parent issue", async () => {
+  const session = await bootstrapLocalIdeaSession({
+    canaryPath: "C:/sandbox/daily-relic",
+    sessionId: "daily-relic-20260724",
+    roughIdea: "Build a Daily Relic iOS game",
+    bootstrapSandboxRepo: async () => "abc123",
+  });
+
+  assert.equal(session.workflowRunId, "idea-daily-relic-20260724");
+  assert.equal(session.currentStageId, "capture");
+  assert.equal(session.initialCommit, "abc123");
+  assert.equal("projectId" in session, false);
+  assert.equal("parentIssueId" in session, false);
+  assert.equal("autopilotId" in session, false);
+});
 
 test("slugifyRoughIdea produces filesystem-safe slug", () => {
   assert.equal(slugifyRoughIdea("Build a Notes App!"), "build-a-notes-app");
@@ -105,23 +122,21 @@ test("sandbox campaign defaults to one stage and rejects unapproved multi-stage 
   );
 });
 
-test("live idea entry next steps retain the canary session and rough idea", () => {
+test("live idea entry next steps retain the local session and defer project creation", () => {
   const campaignStep = buildLiveIdeaEntryNextSteps({
     canaryPath: "C:/sandbox/session-a",
     roughIdea: "A product idea with a specific seed",
     campaign: { completed: false },
   });
-  assert.match(campaignStep[0], /--canary-path "C:\/sandbox\/session-a"/);
-  assert.match(campaignStep[0], /--rough-idea "A product idea with a specific seed"/);
+  assert.match(campaignStep[0], /C:\/sandbox\/session-a/);
+  assert.match(campaignStep[0], /Do not create a Multica Project before build_handoff/);
 
   const reviewStep = buildLiveIdeaEntryNextSteps({
     canaryPath: "C:/sandbox/session-a",
     roughIdea: "ignored after completion",
     campaign: { completed: true },
   });
-  assert.deepEqual(reviewStep, [
-    'node scripts/workflow-sandbox-canary.mjs --canary-path "C:/sandbox/session-a" --human-review',
-  ]);
+  assert.deepEqual(reviewStep, ["Implementation Project creation occurs at build_handoff, before implementation work starts."]);
 });
 
 test("validateRoughIdea rejects empty and short ideas", () => {
@@ -143,4 +158,40 @@ test("runWorkflowIdeaEntry offline plan uses fresh session by default", async ()
   assert.match(report.canaryPath, /ci-offline-/);
   assert.equal(report.plan.roughIdea, report.roughIdea);
   assert.equal(report.skillCommand, "/skill:idea-to-build");
+  assert.equal(report.nextSteps.some((step) => step.includes("--run-full-campaign")), false);
+  assert.match(report.nextSteps.at(-1), /advance one local stage/i);
+});
+
+test("runWorkflowIdeaEntry execute creates only a local capture session", async () => {
+  const sessionsRoot = await mkdtemp(join(tmpdir(), "idea-entry-execute-"));
+  const canaryPath = join(sessionsRoot, "daily-relic");
+  const report = await runWorkflowIdeaEntry({
+    execute: true,
+    roughIdea: "Build a Daily Relic iOS game with a three-minute daily run",
+    invocationToken: `local-capture-${Date.now()}`,
+    canaryPath,
+    sessionsRoot,
+  });
+
+  assert.equal(report.ok, true);
+  assert.equal(report.campaign.currentStageId, "capture");
+  assert.match(report.workflowRunId, /^idea-/);
+  assert.equal("projectId" in report, false);
+  assert.equal("parentIdentifier" in report, false);
+  assert.match(report.result, /No Multica Project or Spine binding/);
+});
+
+test("runWorkflowIdeaEntry rejects a full campaign before build_handoff", async () => {
+  const sessionsRoot = await mkdtemp(join(tmpdir(), "idea-entry-full-campaign-"));
+  const report = await runWorkflowIdeaEntry({
+    execute: true,
+    runFullCampaign: true,
+    roughIdea: "Build a Daily Relic iOS game with a three-minute daily run",
+    invocationToken: `full-campaign-${Date.now()}`,
+    canaryPath: join(sessionsRoot, "daily-relic"),
+    sessionsRoot,
+  });
+
+  assert.equal(report.ok, false);
+  assert.match(report.error, /unavailable before build_handoff/);
 });
