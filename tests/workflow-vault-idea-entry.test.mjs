@@ -11,10 +11,13 @@ import {
 } from "../scripts/workflow-vault-idea-entry.mjs";
 
 test("buildVaultIdeaNotePath uses dated slug under Ideas", () => {
-  const path = buildVaultIdeaNotePath("C:/vault", "Build a habit tracker with offline sync", {
+  const notePath = buildVaultIdeaNotePath("C:/vault", "Build a habit tracker with offline sync", {
     now: new Date("2026-07-24T12:00:00.000Z"),
   });
-  assert.match(path, /Multica-Agent-Strategy\\Ideas\\2026-07-24-build-a-habit-tracker-with-offline-sync\.md$/);
+  assert.equal(
+    notePath.replace(/\\/g, "/"),
+    "C:/vault/4_Project/Multica-Agent-Strategy/Ideas/2026-07-24-build-a-habit-tracker-with-offline-sync.md",
+  );
 });
 
 test("buildVaultIdeaNoteMarkdown keeps ready_for_multica false", () => {
