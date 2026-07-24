@@ -18,6 +18,7 @@ This project follows semantic versioning.
 - Explicit one-time supervised Portfolio pilot command, required before fleet enablement and capable of emitting hash-addressed pilot evidence.
 - Resume blocked promotions from their durable receipt, retaining the existing parent and workflow ledger after an interrupted artifact import.
 - Use Multica CLI's positional project-status argument when activating a promoted Project.
+- Activate promoted Projects with Multica's valid `in_progress` status.
 
 ### Changed
 
