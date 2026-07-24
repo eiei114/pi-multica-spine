@@ -116,6 +116,7 @@ export async function runWorkflowProductionRehearsal(options = {}) {
       plan,
       nextSteps: [
         "npm run check:production-rehearsal",
+        "docs/workflow-production-live-execute-runbook.md",
         "node scripts/workflow-production-rehearsal.mjs --execute",
       ],
     };

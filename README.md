@@ -93,7 +93,7 @@ Replace `pi-multica-spine` with the exact `name` from `package.json` when you fo
 Pin a specific version when you want reproducible installs:
 
 ```bash
-pi install npm:pi-multica-spine@0.7.7
+pi install npm:pi-multica-spine@0.7.8
 ```
 
 Install into the current project instead of your user Pi settings:
@@ -273,7 +273,8 @@ See [`docs/release.md`](docs/release.md) for setup details.
 - [`CONTEXT.md`](CONTEXT.md) — domain glossary (repo-only)
 - [`docs/investigations/2026-07-24-workflow-adapter-completion-closeout.md`](docs/investigations/2026-07-24-workflow-adapter-completion-closeout.md) — DOT-1116 master plan closeout (repo-only)
 - [`docs/workflow-ops-checklist.md`](docs/workflow-ops-checklist.md)
-- [`docs/workflow-sandbox-live-execute-runbook.md`](docs/workflow-sandbox-live-execute-runbook.md) — live sandbox `--execute` path — daily sandbox / Maintenance rehearsal path
+- [`docs/workflow-sandbox-live-execute-runbook.md`](docs/workflow-sandbox-live-execute-runbook.md)
+- [`docs/workflow-production-live-execute-runbook.md`](docs/workflow-production-live-execute-runbook.md) — live Maintenance `--execute` path — live sandbox `--execute` path — daily sandbox / Maintenance rehearsal path
 - [`docs/production-gate-decision.md`](docs/production-gate-decision.md) — when a human may open `productionAllowed` (default: closed)
 - [`ROADMAP.md`](ROADMAP.md) — maintenance context and seed history (repo-only, not packaged)
 

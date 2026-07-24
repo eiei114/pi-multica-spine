@@ -4,11 +4,14 @@ import test from "node:test";
 import {
   buildCloseoutEvidenceFromCanaryState,
   buildCloseoutEvidenceRecord,
+  buildReferenceCloseoutEvidence,
+  CLOSEOUT_EVIDENCE_REFERENCE_FIXTURE,
   formatCloseoutEvidenceInvestigationNote,
   parseSandboxCloseoutEvidenceArgs,
   persistCloseoutEvidenceArtifacts,
   runSandboxCloseoutEvidence,
   validateCloseoutEvidence,
+  validateCloseoutEvidenceFixture,
 } from "../scripts/workflow-sandbox-closeout-evidence.mjs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -121,10 +124,22 @@ test("buildCloseoutEvidenceFromCanaryState maps canary state", () => {
   assert.equal(validateCloseoutEvidence(record).ok, true);
 });
 
-test("runSandboxCloseoutEvidence offline schema passes in CI", async () => {
+test("validateCloseoutEvidenceFixture passes committed reference fixture", async () => {
+  const result = await validateCloseoutEvidenceFixture(CLOSEOUT_EVIDENCE_REFERENCE_FIXTURE);
+  assert.equal(result.ok, true);
+});
+
+test("buildReferenceCloseoutEvidence matches fixture core fields", async () => {
+  const reference = buildReferenceCloseoutEvidence();
+  const fixture = await validateCloseoutEvidenceFixture(CLOSEOUT_EVIDENCE_REFERENCE_FIXTURE);
+  assert.equal(fixture.record.workflowRunId, reference.workflowRunId);
+  assert.equal(fixture.record.lane, reference.lane);
+});
+
+test("runSandboxCloseoutEvidence offline schema validates fixture in CI", async () => {
   const report = await runSandboxCloseoutEvidence({ capture: false });
   assert.equal(report.ok, true);
-  assert.equal(report.mode, "offline-schema");
+  assert.equal(report.fixture?.ok, true);
 });
 
 test("buildCloseoutEvidenceRecord defaults deliveryPolicy closed", () => {
