@@ -4,8 +4,9 @@ import { importSpineLibs } from "./spine-lib-import.mjs";
 
 const { IdeaLocalLaneStore } = await importSpineLibs(import.meta.url, ["idea-local-lane.ts"]);
 
-export async function advanceIdeaLocalStage(canaryPath) {
-  return new IdeaLocalLaneStore(canaryPath).advance();
+export async function advanceIdeaLocalStage(canaryPath, { toPromotionReady = false } = {}) {
+  const store = new IdeaLocalLaneStore(canaryPath);
+  return toPromotionReady ? store.advanceToPromotionReady() : store.advance();
 }
 
 if (import.meta.url === (process.argv[1] ? pathToFileURL(process.argv[1]).href : "")) {
@@ -15,6 +16,6 @@ if (import.meta.url === (process.argv[1] ? pathToFileURL(process.argv[1]).href :
     console.error("--canary-path is required");
     process.exitCode = 1;
   } else {
-    advanceIdeaLocalStage(canaryPath).then((state) => console.log(JSON.stringify(state, null, 2))).catch((error) => { console.error(error.message); process.exitCode = 1; });
+    advanceIdeaLocalStage(canaryPath, { toPromotionReady: process.argv.includes("--to-promotion-ready") }).then((state) => console.log(JSON.stringify(state, null, 2))).catch((error) => { console.error(error.message); process.exitCode = 1; });
   }
 }

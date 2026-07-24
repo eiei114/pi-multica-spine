@@ -6,6 +6,16 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-25
+
+### Added
+
+- Automatic Idea-to-Build promotion seam: validates a `promotion_ready` build handoff, persists a final-only Binding, imports immutable handoff lineage, creates a parent/run, and seeds independent `spec_review` idempotently.
+
+### Changed
+
+- Local idea stages can advance to `promotion_ready` without per-stage human approval; autonomous bindings retain only final/protected human gates.
+
 ## [0.10.1] - 2026-07-24
 
 ### Changed
