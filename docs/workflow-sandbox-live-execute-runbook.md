@@ -44,7 +44,7 @@ On success this runs: preflight → apply → campaign (up to 80 stage cycles) �
 ```bash
 node scripts/workflow-sandbox-canary.mjs --dry-run
 node scripts/workflow-sandbox-canary.mjs --apply
-node scripts/workflow-sandbox-canary.mjs --campaign --max-stage-cycles 80
+node scripts/workflow-sandbox-canary.mjs --campaign --run-full-campaign --max-stage-cycles 80
 node scripts/workflow-sandbox-canary.mjs --human-review
 node scripts/workflow-sandbox-closeout-evidence.mjs --capture --canary-path <sandbox-path>
 ```

@@ -36,6 +36,7 @@ export const MIN_ROUGH_IDEA_LENGTH = 12;
 
 export function parseWorkflowIdeaEntryArgs(argv = process.argv.slice(2)) {
   const execute = argv.includes("--execute");
+  const runFullCampaign = argv.includes("--run-full-campaign");
   const dryRun = argv.includes("--dry-run") || (!execute && !argv.includes("--plan"));
   const json = argv.includes("--json") || !argv.includes("--plain");
   const verbose = argv.includes("--verbose");
@@ -51,6 +52,7 @@ export function parseWorkflowIdeaEntryArgs(argv = process.argv.slice(2)) {
   const sessionsRootArg = argv.find((arg, index) => argv[index - 1] === "--sessions-root");
   return {
     execute,
+    runFullCampaign,
     dryRun,
     json,
     verbose,
@@ -64,6 +66,17 @@ export function parseWorkflowIdeaEntryArgs(argv = process.argv.slice(2)) {
     invocationToken: invocationTokenArg,
     vaultRoot: vaultRootArg,
     sessionsRoot: sessionsRootArg,
+  };
+}
+
+export function summarizeBootstrapRun(run = {}) {
+  const ledger = run.ledger ?? {};
+  return {
+    completed: false,
+    workflowStatus: ledger.workflowStatus ?? "waiting",
+    currentStageId: ledger.currentStageId ?? "capture",
+    stageCount: Object.keys(ledger.stages ?? {}).length,
+    stopReason: run.stopReason ?? "bootstrap_only",
   };
 }
 
@@ -217,28 +230,34 @@ export async function runWorkflowIdeaEntry(options = {}) {
       nextSteps: [
         "Invoke /skill:idea-to-build then paste the rough idea",
         `node scripts/workflow-idea-entry.mjs --rough-idea ${JSON.stringify(roughIdea)} --execute --invocation-token ${invocationToken}`,
-        "node scripts/workflow-sandbox-canary.mjs --campaign --max-stage-cycles 80",
+        "node scripts/workflow-idea-entry.mjs --rough-idea \"<idea>\" --execute --run-full-campaign",
       ],
     };
   }
 
   const applyConfig = parseWorkflowSandboxCanaryArgs(canaryArgv(canaryPath, roughIdea, ["--apply"]));
   const applyResult = await applySandboxCanary(applyConfig);
-  const campaignConfig = parseWorkflowSandboxCanaryArgs(
-    canaryArgv(canaryPath, roughIdea, [
-      "--campaign",
-      "--max-stage-cycles",
-      String(options.maxStageCycles ?? FULL_LIVE_CAMPAIGN_STAGE_CYCLES),
-    ]),
-  );
-  if (campaignConfig.maxStageCycles === undefined) {
-    campaignConfig.maxStageCycles = options.maxStageCycles ?? FULL_LIVE_CAMPAIGN_STAGE_CYCLES;
+  let campaign;
+  if (options.runFullCampaign) {
+    const campaignConfig = parseWorkflowSandboxCanaryArgs(
+      canaryArgv(canaryPath, roughIdea, [
+        "--campaign",
+        "--run-full-campaign",
+        "--max-stage-cycles",
+        String(options.maxStageCycles ?? FULL_LIVE_CAMPAIGN_STAGE_CYCLES),
+      ]),
+    );
+    if (campaignConfig.maxStageCycles === undefined) {
+      campaignConfig.maxStageCycles = options.maxStageCycles ?? FULL_LIVE_CAMPAIGN_STAGE_CYCLES;
+    }
+    campaign = (await runSandboxCampaign(campaignConfig)).campaign;
+  } else {
+    campaign = summarizeBootstrapRun(applyResult.run);
   }
-  const campaignResult = await runSandboxCampaign(campaignConfig);
 
   const ok =
     Boolean(applyResult.state?.workflowRunId) &&
-    Boolean(campaignResult.campaign) &&
+    Boolean(campaign) &&
     plan.deliveryPolicy.productionAllowed === false;
 
   if (ok) {
@@ -246,7 +265,7 @@ export async function runWorkflowIdeaEntry(options = {}) {
       workflowRunId: applyResult.state?.workflowRunId,
       parentIdentifier: applyResult.state?.parentIdentifier,
       parentIssueId: applyResult.state?.parentIssueId,
-      lifecycleStatus: campaignResult.campaign.completed ? "final_package" : "active",
+      lifecycleStatus: campaign.completed ? "final_package" : "active",
     });
     await reservationStore.update(invocationToken, {
       status: "completed",
@@ -270,22 +289,18 @@ export async function runWorkflowIdeaEntry(options = {}) {
     parentIdentifier: applyResult.state?.parentIdentifier,
     workflowRunId: applyResult.state?.workflowRunId,
     projectId: applyResult.state?.projectId,
-    campaign: {
-      completed: campaignResult.campaign.completed,
-      workflowStatus: campaignResult.campaign.workflowStatus,
-      currentStageId: campaignResult.campaign.currentStageId,
-      stageCount: campaignResult.campaign.stages.length,
-      stopReason: campaignResult.campaign.stopReason,
-    },
+    campaign,
     result: ok
       ? `Started sandbox idea session ${reservation.sessionId} with parent ${applyResult.state?.parentIdentifier ?? "(pending)"}`
       : "Sandbox idea entry did not complete",
     next: applyResult.state?.workflowRunId
       ? `/skill:idea-status --workflow-run-id ${applyResult.state.workflowRunId}`
       : "/skill:idea-to-build",
-    nextSteps: campaignResult.campaign.completed
+    nextSteps: campaign.completed
       ? ["node scripts/workflow-sandbox-canary.mjs --human-review"]
-      : ["node scripts/workflow-sandbox-canary.mjs --campaign --max-stage-cycles 80"],
+      : [
+          `After explicit human approval: node scripts/workflow-sandbox-canary.mjs --canary-path ${JSON.stringify(canaryPath)} --campaign --max-stage-cycles 1`,
+        ],
   };
 }
 
@@ -293,6 +308,7 @@ async function main() {
   const args = parseWorkflowIdeaEntryArgs();
   const report = await runWorkflowIdeaEntry({
     execute: args.execute,
+    runFullCampaign: args.runFullCampaign,
     canaryPath: args.canaryPath,
     reuseDefaultCanary: args.reuseDefaultCanary,
     roughIdea: await loadRoughIdeaFromArgs(args),

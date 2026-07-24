@@ -47,7 +47,9 @@ export function buildOfflineRehearsalPlan(canaryPath, options = {}) {
   const fullCloseout = options.fullCloseout ?? false;
   const dryPlan = buildSandboxCanaryPlan(parseWorkflowSandboxCanaryArgs(baseCanaryArgv(canaryPath, ["--dry-run"])));
   const applyPlan = buildSandboxCanaryPlan(parseWorkflowSandboxCanaryArgs(baseCanaryArgv(canaryPath, ["--apply"])));
-  const campaignPlan = buildSandboxCanaryPlan(parseWorkflowSandboxCanaryArgs(baseCanaryArgv(canaryPath, ["--campaign"])));
+  const campaignPlan = buildSandboxCanaryPlan(
+    parseWorkflowSandboxCanaryArgs(baseCanaryArgv(canaryPath, ["--campaign", "--run-full-campaign"])),
+  );
   const humanReviewPlan = fullCloseout
     ? buildSandboxCanaryPlan(parseWorkflowSandboxCanaryArgs(baseCanaryArgv(canaryPath, ["--human-review"])))
     : undefined;
@@ -118,7 +120,7 @@ export async function runWorkflowSandboxRehearsal(options = {}) {
   const applyConfig = parseWorkflowSandboxCanaryArgs(baseCanaryArgv(canaryPath, ["--apply"]));
   const applyResult = await applySandboxCanary(applyConfig);
   const campaignConfig = parseWorkflowSandboxCanaryArgs(
-    baseCanaryArgv(canaryPath, ["--campaign", "--max-stage-cycles", String(maxStageCycles)]),
+    baseCanaryArgv(canaryPath, ["--campaign", "--run-full-campaign", "--max-stage-cycles", String(maxStageCycles)]),
   );
   campaignConfig.maxStageCycles = maxStageCycles;
   const campaignResult = await runSandboxCampaign(campaignConfig);

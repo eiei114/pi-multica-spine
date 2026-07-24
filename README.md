@@ -103,7 +103,7 @@ After install, invoke explicitly (never auto-detected):
 /skill:idea-to-build
 ```
 
-Paste your rough idea, then the agent runs `scripts/workflow-idea-entry.mjs --execute` to start the sandbox Hermes workflow. Each idea gets a fresh sandbox session path by default.
+Paste your rough idea, then the agent runs `scripts/workflow-idea-entry.mjs --execute` to create the sandbox Hermes workflow and stop at `capture`. Each idea gets a fresh sandbox session path by default; every later stage needs an explicit, one-stage campaign tick.
 
 ### Maintenance-build entry skill
 
@@ -211,7 +211,7 @@ Repo-local scripts drive the Hermes Idea-to-Build lane against live Multica proj
 | Script | Purpose |
 |---|---|
 | `scripts/jsonl-digest.mjs` | Stable JSONL counts + SHA-256 digest (`--human`, `--color`, `--no-color`) |
-| `scripts/workflow-sandbox-canary.mjs` | Sandbox-only canary: `--dry-run`, `--apply`, `--campaign`, `--human-review`, F1–F8 `--fixture` |
+| `scripts/workflow-sandbox-canary.mjs` | Sandbox-only canary: `--dry-run`, `--apply`, one-stage `--campaign`, explicit `--run-full-campaign`, `--human-review`, F1–F8 `--fixture` |
 | `scripts/workflow-production-binding.mjs` | Apply production-tier catalog + binding to `pi-multica-spine Maintenance` |
 | `scripts/workflow-production-run.mjs` | Production lane: `--start`, `--campaign`, `--human-review`, `--report` |
 
@@ -220,7 +220,7 @@ Typical sandbox canary flow:
 ```bash
 node scripts/workflow-sandbox-canary.mjs --dry-run
 node scripts/workflow-sandbox-canary.mjs --apply
-node scripts/workflow-sandbox-canary.mjs --campaign
+node scripts/workflow-sandbox-canary.mjs --campaign --max-stage-cycles 1
 node scripts/workflow-sandbox-canary.mjs --human-review
 ```
 

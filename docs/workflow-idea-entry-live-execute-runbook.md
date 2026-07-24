@@ -1,6 +1,6 @@
 # Workflow Idea Entry Live Execute Runbook
 
-Live idea entry drives real Multica mutations from `/skill:idea-to-build` through apply → campaign. Use when `--execute` is required (not CI).
+Live idea entry drives real Multica mutations from `/skill:idea-to-build` through bootstrap only. Use when `--execute` is required (not CI).
 
 **Related:** [`workflow-ops-checklist.md`](workflow-ops-checklist.md) · [`workflow-sandbox-live-execute-runbook.md`](workflow-sandbox-live-execute-runbook.md) · [`production-gate-decision.md`](production-gate-decision.md)
 
@@ -10,7 +10,7 @@ Live idea entry drives real Multica mutations from `/skill:idea-to-build` throug
 |---|---|
 | Human-initiated Idea-to-Build via `workflow-idea-entry.mjs` | `productionAllowed=true` |
 | Fresh sandbox session path per idea (default) | Maintenance production-run lane |
-| Sandbox apply + bounded campaign start | Secrets / billing changes |
+| Sandbox apply + initial `capture` stage | Secrets / billing changes |
 
 ## Preconditions
 
@@ -43,6 +43,22 @@ npm run build
 node scripts/workflow-idea-entry.mjs --rough-idea "<ROUGH_IDEA>" --execute --json
 ```
 
+This stops after creating the parent issue, workflow run, controller Autopilot, and initial `capture` stage. Report that stage and wait for explicit human approval before advancing.
+
+### Advance exactly one stage
+
+```bash
+node scripts/workflow-sandbox-canary.mjs --canary-path <session-path> --campaign --max-stage-cycles 1
+```
+
+### Full campaign rehearsal only
+
+```bash
+node scripts/workflow-idea-entry.mjs --rough-idea "<ROUGH_IDEA>" --execute --run-full-campaign --json
+```
+
+Do not use this form for ordinary product work. The canary CLI rejects `--max-stage-cycles` above one unless this flag is present.
+
 ### Plan first (no Multica mutations)
 
 ```bash
@@ -62,7 +78,7 @@ node scripts/workflow-idea-entry.mjs --rough-idea "<ROUGH_IDEA>" --reuse-default
 ### Resume after partial campaign
 
 ```bash
-node scripts/workflow-sandbox-canary.mjs --canary-path <session-path> --campaign --max-stage-cycles 80
+node scripts/workflow-sandbox-canary.mjs --canary-path <session-path> --campaign --max-stage-cycles 1
 ```
 
 ## Fresh session paths (R-MNT-38)
