@@ -80,15 +80,21 @@ export function assertArtifactBundleUnchanged(
   registry: IdeaLocalArtifactRegistry,
   expectedBundleHash: string,
 ): void {
-  if (registry.artifactBundleHash !== expectedBundleHash) {
+  const recomputedBundleHash = computeBundleHash(registry.artifacts);
+  if (registry.artifactBundleHash !== recomputedBundleHash) {
+    throw new Error("Local artifact bundle hash is inconsistent with recorded artifacts");
+  }
+  if (recomputedBundleHash !== expectedBundleHash) {
     throw new Error("Artifact bundle was altered after admission preflight");
   }
 }
 
 export class IdeaLocalArtifactStore {
   readonly path: string;
+  readonly boundSessionId: string;
 
   constructor(cwd: string, sessionId: string) {
+    this.boundSessionId = sessionId;
     this.path = join(cwd, SPINE_STATE_ROOT, "idea-artifacts", `${sessionId}.json`);
   }
 
@@ -97,8 +103,14 @@ export class IdeaLocalArtifactStore {
   }
 
   async record(input: RecordLocalArtifactInput): Promise<IdeaLocalArtifactRegistry> {
+    if (input.sessionId !== this.boundSessionId) {
+      throw new Error(`Local artifact store is bound to session ${this.boundSessionId}`);
+    }
     return withFileLock(this.path, async () => {
       const existing = await this.load();
+      if (existing && (existing.sessionId !== input.sessionId || existing.workflowRunId !== input.workflowRunId)) {
+        throw new Error("Local artifact registry identity mismatch");
+      }
       const record = createLocalArtifactRecord(input);
       const artifacts = [...(existing?.artifacts ?? [])];
       const duplicateIndex = artifacts.findIndex((artifact) => artifact.stageId === input.stageId);

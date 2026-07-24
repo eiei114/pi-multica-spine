@@ -17,6 +17,7 @@ export interface ScaffoldReceiptIdentity {
   repositoryOwner: string;
   repositoryName: string;
   repositoryUrl?: string;
+  clonePath?: string;
   templateRevision: string;
   resourceId?: string;
 }
@@ -165,16 +166,17 @@ export async function resolveScaffoldedResources(
       receipt = await store.completeStep(step, { repositoryUrl: repo.url });
     } else if (step === "runtime_cloned") {
       if (!receipt.identities.repositoryUrl) throw new Error("Repository URL missing for clone step");
-      await collaborators.cloneRepository({
+      const cloned = await collaborators.cloneRepository({
         url: receipt.identities.repositoryUrl,
         runtimeId: template.pinnedRevision.runtimeContract.runtimeId,
       });
-      receipt = await store.completeStep(step);
+      receipt = await store.completeStep(step, { clonePath: cloned.clonePath });
     } else if (step === "resource_attached") {
+      if (!receipt.identities.clonePath) throw new Error("Clone path missing for resource attach step");
       const resource = await collaborators.attachProjectResource({
         projectId: input.projectId,
         resourceType: template.pinnedRevision.runtimeContract.resourceType,
-        clonePath: receipt.identities.repositoryUrl ?? "",
+        clonePath: receipt.identities.clonePath,
       });
       receipt = await store.completeStep(step, { resourceId: resource.resourceId });
     }

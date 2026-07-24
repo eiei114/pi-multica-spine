@@ -28,8 +28,16 @@ test("portfolio queue global-1 fencing blocks concurrent admission", async () =>
   const cwd = await mkdtemp(join(tmpdir(), "portfolio-queue-"));
   const store = new PortfolioQueueStore(cwd);
   await store.enqueue({ sessionId: "one", workflowRunId: "one", projectTitle: "One", artifactBundleHash: "1".repeat(64) });
+  await store.enqueue({ sessionId: "two", workflowRunId: "two", projectTitle: "Two", artifactBundleHash: "2".repeat(64) });
   await store.admit("one");
   await assert.rejects(store.admit("two"), /global-1 fencing/);
+});
+
+test("portfolio queue rejects unknown sessions on admit and activate", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "portfolio-queue-unknown-"));
+  const store = new PortfolioQueueStore(cwd);
+  await assert.rejects(store.admit("missing"), /unknown portfolio queue session/);
+  await assert.rejects(store.activate("missing"), /unknown portfolio queue session/);
 });
 
 test("portfolio dry-run reports mutations without apply", () => {

@@ -4,9 +4,9 @@ import { assertArtifactBundleUnchanged, validatePromotionReadyArtifacts } from "
 import { resolveImplementationProject, type ImplementationProject, type ImplementationProjectClient } from "./idea-project-promotion.ts";
 import {
   buildPortfolioAdmissionPlan,
-  isPortfolioSlotAvailable,
   PortfolioQueueStore,
-  selectPortfolioCandidate,
+  previewPortfolioCandidate,
+  resolvePortfolioAdmissionTarget,
   type PortfolioCandidate,
 } from "./portfolio-queue.ts";
 import {
@@ -55,7 +55,7 @@ export interface AutomaticPromotionDeps {
 }
 
 export interface AutomaticPromotionResult {
-  mode: "dry-run" | "promoted" | "reused" | "skipped" | "blocked";
+  mode: "dry-run" | "promoted" | "reused" | "skipped" | "blocked" | "failed";
   plan?: ReturnType<typeof buildPortfolioAdmissionPlan>;
   candidate?: PortfolioCandidate;
   receipt?: PromotionReceipt;
@@ -198,23 +198,47 @@ export async function autoPromoteIdeaSession(
   const queueStore = deps.queueStore ?? new PortfolioQueueStore(deps.cwd);
   const receiptStore = deps.receiptStore ?? new PromotionReceiptStore(deps.cwd, input.sessionId);
   const queueState = await queueStore.load();
-  await queueStore.enqueue({
-    sessionId: input.sessionId,
-    workflowRunId: input.workflowRunId,
-    projectTitle: input.projectTitle,
-    artifactBundleHash: input.artifactBundleHash,
-  });
-  const refreshedQueue = await queueStore.load();
-  const candidate = selectPortfolioCandidate({
-    entries: refreshedQueue.entries,
-    activeSessionId: refreshedQueue.activeSessionId,
-    plannedProjects: await deps.projects.list(),
-  });
+  const existingReceipt = await receiptStore.load();
+  const plannedProjects = await deps.projects.list();
+
+  if (input.dryRun) {
+    const candidate = previewPortfolioCandidate(queueState, input, plannedProjects);
+    if (!candidate || candidate.entry.sessionId !== input.sessionId) {
+      return { mode: "skipped", reason: "not_selected_by_portfolio_queue" };
+    }
+    return { mode: "dry-run", plan: buildPortfolioAdmissionPlan(candidate), candidate };
+  }
+
+  const resuming = existingReceipt?.status === "in_progress"
+    && queueState.activeSessionId === input.sessionId;
+
+  let candidate: PortfolioCandidate | undefined;
+  if (resuming) {
+    candidate = resolvePortfolioAdmissionTarget({
+      entries: queueState.entries,
+      activeSessionId: queueState.activeSessionId,
+      sessionId: input.sessionId,
+      plannedProjects,
+    });
+  } else {
+    await queueStore.enqueue({
+      sessionId: input.sessionId,
+      workflowRunId: input.workflowRunId,
+      projectTitle: input.projectTitle,
+      artifactBundleHash: input.artifactBundleHash,
+    });
+    const refreshedQueue = await queueStore.load();
+    candidate = resolvePortfolioAdmissionTarget({
+      entries: refreshedQueue.entries,
+      activeSessionId: refreshedQueue.activeSessionId,
+      sessionId: input.sessionId,
+      plannedProjects,
+    });
+  }
+
   if (!candidate || candidate.entry.sessionId !== input.sessionId) {
     return { mode: "skipped", reason: "not_selected_by_portfolio_queue" };
   }
-  const plan = buildPortfolioAdmissionPlan(candidate);
-  if (input.dryRun) return { mode: "dry-run", plan, candidate };
 
   const resolved = await resolveImplementationProject({
     projectTitle: input.projectTitle,
@@ -238,18 +262,20 @@ export async function autoPromoteIdeaSession(
     await receiptStore.block(routeGap);
     return { mode: "blocked", reason: routeGap, candidate };
   }
-  if (!isPortfolioSlotAvailable(refreshedQueue)) {
-    return { mode: "blocked", reason: "portfolio_slot_unavailable", candidate };
-  }
 
-  let receipt = await receiptStore.start({
-    sessionId: input.sessionId,
-    workflowRunId: input.workflowRunId,
-    artifactBundleHash: input.artifactBundleHash,
-    projectTitle: input.projectTitle,
-  });
+  let receipt = existingReceipt?.status === "in_progress"
+    ? existingReceipt
+    : await receiptStore.start({
+      sessionId: input.sessionId,
+      workflowRunId: input.workflowRunId,
+      artifactBundleHash: input.artifactBundleHash,
+      projectTitle: input.projectTitle,
+    });
   assertPromotionReceiptCanResume(receipt, input);
-  await queueStore.admit(input.sessionId);
+
+  if (!resuming) {
+    await queueStore.admit(input.sessionId);
+  }
 
   let context: {
     project: ImplementationProject;
@@ -260,10 +286,16 @@ export async function autoPromoteIdeaSession(
     firstStage?: Awaited<ReturnType<typeof seedWorkflowStageLive>>;
   } = { project: resolved.project, binding, receipt };
   let step = nextPromotionReceiptStep(receipt);
-  while (step) {
-    context = await executePromotionStep(step, input, deps, context);
-    receipt = context.receipt;
-    step = nextPromotionReceiptStep(receipt);
+  try {
+    while (step) {
+      context = await executePromotionStep(step, input, deps, context);
+      receipt = context.receipt;
+      step = nextPromotionReceiptStep(receipt);
+    }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    const blockedReceipt = await receiptStore.block(reason);
+    return { mode: "failed", reason, candidate, receipt: blockedReceipt };
   }
 
   await queueStore.activate(input.sessionId);

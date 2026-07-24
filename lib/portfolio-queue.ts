@@ -67,6 +67,51 @@ export function selectPortfolioCandidate(input: PortfolioSelectionInput): Portfo
   return { entry: queued[0], selectionReason: "fifo" };
 }
 
+export function resolvePortfolioAdmissionTarget(
+  input: PortfolioSelectionInput & { sessionId: string },
+): PortfolioCandidate | undefined {
+  if (input.activeSessionId) {
+    if (input.activeSessionId !== input.sessionId) return undefined;
+    const entry = input.entries.find((item) => item.sessionId === input.sessionId);
+    if (!entry || entry.status === "skipped" || entry.status === "released") return undefined;
+    return { entry, selectionReason: "fifo" };
+  }
+  return selectPortfolioCandidate(input);
+}
+
+export function previewPortfolioCandidate(
+  state: PortfolioQueueState,
+  input: {
+    sessionId: string;
+    workflowRunId: string;
+    projectTitle: string;
+    artifactBundleHash: string;
+    promotionReadyAt?: string;
+  },
+  plannedProjects: PortfolioSelectionInput["plannedProjects"],
+): PortfolioCandidate | undefined {
+  const hasEntry = state.entries.some((entry) => entry.sessionId === input.sessionId);
+  const entries = hasEntry
+    ? state.entries
+    : [
+        ...state.entries,
+        {
+          sessionId: input.sessionId,
+          workflowRunId: input.workflowRunId,
+          projectTitle: input.projectTitle,
+          promotionReadyAt: input.promotionReadyAt ?? nowIso(),
+          artifactBundleHash: input.artifactBundleHash,
+          status: "queued" as const,
+        },
+      ];
+  return resolvePortfolioAdmissionTarget({
+    entries,
+    activeSessionId: state.activeSessionId,
+    sessionId: input.sessionId,
+    plannedProjects,
+  });
+}
+
 export class PortfolioQueueStore {
   readonly path: string;
 
@@ -111,6 +156,9 @@ export class PortfolioQueueStore {
   async admit(sessionId: string): Promise<PortfolioQueueState> {
     return withFileLock(this.path, async () => {
       const state = await this.load();
+      if (!state.entries.some((entry) => entry.sessionId === sessionId)) {
+        throw new Error(`Cannot admit unknown portfolio queue session: ${sessionId}`);
+      }
       if (state.activeSessionId && state.activeSessionId !== sessionId) {
         throw new Error("Portfolio queue global-1 fencing blocks concurrent admission");
       }
@@ -132,6 +180,9 @@ export class PortfolioQueueStore {
   async activate(sessionId: string): Promise<PortfolioQueueState> {
     return withFileLock(this.path, async () => {
       const state = await this.load();
+      if (!state.entries.some((entry) => entry.sessionId === sessionId)) {
+        throw new Error(`Cannot activate unknown portfolio queue session: ${sessionId}`);
+      }
       const entries = state.entries.map((entry) => {
         if (entry.sessionId !== sessionId) return entry;
         return { ...entry, status: "active" as const };
