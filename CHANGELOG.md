@@ -6,6 +6,10 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- `check:idea-entry` now runs `scripts/ci-offline-idea-entry-check.mjs` with a fixed invocation token, matching session suffix, and stale `.ci-tmp` scratch repair so repeated local `npm run ci` runs do not fail on an existing idea session manifest.
+
 ### Added
 
 - Automatic Idea Portfolio Admission issues 04–11: hash-addressed local artifact lane, Portfolio Queue global-1 admission with dry-run/apply, Promotion Receipt recovery and route-gap skip, approved Build Template Catalog entries for SwiftUI iOS / Astro Web / Tauri Windows, resumable Scaffold Resolution, delivery lifecycle reconciliation, and fleet enablement preflight gate.
