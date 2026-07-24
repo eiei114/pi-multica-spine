@@ -6,17 +6,18 @@
 
 | Item | Value |
 | --- | --- |
-| Published version | **0.7.8** → **0.7.9** (candidate) |
-| Working-tree version | `0.7.9` |
-| Entry | `/skill:idea-to-build` + `workflow-idea-entry.mjs` |
+| Published version | **0.7.9** → **0.8.0** (candidate) |
+| Working-tree version | `0.8.0` |
+| Entry | `/skill:idea-to-build` · `/skill:maintenance-build` |
 | Production gate | **CLOSED** |
-| Absorbed seeds | ~~R-MNT-1..37~~ through v0.7.9 |
+| Absorbed seeds | ~~R-MNT-1..40~~ through v0.8.0 |
 
 ## Near-term lanes
 
 | Lane | Goal |
 | --- | --- |
 | **Live ops** | First live `/skill:idea-to-build` → `--execute` on sandbox |
+| **Maintenance ops** | First live `/skill:maintenance-build` → `--execute` on maintenance repo |
 | **Coverage** | Extension branch floors (optional) |
 | **Production gate** | Human opens per `docs/production-gate-decision.md` only |
 
@@ -24,9 +25,9 @@
 
 | ID | Seed | Scope |
 | --- | --- | --- |
-| R-MNT-38 | Fresh canary path per idea session | ~45 min |
-| R-MNT-39 | Idea entry live execute docs + smoke | ~45 min |
-| R-MNT-40 | Maintenance lane `/skill:maintenance-build` | ~60 min |
+| R-MNT-41 | Maintenance entry live execute smoke | ~45 min |
+| R-MNT-42 | Idea session cleanup / retention policy | ~45 min |
+| R-MNT-43 | Slash skill discovery docs in README | ~30 min |
 
 ## Completed seeds (reference)
 
@@ -34,3 +35,4 @@
 | --- | --- |
 | ~~R-MNT-1..33~~ | v0.6.0–v0.7.8 |
 | ~~R-MNT-37~~ | v0.7.9 — Idea-to-build slash entry skill |
+| ~~R-MNT-38..40~~ | v0.8.0 — Fresh idea sessions, idea-entry live docs/smoke, maintenance-build skill |

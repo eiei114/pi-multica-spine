@@ -98,12 +98,31 @@ async function main() {
       throw new Error(`digest CLI output missing digest field: ${digestOut}`);
     }
 
+    const ideaEntryCli = join(pkgRoot, "scripts", "workflow-idea-entry.mjs");
+    const ideaEntryOut = execFileSync(
+      process.execPath,
+      [
+        ideaEntryCli,
+        "--rough-idea",
+        "Pack smoke offline idea entry validation seed",
+        "--dry-run",
+        "--session-suffix",
+        "pack-smoke",
+      ],
+      { cwd: smokeRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    );
+    const ideaEntry = JSON.parse(ideaEntryOut);
+    if (!ideaEntry?.ok || ideaEntry.mode !== "offline-plan") {
+      throw new Error(`idea-entry smoke failed: ${ideaEntryOut.slice(0, 400)}`);
+    }
+
     console.log(
       JSON.stringify(
         {
           ok: true,
           tarball: tarballName,
           digestPreview: parsed.digest.slice(0, 16),
+          ideaEntryCanaryPath: ideaEntry.canaryPath,
           smokeRoot,
         },
         null,

@@ -9,7 +9,9 @@ import { pathToFileURL } from "node:url";
 import { runWorkflowSandboxChecklist } from "./workflow-sandbox-checklist.mjs";
 import {
   applySandboxCanary,
+  buildFreshCanaryPath,
   buildSandboxCanaryPlan,
+  DEFAULT_CANARY_PATH,
   parseWorkflowSandboxCanaryArgs,
   resolveRoughIdea,
   runSandboxCampaign,
@@ -22,19 +24,29 @@ export function parseWorkflowIdeaEntryArgs(argv = process.argv.slice(2)) {
   const execute = argv.includes("--execute");
   const dryRun = argv.includes("--dry-run") || (!execute && !argv.includes("--plan"));
   const json = argv.includes("--json") || !argv.includes("--plain");
+  const reuseDefaultCanary = argv.includes("--reuse-default-canary");
   const canaryPathArg = argv.find((arg, index) => argv[index - 1] === "--canary-path");
   const roughIdeaArg = argv.find((arg, index) => argv[index - 1] === "--rough-idea");
   const roughIdeaFileArg = argv.find((arg, index) => argv[index - 1] === "--rough-idea-file");
   const maxStageCyclesArg = argv.find((arg, index) => argv[index - 1] === "--max-stage-cycles");
+  const sessionSuffixArg = argv.find((arg, index) => argv[index - 1] === "--session-suffix");
   return {
     execute,
     dryRun,
     json,
+    reuseDefaultCanary,
     canaryPath: canaryPathArg,
     roughIdea: roughIdeaArg,
     roughIdeaFile: roughIdeaFileArg,
     maxStageCycles: maxStageCyclesArg ? Number(maxStageCyclesArg) : FULL_LIVE_CAMPAIGN_STAGE_CYCLES,
+    sessionSuffix: sessionSuffixArg,
   };
+}
+
+export function resolveIdeaEntryCanaryPath(roughIdea, options = {}) {
+  if (options.canaryPath) return options.canaryPath;
+  if (options.reuseDefaultCanary) return DEFAULT_CANARY_PATH;
+  return buildFreshCanaryPath(roughIdea, { now: options.now, sessionSuffix: options.sessionSuffix });
 }
 
 export async function loadRoughIdeaFromArgs(args) {
@@ -66,10 +78,13 @@ export async function runWorkflowIdeaEntry(options = {}) {
     return { ok: false, mode: "validation", error: validation.error };
   }
   const roughIdea = validation.roughIdea;
-  const baseConfig = parseWorkflowSandboxCanaryArgs(
-    canaryArgv(options.canaryPath ?? buildSandboxCanaryPlan().canaryPath, roughIdea, ["--dry-run"]),
-  );
-  const canaryPath = options.canaryPath ?? baseConfig.canaryPath;
+  const canaryPath = resolveIdeaEntryCanaryPath(roughIdea, {
+    canaryPath: options.canaryPath,
+    reuseDefaultCanary: options.reuseDefaultCanary ?? false,
+    now: options.now,
+    sessionSuffix: options.sessionSuffix,
+  });
+  const freshSession = !options.canaryPath && !(options.reuseDefaultCanary ?? false);
   const plan = buildSandboxCanaryPlan(
     parseWorkflowSandboxCanaryArgs(canaryArgv(canaryPath, roughIdea, ["--dry-run"])),
   );
@@ -88,6 +103,7 @@ export async function runWorkflowIdeaEntry(options = {}) {
       mode: "offline-plan",
       roughIdea,
       canaryPath,
+      freshSession,
       plan,
       checklist,
       skillCommand: "/skill:idea-to-build",
@@ -123,6 +139,7 @@ export async function runWorkflowIdeaEntry(options = {}) {
     mode: "live-start",
     roughIdea,
     canaryPath,
+    freshSession,
     checklist,
     parentIdentifier: applyResult.state?.parentIdentifier,
     workflowRunId: applyResult.state?.workflowRunId,
@@ -145,8 +162,10 @@ async function main() {
   const report = await runWorkflowIdeaEntry({
     execute: args.execute,
     canaryPath: args.canaryPath,
+    reuseDefaultCanary: args.reuseDefaultCanary,
     roughIdea: await loadRoughIdeaFromArgs(args),
     maxStageCycles: args.maxStageCycles,
+    sessionSuffix: args.sessionSuffix,
   });
   if (args.json) {
     console.log(JSON.stringify(report, null, 2));

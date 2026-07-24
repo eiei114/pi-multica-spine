@@ -63,6 +63,8 @@ export function parseProductionRunArgs(argv = process.argv.slice(2)) {
       "repo-path": { type: "string", default: PRODUCTION_REPO_PATH },
       "project-id": { type: "string", default: PRODUCTION_PROJECT_ID },
       "max-stage-cycles": { type: "string" },
+      "rough-idea": { type: "string" },
+      "maintenance-brief": { type: "string" },
     },
     allowPositionals: false,
   });
@@ -75,6 +77,7 @@ export function parseProductionRunArgs(argv = process.argv.slice(2)) {
     repoPath: values["repo-path"] ?? PRODUCTION_REPO_PATH,
     projectId: values["project-id"] ?? PRODUCTION_PROJECT_ID,
     maxStageCycles: values["max-stage-cycles"] ? Number(values["max-stage-cycles"]) : undefined,
+    roughIdea: values["rough-idea"] ?? values["maintenance-brief"],
   };
 }
 
@@ -208,14 +211,15 @@ export async function startProductionWorkflowRun(config) {
   }
   await clearStaleDaemonTaskContext(config.repoPath);
   const plan = buildProductionRunPlan(config.repoPath);
+  const roughIdea = config.roughIdea?.trim() || plan.roughIdea;
   await applyProductionWorkflowBinding({ repoPath: config.repoPath, projectId: config.projectId });
   let state = await loadProductionRunState(config.repoPath);
   if (!state?.parentIssueId) {
     const parent = multicaJson([
       "issue", "create",
       "--project", config.projectId,
-      "--title", "Production: README v0.5.0 workflow operations",
-      "--description", plan.roughIdea,
+      "--title", `Maintenance: ${roughIdea.slice(0, 96).replace(/\s+/g, " ").trim()}`,
+      "--description", roughIdea,
       "--status", "in_progress",
       "--output", "json",
     ]);
@@ -229,7 +233,7 @@ export async function startProductionWorkflowRun(config) {
       parentIdentifier: parent.identifier,
       workflowRunId,
       autopilotId: autopilot.id,
-      roughIdea: plan.roughIdea,
+      roughIdea,
       createdAt: new Date().toISOString(),
       ledgerSummary: summarizeProductionLedger(ledger),
     };

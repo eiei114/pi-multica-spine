@@ -90,6 +90,7 @@ node scripts/workflow-sandbox-canary.mjs --human-review
 | `dist/lib` missing | `npm run build` |
 | daemon `mat_` token error | remove `.multica/daemon_task_context.json` in canary repo |
 | multica auth | re-authenticate user token |
-| prior parent already exists | use fresh `--canary-path` under Sandbox |
+| prior parent already exists | omit `--reuse-default-canary`; each idea gets a fresh session path by default |
+| wrong session resumed | use `--canary-path` from dry-run JSON |
 
-See [`docs/workflow-sandbox-live-execute-runbook.md`](../../docs/workflow-sandbox-live-execute-runbook.md).
+See [`docs/workflow-idea-entry-live-execute-runbook.md`](../../docs/workflow-idea-entry-live-execute-runbook.md).
