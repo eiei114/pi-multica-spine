@@ -1,6 +1,6 @@
 # Workflow Idea Entry Live Execute Runbook
 
-Live idea entry drives real Multica mutations from `/skill:idea-to-build` through bootstrap only. Use when `--execute` is required (not CI).
+Live idea entry creates a local sandbox session from `/skill:idea-to-build` through `capture` only. It does not call Multica before `build_handoff`.
 
 **Related:** [`workflow-ops-checklist.md`](workflow-ops-checklist.md) · [`workflow-sandbox-live-execute-runbook.md`](workflow-sandbox-live-execute-runbook.md) · [`production-gate-decision.md`](production-gate-decision.md)
 
@@ -43,21 +43,11 @@ npm run build
 node scripts/workflow-idea-entry.mjs --rough-idea "<ROUGH_IDEA>" --execute --json
 ```
 
-This stops after creating the parent issue, workflow run, controller Autopilot, and initial `capture` stage. Report that stage and wait for explicit human approval before advancing.
+This stops after creating the local session manifest and initial `capture` state. Report that stage and wait for explicit human approval before advancing. No Multica Project, parent issue, Controller Autopilot, resource, or Spine binding is permitted before `build_handoff`.
 
-### Advance exactly one stage
+### Project-bound implementation boundary
 
-```bash
-node scripts/workflow-sandbox-canary.mjs --canary-path <session-path> --campaign --max-stage-cycles 1
-```
-
-### Full campaign rehearsal only
-
-```bash
-node scripts/workflow-idea-entry.mjs --rough-idea "<ROUGH_IDEA>" --execute --run-full-campaign --json
-```
-
-Do not use this form for ordinary product work. The canary CLI rejects `--max-stage-cycles` above one unless this flag is present.
+At `build_handoff`, select an exact-title planned Project when present; otherwise create an implementation Project. Attach implementation resources and bind Work Agent Spine only after that selection. The legacy sandbox canary remains a separate rehearsal harness and is not a product-idea continuation path.
 
 ### Plan first (no Multica mutations)
 

@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import test from "node:test";
 
 import { importSpineLib, importSpineLibs, spinePackageRoot } from "../scripts/spine-lib-import.mjs";
 
 test("spinePackageRoot resolves repository root from scripts/", () => {
   const root = spinePackageRoot(new URL("../scripts/spine-lib-import.mjs", import.meta.url).href);
-  assert.match(root.replace(/\\/g, "/"), /pi-multica-spine$/);
+  assert.equal(root, resolve(fileURLToPath(new URL("..", import.meta.url))));
 });
 
 test("importSpineLib loads jsonl-digest exports", async () => {

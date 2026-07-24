@@ -103,7 +103,7 @@ After install, invoke explicitly (never auto-detected):
 /skill:idea-to-build
 ```
 
-Paste your rough idea, then the agent runs `scripts/workflow-idea-entry.mjs --execute` to create the sandbox Hermes workflow and stop at `capture`. Each idea gets a fresh sandbox session path by default; every later stage needs an explicit, one-stage campaign tick.
+Paste your rough idea, then the agent runs `scripts/workflow-idea-entry.mjs --execute` to create a local sandbox session and stop at `capture`. Each idea gets a fresh session path by default. It creates no Multica Project or Spine binding before `build_handoff`; implementation begins only after that boundary creates or reuses an implementation Project.
 
 ### Maintenance-build entry skill
 

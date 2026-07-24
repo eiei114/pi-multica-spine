@@ -20,6 +20,10 @@ _Avoid_: mega refactor, monolith PR for feature work
 Operations that stay human-owned even when automation is aggressive (production deploy, secrets, billing, destructive cleanup).
 _Avoid_: manual step (too generic)
 
+**Deferred Project Binding**:
+Idea-to-Build stays local from `capture` through `build_handoff`; only the build handoff creates or reuses an implementation Project and starts Work Agent Spine governance.
+_Avoid_: sandbox Project at idea entry, early PR completion gate
+
 ## Relationships
 
 - A **Campaign** produces workflow artifacts and evidence; it is not a npm release by itself.
