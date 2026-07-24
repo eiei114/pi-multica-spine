@@ -80,6 +80,17 @@ export function summarizeBootstrapRun(run = {}) {
   };
 }
 
+export function buildLiveIdeaEntryNextSteps({ canaryPath, roughIdea, campaign }) {
+  if (campaign.completed) {
+    return [
+      `node scripts/workflow-sandbox-canary.mjs --canary-path ${JSON.stringify(canaryPath)} --human-review`,
+    ];
+  }
+  return [
+    `After explicit human approval: node scripts/workflow-sandbox-canary.mjs --canary-path ${JSON.stringify(canaryPath)} --campaign --max-stage-cycles 1 --rough-idea ${JSON.stringify(roughIdea)}`,
+  ];
+}
+
 export function resolveIdeaEntryCanaryPath(roughIdea, options = {}) {
   if (options.canaryPath) return options.canaryPath;
   if (options.reuseDefaultCanary) return DEFAULT_CANARY_PATH;
@@ -296,11 +307,7 @@ export async function runWorkflowIdeaEntry(options = {}) {
     next: applyResult.state?.workflowRunId
       ? `/skill:idea-status --workflow-run-id ${applyResult.state.workflowRunId}`
       : "/skill:idea-to-build",
-    nextSteps: campaign.completed
-      ? ["node scripts/workflow-sandbox-canary.mjs --human-review"]
-      : [
-          `After explicit human approval: node scripts/workflow-sandbox-canary.mjs --canary-path ${JSON.stringify(canaryPath)} --campaign --max-stage-cycles 1`,
-        ],
+    nextSteps: buildLiveIdeaEntryNextSteps({ canaryPath, roughIdea, campaign }),
   };
 }
 

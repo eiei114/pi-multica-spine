@@ -221,6 +221,7 @@ Typical sandbox canary flow:
 node scripts/workflow-sandbox-canary.mjs --dry-run
 node scripts/workflow-sandbox-canary.mjs --apply
 node scripts/workflow-sandbox-canary.mjs --campaign --max-stage-cycles 1
+# Repeat the one-stage tick only after explicit approval; run human review only at final_package.
 node scripts/workflow-sandbox-canary.mjs --human-review
 ```
 

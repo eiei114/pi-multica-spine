@@ -13,6 +13,7 @@ import {
   slugifyRoughIdea,
 } from "../scripts/workflow-sandbox-canary.mjs";
 import {
+  buildLiveIdeaEntryNextSteps,
   parseWorkflowIdeaEntryArgs,
   resolveIdeaEntryCanaryPath,
   runWorkflowIdeaEntry,
@@ -102,6 +103,25 @@ test("sandbox campaign defaults to one stage and rejects unapproved multi-stage 
     resolveCampaignStageCycles(parseWorkflowSandboxCanaryArgs(["--campaign", "--run-full-campaign", "--max-stage-cycles", "80"])),
     80,
   );
+});
+
+test("live idea entry next steps retain the canary session and rough idea", () => {
+  const campaignStep = buildLiveIdeaEntryNextSteps({
+    canaryPath: "C:/sandbox/session-a",
+    roughIdea: "A product idea with a specific seed",
+    campaign: { completed: false },
+  });
+  assert.match(campaignStep[0], /--canary-path "C:\/sandbox\/session-a"/);
+  assert.match(campaignStep[0], /--rough-idea "A product idea with a specific seed"/);
+
+  const reviewStep = buildLiveIdeaEntryNextSteps({
+    canaryPath: "C:/sandbox/session-a",
+    roughIdea: "ignored after completion",
+    campaign: { completed: true },
+  });
+  assert.deepEqual(reviewStep, [
+    'node scripts/workflow-sandbox-canary.mjs --canary-path "C:/sandbox/session-a" --human-review',
+  ]);
 });
 
 test("validateRoughIdea rejects empty and short ideas", () => {

@@ -18,9 +18,12 @@ This runbook covers the repo-local `scripts/workflow-sandbox-canary.mjs` harness
 node scripts/workflow-sandbox-canary.mjs --dry-run
 node scripts/workflow-sandbox-canary.mjs --apply
 node scripts/workflow-sandbox-canary.mjs --campaign --max-stage-cycles 1
+# After explicit approval, repeat the one-stage tick until currentStageId=final_package.
 node scripts/workflow-sandbox-canary.mjs --human-review
 node scripts/workflow-sandbox-canary.mjs --report
 ```
+
+Do not run `--human-review` after a single tick unless it reached `final_package`.
 
 Full campaign rehearsal only:
 
