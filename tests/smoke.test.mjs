@@ -8,7 +8,7 @@ const ciWorkflow = await readFile(new URL("../.github/workflows/ci.yml", import.
 test("package declares extension and slash entry skills", () => {
   assert.deepEqual(packageJson.pi, {
     extensions: ["./extensions"],
-    skills: ["./skills/idea-to-build", "./skills/maintenance-build"],
+    skills: ["./skills/idea-to-build", "./skills/idea-status", "./skills/maintenance-build"],
   });
   assert.ok(packageJson.files.includes("extensions/"));
   assert.ok(packageJson.files.includes("skills/"));

@@ -26,7 +26,7 @@ const {
   runCanaryCampaign,
   FIXTURE_NAMES,
   runFixture,
-  completeHumanFinalReview,
+  runResumableHumanFinalReview,
 } = await importSpineLibs(import.meta.url, [
   "hermes-adapter.ts",
   "project-workflow-binding-store.ts",
@@ -38,7 +38,7 @@ const {
   "workflow-run-state.ts",
   "workflow-sandbox-campaign.ts",
   "workflow-sandbox-fixtures.ts",
-  "workflow-sandbox-human-review.ts",
+  "workflow-human-final-review-journal.ts",
 ]);
 
 const CANARY_PROJECT_NAME = "pi-multica-spine Idea-to-Build Canary";
@@ -542,7 +542,7 @@ export async function runHumanFinalReview(config, reviewInput = {}) {
     createProjectClient(runMultica),
     createAutopilotClient(runMultica),
   );
-  const review = await completeHumanFinalReview(state, {
+  const review = await runResumableHumanFinalReview(state, {
     verdict: "approved",
     reviewer: "Keisu (human operator)",
     notes: "Sandbox Idea-to-Build canary approved. Color policy: JSON default, --human/--color opt-in.",

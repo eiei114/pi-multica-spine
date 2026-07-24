@@ -1,6 +1,6 @@
 {
   "name": "pi-multica-spine",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Pi extension that keeps Multica work agents bound to issue, PR, evidence, and handoff contracts.",
   "type": "module",
   "license": "MIT",
@@ -44,17 +44,20 @@
     "check:sandbox-rehearsal": "node scripts/workflow-sandbox-rehearsal.mjs --full-closeout",
     "check:production-rehearsal": "node scripts/workflow-production-rehearsal.mjs",
     "check:sandbox-evidence": "node scripts/workflow-sandbox-closeout-evidence.mjs",
-    "check:idea-entry": "node scripts/workflow-idea-entry.mjs --rough-idea \"CI offline idea entry validation seed\" --dry-run --session-suffix ci",
+    "check:idea-entry": "node scripts/workflow-idea-entry.mjs --rough-idea \"CI offline idea entry validation seed\" --dry-run --session-suffix ci --sessions-root C:/tmp/pi-multica-spine-idea-ci",
     "check:maintenance-entry": "node scripts/workflow-maintenance-entry.mjs --maintenance-brief \"CI offline maintenance entry validation seed\" --dry-run",
     "check:production-gate": "node scripts/production-gate-checklist.mjs",
-    "ci": "npm run build && npm run typecheck && npm run check:coverage && npm run check:changelog && npm run check:template && npm run check:sandbox-checklist && npm run check:sandbox-rehearsal && npm run check:sandbox-evidence && npm run check:idea-entry && npm run check:maintenance-entry && npm run check:production-rehearsal && npm run check:production-gate && npm run pack:check && npm run pack:smoke && node examples/minimal-walkthrough/run-walkthrough.mjs && node examples/workflow-campaign-walkthrough/run-walkthrough.mjs",
+    "ci": "npm run build && npm run typecheck && npm run check:coverage && npm run check:changelog && npm run check:template && npm run check:sandbox-checklist && npm run check:sandbox-rehearsal && npm run check:sandbox-evidence && npm run check:idea-entry && npm run check:idea-status && npm run check:live-sandbox-smoke && npm run check:maintenance-entry && npm run check:production-rehearsal && npm run check:production-gate && npm run pack:check && npm run pack:smoke && node examples/minimal-walkthrough/run-walkthrough.mjs && node examples/workflow-campaign-walkthrough/run-walkthrough.mjs",
     "pack:check": "npm pack --dry-run",
     "pack:smoke": "node scripts/pack-smoke.mjs",
     "walkthrough": "node examples/minimal-walkthrough/run-walkthrough.mjs && node examples/workflow-campaign-walkthrough/run-walkthrough.mjs",
     "canary:dry-run": "node scripts/workflow-sandbox-canary.mjs --dry-run",
     "digest": "node scripts/jsonl-digest.mjs",
     "production-binding:dry-run": "node scripts/workflow-production-binding.mjs --dry-run",
-    "production-run:dry-run": "node scripts/workflow-production-run.mjs --dry-run"
+    "production-run:dry-run": "node scripts/workflow-production-run.mjs --dry-run",
+    "check:idea-status": "node scripts/workflow-idea-status.mjs --json --sessions-root C:/tmp/pi-multica-spine-status-ci",
+    "check:live-sandbox-smoke": "node scripts/workflow-live-sandbox-smoke.mjs",
+    "check:vault-idea-entry": "node scripts/workflow-vault-idea-entry.mjs --rough-idea \"CI offline vault idea entry validation seed\" --dry-run --vault-root C:/tmp/pi-multica-spine-vault-idea-ci --session-suffix vault-ci"
   },
   "pi": {
     "extensions": [
@@ -62,6 +65,7 @@
     ],
     "skills": [
       "./skills/idea-to-build",
+      "./skills/idea-status",
       "./skills/maintenance-build"
     ]
   },

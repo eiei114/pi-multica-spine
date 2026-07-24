@@ -116,6 +116,22 @@ async function main() {
       throw new Error(`idea-entry smoke failed: ${ideaEntryOut.slice(0, 400)}`);
     }
 
+    const ideaStatusCli = join(pkgRoot, "scripts", "workflow-idea-status.mjs");
+    const ideaStatusOut = execFileSync(
+      process.execPath,
+      [ideaStatusCli, "--json", "--sessions-root", join(smokeRoot, "sessions")],
+      { cwd: smokeRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    );
+    const ideaStatus = JSON.parse(ideaStatusOut);
+    if (!ideaStatus?.schemaVersion || ideaStatus.dataState !== "NO_IDEA_SESSIONS") {
+      throw new Error(`idea-status smoke failed: ${ideaStatusOut.slice(0, 400)}`);
+    }
+
+    const ideaToBuildSkill = join(pkgRoot, "skills", "idea-to-build", "SKILL.md");
+    const ideaStatusSkill = join(pkgRoot, "skills", "idea-status", "SKILL.md");
+    await readFile(ideaToBuildSkill);
+    await readFile(ideaStatusSkill);
+
     console.log(
       JSON.stringify(
         {
@@ -123,6 +139,7 @@ async function main() {
           tarball: tarballName,
           digestPreview: parsed.digest.slice(0, 16),
           ideaEntryCanaryPath: ideaEntry.canaryPath,
+          ideaStatusDataState: ideaStatus.dataState,
           smokeRoot,
         },
         null,
