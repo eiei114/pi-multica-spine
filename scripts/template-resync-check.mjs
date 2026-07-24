@@ -67,8 +67,14 @@ export const TEMPLATE_RESYNC_RULES = [
   {
     id: "package-pi-idea-skill",
     file: "package.json",
-    pattern: /"skills":\s*\[\s*"\.\/skills\/idea-to-build"\s*\]/,
+    pattern: /"skills":\s*\[[\s\S]*"\.\/skills\/idea-to-build"/,
     note: "Package registers idea-to-build slash entry skill",
+  },
+  {
+    id: "package-pi-maintenance-skill",
+    file: "package.json",
+    pattern: /"skills":\s*\[[\s\S]*"\.\/skills\/maintenance-build"/,
+    note: "Package registers maintenance-build slash entry skill",
   },
   {
     id: "package-public-publish",

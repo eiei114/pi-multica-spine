@@ -6,6 +6,21 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-24
+
+### Added
+
+- Fresh sandbox session path per idea entry by default (`buildFreshCanaryPath`, R-MNT-38).
+- `docs/workflow-idea-entry-live-execute-runbook.md` + pack smoke for idea-entry dry-run (R-MNT-39).
+- `/skill:maintenance-build` Pi skill + `scripts/workflow-maintenance-entry.mjs` (R-MNT-40).
+- `--rough-idea` / `--maintenance-brief` on `workflow-production-run.mjs` for custom parent issues.
+
+### Changed
+
+- `workflow-idea-entry.mjs` allocates under `pi-multica-spine-idea-sessions/` unless `--reuse-default-canary`.
+- CI runs `check:maintenance-entry`; `pack:smoke` exercises installed idea-entry CLI.
+- `package.json` registers `pi.skills` for maintenance-build.
+
 ## [0.7.9] - 2026-07-24
 
 ### Added

@@ -93,7 +93,7 @@ Replace `pi-multica-spine` with the exact `name` from `package.json` when you fo
 Pin a specific version when you want reproducible installs:
 
 ```bash
-pi install npm:pi-multica-spine@0.7.9
+pi install npm:pi-multica-spine@0.8.0
 
 ### Idea-to-build entry skill
 
@@ -103,7 +103,15 @@ After install, invoke explicitly (never auto-detected):
 /skill:idea-to-build
 ```
 
-Paste your rough idea, then the agent runs `scripts/workflow-idea-entry.mjs --execute` to start the sandbox Hermes workflow.
+Paste your rough idea, then the agent runs `scripts/workflow-idea-entry.mjs --execute` to start the sandbox Hermes workflow. Each idea gets a fresh sandbox session path by default.
+
+### Maintenance-build entry skill
+
+```
+/skill:maintenance-build
+```
+
+Paste your maintenance brief, then the agent runs `scripts/workflow-maintenance-entry.mjs --execute` on the Maintenance production-run lane (`productionAllowed=false`).
 
 ```
 

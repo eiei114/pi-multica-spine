@@ -42,7 +42,8 @@ const {
 ]);
 
 const CANARY_PROJECT_NAME = "pi-multica-spine Idea-to-Build Canary";
-const DEFAULT_CANARY_PATH = "C:/Users/Keisu/Projects/Sandbox/pi-multica-spine-idea-to-build-canary";
+export const DEFAULT_CANARY_PATH = "C:/Users/Keisu/Projects/Sandbox/pi-multica-spine-idea-to-build-canary";
+export const SANDBOX_SESSIONS_ROOT = "C:/Users/Keisu/Projects/Sandbox/pi-multica-spine-idea-sessions";
 const BLOCKED_PROJECT_IDS = new Set([
   "415010b1-f28a-4ae4-9042-ddeb00800029",
 ]);
@@ -92,6 +93,25 @@ export function parseWorkflowSandboxCanaryArgs(argv = process.argv.slice(2)) {
 export function resolveRoughIdea(config) {
   if (config.roughIdea?.trim()) return config.roughIdea.trim();
   return DEFAULT_ROUGH_IDEA;
+}
+
+export function slugifyRoughIdea(roughIdea, maxLength = 48) {
+  const slug = roughIdea
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, maxLength)
+    .replace(/-+$/g, "");
+  return slug || "idea";
+}
+
+export function buildFreshCanaryPath(roughIdea, options = {}) {
+  const now = options.now ?? new Date();
+  const stamp = now.toISOString().replace(/[:.]/g, "").slice(0, 15);
+  const suffix = options.sessionSuffix ?? stamp;
+  const slug = slugifyRoughIdea(roughIdea);
+  const root = options.sessionsRoot ?? SANDBOX_SESSIONS_ROOT;
+  return join(root, `${slug}-${suffix}`);
 }
 
 export function buildSandboxCanaryPlan(config = parseWorkflowSandboxCanaryArgs()) {

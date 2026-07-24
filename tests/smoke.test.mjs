@@ -5,10 +5,10 @@ import test from "node:test";
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 const ciWorkflow = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
 
-test("package declares extension and idea-to-build skill pi resources", () => {
+test("package declares extension and slash entry skills", () => {
   assert.deepEqual(packageJson.pi, {
     extensions: ["./extensions"],
-    skills: ["./skills/idea-to-build"],
+    skills: ["./skills/idea-to-build", "./skills/maintenance-build"],
   });
   assert.ok(packageJson.files.includes("extensions/"));
   assert.ok(packageJson.files.includes("skills/"));

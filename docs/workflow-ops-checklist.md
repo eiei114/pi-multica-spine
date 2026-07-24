@@ -12,7 +12,9 @@ Short path to run Multica work through the workflow adapter **without** opening 
 ## Preconditions (both lanes)
 
 0. Optional offline rehearsal: `node examples/workflow-campaign-walkthrough/run-walkthrough.mjs` (no Multica CLI).
-0a. **Idea entry (Pi):** `/skill:idea-to-build` then paste rough idea → `node scripts/workflow-idea-entry.mjs --rough-idea "..." --execute`.
+0a. **Idea entry (Pi):** `/skill:idea-to-build` then paste rough idea → `node scripts/workflow-idea-entry.mjs --rough-idea "..." --execute` (fresh session path by default).
+0a2. **Maintenance entry (Pi):** `/skill:maintenance-build` then paste brief → `node scripts/workflow-maintenance-entry.mjs --maintenance-brief "..." --execute`.
+0a3. **Idea entry live runbook:** [`workflow-idea-entry-live-execute-runbook.md`](workflow-idea-entry-live-execute-runbook.md).
 0b. Automated preflight: `npm run check:sandbox-checklist` (offline) or `npm run check:sandbox-checklist -- --live` before live sandbox ops.
 0c. Rehearsal plan (CI): `npm run check:sandbox-rehearsal` (full closeout). Live: `node scripts/workflow-sandbox-rehearsal.mjs --full-closeout --execute`.
 0d. Closeout evidence (CI): `npm run check:sandbox-evidence`. Live capture after full closeout: `node scripts/workflow-sandbox-closeout-evidence.mjs --capture --canary-path <path>` (writes JSON + investigation note).
