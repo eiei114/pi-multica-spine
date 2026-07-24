@@ -17,6 +17,7 @@ This project follows semantic versioning.
 - Explicit operator-configured Multica promotion factory and `workflow-portfolio-promote` command; no ambient route or client discovery.
 - Explicit one-time supervised Portfolio pilot command, required before fleet enablement and capable of emitting hash-addressed pilot evidence.
 - Resume blocked promotions from their durable receipt, retaining the existing parent and workflow ledger after an interrupted artifact import.
+- Use Multica CLI's positional project-status argument when activating a promoted Project.
 
 ### Changed
 
