@@ -19,6 +19,7 @@ This project follows semantic versioning.
 - Resume blocked promotions from their durable receipt, retaining the existing parent and workflow ledger after an interrupted artifact import.
 - Use Multica CLI's positional project-status argument when activating a promoted Project.
 - Activate promoted Projects with Multica's valid `in_progress` status.
+- Require a hash-verified review-input package before seeding a live spec review.
 
 ### Changed
 

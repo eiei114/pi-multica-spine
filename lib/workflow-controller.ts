@@ -161,6 +161,8 @@ export interface LiveStageSeedInput {
   attempt?: number;
   assignedAgentId?: string;
   titlePrefix?: string;
+  /** Immutable stage-specific material included in the assigned agent's packet. */
+  stageInput?: string;
   liveCli: WorkflowLiveCli;
 }
 
@@ -205,7 +207,8 @@ export async function seedWorkflowStageLive(input: LiveStageSeedInput): Promise<
         `adapter_bundle_hash=${input.ledger.adapterBundleHash}`,
         `instruction_refs=${manifestStage.instructionRefs.join(",")}`,
         `outputs=${(manifestStage.outputs ?? []).join(",")}`,
-      ].join("\n")
+        input.stageInput,
+      ].filter(Boolean).join("\n")
     : undefined;
   const issue = await input.liveCli.createStageIssue({
     title,

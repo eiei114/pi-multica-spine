@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -27,6 +28,11 @@ function binding(project) {
   };
 }
 
+function validReviewInput() {
+  const content = "# Review target\n\nBuild handoff\n";
+  return { specReviewInput: { outputPath: "05-review-input.md", outputHash: createHash("sha256").update(content).digest("hex"), content, acceptanceCriteria: ["handoff is complete"] } };
+}
+
 test("automatic promotion dry-run reports mutations and apply creates one execution lineage", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "auto-promotion-"));
   const runStore = new WorkflowRunStateStore(cwd);
@@ -44,6 +50,7 @@ test("automatic promotion dry-run reports mutations and apply creates one execut
     async triggerAutopilot() { return {}; },
   };
   const input = {
+    ...validReviewInput(),
     sessionId: "idea-1",
     workflowRunId: "idea-1",
     projectTitle: "Daily Relic iOS",
@@ -178,6 +185,7 @@ test("partial promotion resumes after receipt failure without skipping", async (
     async triggerAutopilot() { return {}; },
   };
   const input = {
+    ...validReviewInput(),
     sessionId: "resume-idea",
     workflowRunId: "resume-idea",
     projectTitle: "Resume App",
@@ -232,6 +240,7 @@ test("blocked artifact import resumes with durable parent and ledger context", a
   };
   let parentCreated = 0;
   const input = {
+    ...validReviewInput(),
     sessionId: "resume-ledger", workflowRunId: "resume-ledger", projectTitle: "Resume Ledger App", projectDescription: "desc",
     artifactBundleHash: "e".repeat(64), artifacts: [{ stageId: "build_handoff", outputPath: "handoff", outputHash: "e".repeat(64) }],
   };
@@ -258,6 +267,7 @@ test("route gap skips candidate without creating agents", async () => {
     ),
   };
   const result = await autoPromoteIdeaSession({
+    ...validReviewInput(),
     sessionId: "gap",
     workflowRunId: "gap",
     projectTitle: "Gap App",

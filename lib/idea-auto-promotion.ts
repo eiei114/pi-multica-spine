@@ -31,6 +31,13 @@ export interface PromotionArtifactInput {
   outputHash: string;
 }
 
+export interface SpecReviewInput {
+  outputPath: string;
+  outputHash: string;
+  content: string;
+  acceptanceCriteria: string[];
+}
+
 export interface AutomaticPromotionInput {
   sessionId: string;
   workflowRunId: string;
@@ -40,6 +47,8 @@ export interface AutomaticPromotionInput {
   expectedProjectId?: string;
   artifactBundleHash: string;
   artifacts: PromotionArtifactInput[];
+  /** Immutable operator-authored review target and criteria for the first live review. */
+  specReviewInput?: SpecReviewInput;
   dryRun?: boolean;
 }
 
@@ -77,6 +86,11 @@ function assertPromotionEligible(input: AutomaticPromotionInput, binding: Projec
   }
   if (binding.executionMode !== "autonomous_until_final" || binding.humanGate !== "final_only") {
     throw new Error("Automatic promotion requires autonomous_until_final final_only binding");
+  }
+  if (!input.dryRun) {
+    const review = input.specReviewInput;
+    if (!review?.outputPath || !/^[a-f0-9]{64}$/i.test(review.outputHash) || !review.content || review.acceptanceCriteria.length === 0) throw new Error("Automatic promotion requires immutable spec review input and acceptance criteria");
+    if (sha256Hex(review.content) !== review.outputHash) throw new Error("Spec review input hash mismatch");
   }
 }
 
@@ -169,6 +183,7 @@ async function executePromotionStep(
     }
     case "spec_review_seeded": {
       if (!context.ledger || !context.parent) throw new Error("Spec review seed requires parent and ledger");
+      if (!input.specReviewInput) throw new Error("Spec review seed requires review input");
       const seeded = await seedWorkflowStageLive({
         ledger: context.ledger,
         manifest,
@@ -176,6 +191,14 @@ async function executePromotionStep(
         parentIssueId: context.parent.id,
         stageId: HERMES_SPEC_REVIEW_STAGE_ID,
         attempt: 1,
+        stageInput: [
+          `review_input_path=${input.specReviewInput.outputPath}`,
+          `review_input_hash=${input.specReviewInput.outputHash}`,
+          "acceptance_criteria:",
+          ...input.specReviewInput.acceptanceCriteria.map((criterion) => `- ${criterion}`),
+          "review_input:",
+          input.specReviewInput.content,
+        ].join("\n"),
         liveCli: deps.liveCli,
       });
       const ledger = await deps.runStore.upsertStage(input.workflowRunId, seeded.stage);

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -20,13 +20,19 @@ async function readyLane() {
   return cwd;
 }
 
+async function reviewInput(cwd) {
+  const path = join(cwd, "review-input.md");
+  await writeFile(path, "# Review\n\n## Acceptance criteria\n- [ ] Target is complete\n");
+  return path;
+}
+
 function config() {
   return { projectTitle: "Daily Relic iOS", projectDescription: "pilot", supervisedPilot: { projectId: "daily", projectTitle: "Daily Relic iOS" } };
 }
 
 test("supervised pilot requires --apply and exact configured planned project", async () => {
   const cwd = await readyLane();
-  const options = { canaryPath: cwd, factoryConfigPath: "operator.json", evidenceOutput: join(cwd, "pilot.json"), apply: false };
+  const options = { canaryPath: cwd, factoryConfigPath: "operator.json", reviewInputPath: await reviewInput(cwd), evidenceOutput: join(cwd, "pilot.json"), apply: false };
   await assert.rejects(runPortfolioSupervisedPilot(options), /explicit --apply/);
   await assert.rejects(runPortfolioSupervisedPilot({ ...options, apply: true }, {
     loadConfig: async () => config(), createFactory: () => ({ projects: { async list() { return []; } } }),
@@ -38,7 +44,7 @@ test("supervised pilot records hash-addressed evidence only after promoted resul
   const cwd = await readyLane();
   let written;
   let promotionInput;
-  const result = await runPortfolioSupervisedPilot({ canaryPath: cwd, factoryConfigPath: "operator.json", evidenceOutput: join(cwd, "pilot.json"), apply: true }, {
+  const result = await runPortfolioSupervisedPilot({ canaryPath: cwd, factoryConfigPath: "operator.json", reviewInputPath: await reviewInput(cwd), evidenceOutput: join(cwd, "pilot.json"), apply: true }, {
     loadConfig: async () => config(),
     createFactory: () => ({ projects: { async list() { return [{ id: "daily", title: "Daily Relic iOS", status: "planned" }]; } } }),
     promote: async (input) => { promotionInput = input; return { mode: "promoted" }; },
