@@ -15,7 +15,7 @@ const Sha256Hex = Type.String({ pattern: "^[a-f0-9]{64}$" });
 export const WorkflowRunStatusSchema = StringEnum(["pending", "waiting", "running", "blocked", "failed", "completed"]);
 export type WorkflowRunStatus = Static<typeof WorkflowRunStatusSchema>;
 
-export const WorkflowStageStatusSchema = StringEnum(["seeded", "waiting", "produced", "accepted", "retrying", "failed"]);
+export const WorkflowStageStatusSchema = StringEnum(["seeded", "waiting", "produced", "accepted", "retrying", "failed", "blocked"]);
 export type WorkflowStageStatus = Static<typeof WorkflowStageStatusSchema>;
 
 export const WorkflowEventTypeSchema = StringEnum([
@@ -150,6 +150,7 @@ function isProjectRelativePath(path: string): boolean {
 
 function workflowStatusForStage(status: WorkflowStageStatus): WorkflowRunStatus {
   if (status === "failed") return "failed";
+  if (status === "blocked") return "blocked";
   if (status === "accepted") return "running";
   return "waiting";
 }

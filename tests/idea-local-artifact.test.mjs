@@ -109,6 +109,25 @@ test("validatePromotionReadyArtifacts rejects invalid build_handoff hash", () =>
   assert.throws(() => validatePromotionReadyArtifacts(registry), /hash-addressed/);
 });
 
+test("visual promotion requires the UI design brief artifact", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "idea-artifact-visual-"));
+  const store = new IdeaLocalArtifactStore(cwd, "idea-visual");
+  const artifacts = ["capture", "question_resolution", "design_doc", "implementation_spec", "build_handoff"].map((stageId) => ({
+    stageId,
+    outputPath: `${stageId}.md`,
+    content: `artifact:${stageId}`,
+  }));
+  await assert.rejects(
+    store.finalizePromotionReady({
+      sessionId: "idea-visual",
+      workflowRunId: "idea-visual",
+      visualTarget: "ios_game",
+      stageArtifacts: artifacts,
+    }),
+    /ui_design_brief/,
+  );
+});
+
 test("local artifact store rejects registry identity mismatch", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "idea-artifact-identity-"));
   const store = new IdeaLocalArtifactStore(cwd, "idea-identity");

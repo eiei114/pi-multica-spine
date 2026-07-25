@@ -54,6 +54,7 @@ export const ControllerTickActionKindSchema = StringEnum([
   "record_route",
   "validate_produced_stage",
   "seed_next_stage",
+  "block_stage",
   "persist_summary",
   "release_lease",
   "stop",
@@ -124,7 +125,7 @@ function isLeaseActive(lease: WorkflowControllerLease | undefined, now: Date): b
 }
 
 function isTerminalWorkflowStatus(status: WorkflowRunStatus): boolean {
-  return status === "completed" || status === "failed";
+  return status === "completed" || status === "failed" || status === "blocked";
 }
 
 export function shouldGenericReconcilerSkip(metadata: Record<string, unknown>): boolean {
@@ -492,10 +493,24 @@ export async function runControllerAutopilotTick(
         }
         const fallback = resolveStaticFallbackRoute(routeInput);
         if (!fallback?.decision.selectedAgentId) {
+          const blockedSeed = seedWorkflowStage(ledger, input.manifest, input.binding, {
+            stageId: seedTargetForRoute.stageId,
+            attempt: seedTargetForRoute.attempt,
+          });
+          ledger = await runStore.upsertStage(input.workflowRunId, {
+            stageId: blockedSeed.stageId,
+            status: "blocked",
+            attempt: blockedSeed.attempt,
+            assignedAgentId: blockedSeed.assignedAgentId,
+            artifactHashes: blockedSeed.artifactHashes,
+          });
+          const reasons = selection.decision.blockedCandidates
+            .flatMap((candidate) => candidate.reasons)
+            .filter((reason, index, all) => all.indexOf(reason) === index);
           return {
-            action: "stop",
+            action: "block_stage",
             stopped: true,
-            reason: "route_failure",
+            reason: reasons.length ? `route_failure:${reasons.join(",")}` : "route_failure",
             lease,
             ledger,
             reconcile,

@@ -8,6 +8,9 @@ const Sha256Hex = Type.String({ pattern: "^[a-f0-9]{64}$" });
 export const VisualTargetSchema = StringEnum(["non_visual", "visual", "game", "ios_game"]);
 export type VisualTarget = Static<typeof VisualTargetSchema>;
 
+export const VisualAssetSourceKindSchema = StringEnum(["generated", "human_provided", "system_symbol", "vector"]);
+export type VisualAssetSourceKind = Static<typeof VisualAssetSourceKindSchema>;
+
 export const VisualProvenanceKindSchema = StringEnum([
   "user_statement",
   "external_source",
@@ -47,15 +50,56 @@ export const VisualAssetSpecSchema = Type.Object({
   assetId: Type.String({ minLength: 1, pattern: "^[a-z0-9][a-z0-9_-]*$" }),
   semanticRole: Type.String({ minLength: 1 }),
   states: Type.Array(Type.String({ minLength: 1 }), { minItems: 1 }),
-  sourceKind: StringEnum(["generated", "human_provided", "system_symbol", "vector"]),
+  sourceKind: VisualAssetSourceKindSchema,
   format: Type.String({ minLength: 1 }),
   width: Type.Integer({ minimum: 1 }),
   height: Type.Integer({ minimum: 1 }),
   alpha: Type.Boolean(),
   destination: Type.String({ minLength: 1 }),
   provenance: Type.Array(VisualProvenanceSchema, { minItems: 1 }),
+  contentHash: Sha256Hex,
+  usageNote: Type.String({ minLength: 1 }),
 });
 export type VisualAssetSpec = Static<typeof VisualAssetSpecSchema>;
+
+export const VisualAssetFileSchema = Type.Object({
+  assetId: Type.String({ minLength: 1, pattern: "^[a-z0-9][a-z0-9_-]*$" }),
+  variantId: Type.String({ minLength: 1 }),
+  path: Type.String({ minLength: 1 }),
+  contentHash: Sha256Hex,
+  byteLength: Type.Integer({ minimum: 1 }),
+  format: Type.String({ minLength: 1 }),
+});
+export type VisualAssetFile = Static<typeof VisualAssetFileSchema>;
+
+export const VisualAssetSelectionSchema = Type.Object({
+  assetId: Type.String({ minLength: 1, pattern: "^[a-z0-9][a-z0-9_-]*$" }),
+  selectedVariantId: Type.String({ minLength: 1 }),
+  rejectedVariantIds: Type.Array(Type.String({ minLength: 1 })),
+  rationale: Type.String({ minLength: 1 }),
+  confidence: VisualConfidenceSchema,
+});
+export type VisualAssetSelection = Static<typeof VisualAssetSelectionSchema>;
+
+export const VisualAssetPackSchema = Type.Object({
+  schemaVersion: Type.Integer({ minimum: 1 }),
+  target: VisualTargetSchema,
+  assetBriefHash: Sha256Hex,
+  manifestHash: Sha256Hex,
+  files: Type.Array(VisualAssetFileSchema, { minItems: 1 }),
+  selections: Type.Array(VisualAssetSelectionSchema, { minItems: 1 }),
+  rejectedVariants: Type.Array(Type.String({ minLength: 1 })),
+  selectionRubric: Type.Array(Type.String({ minLength: 1 }), { minItems: 1 }),
+  idempotencyKeys: Type.Record(Type.String({ minLength: 1 }), Type.String({ minLength: 1 })),
+  provenance: Type.Array(VisualProvenanceSchema, { minItems: 1 }),
+  confidence: VisualConfidenceSchema,
+  rationale: Type.String({ minLength: 1 }),
+  contentHash: Sha256Hex,
+});
+export type VisualAssetPack = Static<typeof VisualAssetPackSchema>;
+
+export const VisualAssetManifestSchema = VisualAssetPackSchema;
+export type VisualAssetManifest = VisualAssetPack;
 
 export const VisualBriefSchema = Type.Object({
   schemaVersion: Type.Integer({ minimum: 1 }),
@@ -89,6 +133,7 @@ export const VisualReviewSchema = Type.Object({
   schemaVersion: Type.Integer({ minimum: 1 }),
   target: VisualTargetSchema,
   commitHash: Type.String({ minLength: 7 }),
+  previewConfiguration: Type.Optional(Type.String({ minLength: 1 })),
   evidence: Type.Array(VisualReviewEvidenceSchema, { minItems: 1 }),
   findings: Type.Array(Type.Object({
     id: Type.String({ minLength: 1 }),
@@ -116,6 +161,14 @@ export function assertValidVisualBrief(input: unknown): VisualBrief {
 
 export function assertValidVisualReview(input: unknown): VisualReview {
   return assertValid(validateSchema(VisualReviewSchema, input), "Invalid Visual Review");
+}
+
+export function assertValidVisualAssetPack(input: unknown): VisualAssetPack {
+  return assertValid(validateSchema(VisualAssetPackSchema, input), "Invalid Visual Asset Pack");
+}
+
+export function assertValidVisualAssetManifest(input: unknown): VisualAssetManifest {
+  return assertValidVisualAssetPack(input);
 }
 
 export function assertAutonomousVisualDecision(input: {

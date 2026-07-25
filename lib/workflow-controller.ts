@@ -71,7 +71,7 @@ export function resolveNextStageId(
     const stage = manifest.stages[index];
     const activation = resolveStageActivation(stage);
     if (activation === "binding_optional" && !enabledOptional.has(stage.stageId)) continue;
-    if (activation === "controller_conditional") continue;
+    if (activation === "controller_conditional" || activation === "target_conditional") continue;
     return stage.stageId;
   }
   return undefined;
@@ -111,12 +111,13 @@ export function transitionWorkflowStage(
   artifact?: WorkflowArtifactEnvelope,
 ): WorkflowStageState {
   const allowed: Record<WorkflowStageStatus, WorkflowStageStatus[]> = {
-    seeded: ["waiting", "produced", "failed"],
-    waiting: ["produced", "failed", "retrying"],
+    seeded: ["waiting", "produced", "failed", "blocked"],
+    waiting: ["produced", "failed", "retrying", "blocked"],
     produced: ["accepted", "retrying", "failed"],
     accepted: ["accepted"],
     retrying: ["seeded", "waiting", "failed"],
     failed: ["failed"],
+    blocked: ["blocked"],
   };
   if (!allowed[stage.status].includes(nextStatus)) {
     throw new Error(`Invalid stage transition: ${stage.status} -> ${nextStatus}`);
@@ -146,6 +147,7 @@ export function mapStageStatusToIssueStatus(stageStatus: WorkflowStageStatus): s
     case "retrying":
       return "in_progress";
     case "failed":
+    case "blocked":
       return "blocked";
     default:
       return "in_progress";
@@ -207,6 +209,10 @@ export async function seedWorkflowStageLive(input: LiveStageSeedInput): Promise<
         `adapter_bundle_hash=${input.ledger.adapterBundleHash}`,
         `instruction_refs=${manifestStage.instructionRefs.join(",")}`,
         `outputs=${(manifestStage.outputs ?? []).join(",")}`,
+        manifestStage.target ? `target=${manifestStage.target}` : undefined,
+        manifestStage.capabilityRequirements?.length ? `capabilities=${manifestStage.capabilityRequirements.join(",")}` : undefined,
+        manifestStage.permissionRequests?.length ? `permissions=${manifestStage.permissionRequests.join(",")}` : undefined,
+        manifestStage.capabilityProfileId ? `capability_profile=${manifestStage.capabilityProfileId}` : undefined,
         input.stageInput,
       ].filter(Boolean).join("\n")
     : undefined;

@@ -14,9 +14,11 @@ import type {
 import { assertValid, uniqueValues, validateSchema } from "./validation.ts";
 
 export const HERMES_ADAPTER_ID = "hermes-idea-to-build";
-export const HERMES_ADAPTER_VERSION = 1;
+export const HERMES_ADAPTER_VERSION = 2;
 export const HERMES_SPEC_REVIEW_STAGE_ID = "spec_review";
 export const HERMES_SPEC_FIX_STAGE_ID = "spec_fix";
+export const HERMES_ASSET_GENERATION_STAGE_ID = "asset_generation";
+export const HERMES_VISUAL_REVIEW_STAGE_ID = "visual_review";
 export const HERMES_FINAL_STAGE_ID = "final_package";
 export const HERMES_MAX_FIX_CYCLES = 2;
 
@@ -51,10 +53,36 @@ const HERMES_STAGES = [
   { stageId: HERMES_SPEC_FIX_STAGE_ID, role: "spec_author", activation: "controller_conditional" as const, outputs: ["06a-spec-fix.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-implementation-doc/SKILL.md"] },
   { stageId: "scaffold_resolution", role: "scaffold_worker", activation: "controller_conditional" as const, outputs: ["06b-scaffold-receipt.md"], sourceBundle: IDEA_BUNDLE, instructionRefs: ["idea-to-implementation-doc/SKILL.md"] },
   { stageId: "implementation_plan", role: "planner", outputs: ["07-implementation-plan.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-writing-plans.md"] },
+  {
+    stageId: HERMES_ASSET_GENERATION_STAGE_ID,
+    role: "asset_generator",
+    activation: "target_conditional" as const,
+    target: "visual" as const,
+    outputs: ["07a-asset-pack-manifest.json"],
+    sourceBundle: SUPERPOWERS_BUNDLE,
+    instructionRefs: ["superpowers-writing-plans.md"],
+    capabilityRequirements: ["asset_generation"],
+    permissionRequests: ["asset_generation"],
+    costClass: "high" as const,
+    capabilityProfileId: "asset_generation",
+  },
   { stageId: "implementation", role: "implementer", outputs: ["08-build-report.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-executing-plans.md", "superpowers-test-driven-development.md"] },
   { stageId: "spec_compliance_review", role: "spec_reviewer", outputs: ["09-spec-compliance-review.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-requesting-code-review.md"] },
   { stageId: "code_quality_review", role: "code_reviewer", outputs: ["10-code-quality-review.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-requesting-code-review.md", "superpowers-receiving-code-review.md"] },
   { stageId: "verification", role: "verifier", outputs: ["11-verification-report.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-verification-before-completion.md"] },
+  {
+    stageId: HERMES_VISUAL_REVIEW_STAGE_ID,
+    role: "visual_reviewer",
+    activation: "target_conditional" as const,
+    target: "visual" as const,
+    outputs: ["11a-visual-review.json"],
+    sourceBundle: SUPERPOWERS_BUNDLE,
+    instructionRefs: ["superpowers-verification-before-completion.md"],
+    capabilityRequirements: ["visual_qa", "ios_simulator_evidence"],
+    permissionRequests: ["visual_qa"],
+    costClass: "normal" as const,
+    capabilityProfileId: "visual_qa",
+  },
   { stageId: HERMES_FINAL_STAGE_ID, role: "finalizer", outputs: ["12-final-output-package.md"], sourceBundle: SUPERPOWERS_BUNDLE, instructionRefs: ["superpowers-finishing-a-development-branch.md", "superpowers-verification-before-completion.md"] },
 ] as const;
 
@@ -95,6 +123,8 @@ export function createHermesCompositeManifest(): WorkflowCatalogManifest {
       ...stage,
       outputs: [...stage.outputs],
       instructionRefs: [...stage.instructionRefs],
+      capabilityRequirements: "capabilityRequirements" in stage && stage.capabilityRequirements ? [...stage.capabilityRequirements] : undefined,
+      permissionRequests: "permissionRequests" in stage && stage.permissionRequests ? [...stage.permissionRequests] : undefined,
     })),
   };
 }
@@ -111,6 +141,10 @@ export interface HermesStageExecutionPacket {
   instructionRefs: string[];
   outputs: string[];
   questionParallelism?: "serial" | "bounded";
+  capabilityRequirements?: string[];
+  permissionRequests?: string[];
+  costClass?: string;
+  capabilityProfileId?: string;
 }
 
 export function createHermesStageExecutionPacket(
@@ -136,6 +170,10 @@ export function createHermesStageExecutionPacket(
     instructionRefs: [...stage.instructionRefs],
     outputs: [...(stage.outputs ?? [])],
     questionParallelism: stage.questionParallelism,
+    capabilityRequirements: stage.capabilityRequirements ? [...stage.capabilityRequirements] : undefined,
+    permissionRequests: stage.permissionRequests ? [...stage.permissionRequests] : undefined,
+    costClass: stage.costClass,
+    capabilityProfileId: stage.capabilityProfileId,
   };
 }
 
@@ -477,6 +515,7 @@ function nextEnabledHermesStage(
     const activation = resolveStageActivation(stage);
     if (activation === "binding_optional" && !enabledOptional.has(stage.stageId)) continue;
     if (activation === "controller_conditional") continue;
+    if (activation === "target_conditional" && stage.target === "visual" && !["visual", "game", "ios_game"].includes(binding.visualTarget ?? "")) continue;
     return { stageId: stage.stageId, attempt: 1 };
   }
   return undefined;

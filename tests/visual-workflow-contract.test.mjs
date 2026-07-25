@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   assertAutonomousVisualDecision,
   assertValidVisualBrief,
+  assertValidVisualAssetPack,
   assertValidVisualReview,
   assertValidWorldPremise,
   hashVisualContent,
@@ -74,6 +75,8 @@ test("Visual Brief and Visual Review carry the upstream hash lineage", () => {
       alpha: true,
       destination: "Assets.xcassets",
       provenance: [{ kind: "inferred", ref: "world:material-language" }],
+      contentHash: "4".repeat(64),
+      usageNote: "Generated for the Daily Relic MVP.",
     }],
     provenance: [{ kind: "inferred", ref: "world-premise" }],
     confidence: "medium",
@@ -94,4 +97,33 @@ test("Visual Brief and Visual Review carry the upstream hash lineage", () => {
     contentHash: "3".repeat(64),
   };
   assert.doesNotThrow(() => assertValidVisualReview(review));
+
+  assert.doesNotThrow(() => assertValidVisualAssetPack({
+    schemaVersion: 1,
+    target: "ios_game",
+    assetBriefHash: brief.contentHash,
+    manifestHash: "5".repeat(64),
+    files: [{
+      assetId: "card-safe",
+      variantId: "card-safe-v1",
+      path: "Assets.xcassets/card-safe.imageset/card-safe.png",
+      contentHash: "6".repeat(64),
+      byteLength: 128,
+      format: "png",
+    }],
+    selections: [{
+      assetId: "card-safe",
+      selectedVariantId: "card-safe-v1",
+      rejectedVariantIds: [],
+      rationale: "Highest legibility at the target size.",
+      confidence: "high",
+    }],
+    rejectedVariants: [],
+    selectionRubric: ["legibility", "material fit", "state clarity"],
+    idempotencyKeys: { "card-safe": "proj_daily-relic:card-safe:" + brief.contentHash },
+    provenance: [{ kind: "inferred", ref: "visual-brief:v1" }],
+    confidence: "high",
+    rationale: "The selected file is deterministic and ready for iOS integration.",
+    contentHash: "7".repeat(64),
+  }));
 });

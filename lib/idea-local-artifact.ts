@@ -1,10 +1,13 @@
 import { join } from "node:path";
 import { sha256Hex } from "./hash.ts";
 import { readJsonFile, withFileLock, writeJsonAtomic } from "./json-file-store.ts";
-import { LOCAL_IDEA_STAGE_IDS, type LocalIdeaStageId } from "./idea-local-lane.ts";
+import { LOCAL_IDEA_STAGE_IDS, LOCAL_VISUAL_IDEA_STAGE_IDS, type LocalIdeaStageId } from "./idea-local-lane.ts";
+import type { VisualTarget } from "./visual-workflow-contract.ts";
 import { SPINE_STATE_ROOT } from "./types.ts";
 
 export const REQUIRED_LOCAL_ARTIFACT_STAGES = LOCAL_IDEA_STAGE_IDS;
+
+export const REQUIRED_LOCAL_VISUAL_ARTIFACT_STAGES = LOCAL_VISUAL_IDEA_STAGE_IDS;
 
 export interface IdeaLocalArtifactRecord {
   stageId: LocalIdeaStageId;
@@ -21,6 +24,7 @@ export interface IdeaLocalArtifactRegistry {
   schemaVersion: 1;
   sessionId: string;
   workflowRunId: string;
+  visualTarget?: VisualTarget;
   artifacts: IdeaLocalArtifactRecord[];
   artifactBundleHash: string;
   updatedAt: string;
@@ -32,6 +36,7 @@ export interface RecordLocalArtifactInput {
   stageId: LocalIdeaStageId;
   outputPath: string;
   content: string;
+  visualTarget?: VisualTarget;
 }
 
 function nowIso(): string {
@@ -59,9 +64,13 @@ export function createLocalArtifactRecord(input: RecordLocalArtifactInput): Idea
   };
 }
 
-export function validatePromotionReadyArtifacts(registry: IdeaLocalArtifactRegistry): void {
+export function validatePromotionReadyArtifacts(registry: IdeaLocalArtifactRegistry, visualTarget?: VisualTarget): void {
   const recorded = new Set(registry.artifacts.map((artifact) => artifact.stageId));
-  for (const stageId of REQUIRED_LOCAL_ARTIFACT_STAGES) {
+  const target = visualTarget ?? registry.visualTarget;
+  const requiredStages = target && target !== "non_visual"
+    ? REQUIRED_LOCAL_VISUAL_ARTIFACT_STAGES
+    : REQUIRED_LOCAL_ARTIFACT_STAGES;
+  for (const stageId of requiredStages) {
     if (!recorded.has(stageId)) {
       throw new Error(`Missing immutable local artifact for stage: ${stageId}`);
     }
@@ -125,6 +134,7 @@ export class IdeaLocalArtifactStore {
         schemaVersion: 1,
         sessionId: input.sessionId,
         workflowRunId: input.workflowRunId,
+        visualTarget: input.visualTarget ?? existing?.visualTarget,
         artifacts,
         artifactBundleHash: computeBundleHash(artifacts),
         updatedAt: nowIso(),
@@ -137,6 +147,7 @@ export class IdeaLocalArtifactStore {
   async finalizePromotionReady(input: {
     sessionId: string;
     workflowRunId: string;
+    visualTarget?: VisualTarget;
     stageArtifacts: Array<{ stageId: LocalIdeaStageId; outputPath: string; content: string }>;
   }): Promise<IdeaLocalArtifactRegistry> {
     let registry: IdeaLocalArtifactRegistry | undefined;
@@ -147,10 +158,11 @@ export class IdeaLocalArtifactStore {
         stageId: artifact.stageId,
         outputPath: artifact.outputPath,
         content: artifact.content,
+        visualTarget: input.visualTarget,
       });
     }
     if (!registry) throw new Error("No local artifacts recorded");
-    validatePromotionReadyArtifacts(registry);
+    validatePromotionReadyArtifacts(registry, input.visualTarget);
     return registry;
   }
 }
