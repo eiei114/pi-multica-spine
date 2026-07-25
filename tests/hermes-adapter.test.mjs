@@ -70,6 +70,8 @@ test("Hermes manifest pins both audited bundles and runtime loads only by digest
   const validation = validateWorkflowCatalogManifest(manifest);
   assert.equal(validation.ok, true);
   assert.equal(manifest.adapterId, HERMES_ADAPTER_ID);
+  assert.equal(manifest.adapterVersion, 2);
+  assert.match(manifest.compatibleFrom[0], /hermes-idea-to-build@1#/);
   assert.deepEqual(
     manifest.sourceBundles.map((bundle) => bundle.sourceCommit),
     [

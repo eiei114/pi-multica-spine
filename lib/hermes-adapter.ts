@@ -109,7 +109,7 @@ export function createHermesCompositeManifest(): WorkflowCatalogManifest {
     auditToolVersion: 1,
     stateSchemaVersion: 1,
     artifactSchemaVersion: 1,
-    compatibleFrom: [],
+    compatibleFrom: ["hermes-idea-to-build@1#e6d366a166d54bc0fd7a7400f6048d020e00822f3f52933a28aa94f14e1c8194"],
     requiredTools: [
       "multica_workflow_controller_tick",
       "multica_workflow_artifact_record",
