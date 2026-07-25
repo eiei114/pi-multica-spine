@@ -30,4 +30,3 @@ test("visual review requires every declared state", () => {
     evidence: [evidence("initial_selection", "a".repeat(64)), evidence("result", "b".repeat(64))],
   }, ["initial_selection", "result"]));
 });
-

@@ -114,4 +114,3 @@ export function createVisualAssetPack(input: {
     contentHash: sha256Hex(contentPayload),
   });
 }
-

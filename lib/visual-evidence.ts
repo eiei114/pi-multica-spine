@@ -45,4 +45,3 @@ export function assertVisualReviewEvidenceComplete(
     throw new Error("Visual review evidence contains duplicate screenshot identities");
   }
 }
-

@@ -53,4 +53,3 @@ test("asset variant selection is deterministic and idempotent", () => {
   assert.equal(pack.idempotencyKeys["card-safe"], `project:card-safe:${briefHash}`);
   assert.equal(pack.manifestHash.length, 64);
 });
-
