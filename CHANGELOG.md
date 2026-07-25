@@ -8,6 +8,8 @@ This project follows semantic versioning.
 
 ### Fixed
 
+- README Install section: close the version-pin code fence, remove a stray fence closer after the maintenance-build skill, fix malformed ``npm run ci`` backticks in Development, and advance the pin example to `@0.12.7`.
+- `check:readme` validates README fence balance, install pin version alignment, and the known Install/Development markdown regressions.
 - `check:idea-entry` now runs `scripts/ci-offline-idea-entry-check.mjs` with a fixed invocation token, matching session suffix, and stale `.ci-tmp` scratch repair so repeated local `npm run ci` runs do not fail on an existing idea session manifest.
 
 ### Added

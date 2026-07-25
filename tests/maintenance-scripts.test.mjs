@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { validateChangelog } from "../scripts/check-changelog.mjs";
+import { validateReadme } from "../scripts/check-readme.mjs";
 import {
   evaluateCoverage,
   evaluateCoverageExtensionFunctions,
@@ -23,6 +24,33 @@ test("validateChangelog accepts current changelog shape", () => {
 test("validateChangelog rejects missing Unreleased", () => {
   const result = validateChangelog("## [0.6.0] - 2026-07-24\n");
   assert.equal(result.ok, false);
+});
+
+test("validateReadme accepts current README shape", () => {
+  const content = [
+    "Pin a specific version when you want reproducible installs:",
+    "",
+    "```bash",
+    "pi install npm:pi-multica-spine@0.12.7",
+    "```",
+    "",
+    "`npm run ci` runs build.",
+  ].join("\n");
+  const result = validateReadme(content, { version: "0.12.7" });
+  assert.equal(result.ok, true);
+});
+
+test("validateReadme rejects unbalanced fences and stale pin", () => {
+  const content = [
+    "```bash",
+    "pi install npm:pi-multica-spine@0.8.0",
+    "",
+    "### Idea-to-build entry skill",
+  ].join("\n");
+  const result = validateReadme(content, { version: "0.12.7" });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /unbalanced/);
+  assert.match(result.errors.join("\n"), /0\.8\.0/);
 });
 
 test("parseCoverageSummary averages lib and extension ts files", () => {
