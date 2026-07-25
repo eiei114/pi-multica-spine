@@ -25,6 +25,16 @@ test("promotion receipt resumes only missing steps", async () => {
   assert.deepEqual(receipt.completedSteps, ["project_resolved", "binding_saved"]);
 });
 
+test("resuming a blocked receipt clears its stale blocker", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "promotion-receipt-unblock-"));
+  const store = new PromotionReceiptStore(cwd, "idea-unblock");
+  await store.start({ sessionId: "idea-unblock", workflowRunId: "idea-unblock", artifactBundleHash: "a".repeat(64), projectTitle: "Daily Relic iOS" });
+  await store.block("transient failure");
+  const receipt = await store.completeStep("project_resolved");
+  assert.equal(receipt.status, "in_progress");
+  assert.equal(receipt.blockedReason, undefined);
+});
+
 test("route gap blocks candidate without creating agents", () => {
   const gap = detectRouteGap({
     requiredRoles: ["spec_reviewer", "scaffold_worker"],

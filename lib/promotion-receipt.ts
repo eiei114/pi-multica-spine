@@ -105,6 +105,7 @@ export class PromotionReceiptStore {
         completedSteps,
         identities: { ...receipt.identities, ...identities },
         status: completedSteps.length === PROMOTION_RECEIPT_STEPS.length ? "completed" : "in_progress",
+        blockedReason: undefined,
         updatedAt: nowIso(),
       };
       await writeJsonAtomic(this.path, next);
