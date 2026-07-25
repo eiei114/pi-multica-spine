@@ -11,7 +11,9 @@ export function validateReadme(content, { version } = {}) {
     errors.push(`unbalanced fenced code blocks (${fenceLines.length} fence lines)`);
   }
 
-  const pinMatch = content.match(/pi install npm:pi-multica-spine@(\d+\.\d+\.\d+)/);
+  const pinMatch = content.match(
+    /```[^\n]*\npi install npm:pi-multica-spine@(\d+\.\d+\.\d+)\n```/,
+  );
   if (!pinMatch) {
     errors.push("missing install pin example: pi install npm:pi-multica-spine@<version>");
   } else if (version && pinMatch[1] !== version) {

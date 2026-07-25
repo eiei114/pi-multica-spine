@@ -44,13 +44,47 @@ test("validateReadme rejects unbalanced fences and stale pin", () => {
   const content = [
     "```bash",
     "pi install npm:pi-multica-spine@0.8.0",
+    "```",
     "",
     "### Idea-to-build entry skill",
+    "",
+    "```bash",
+    "open block",
   ].join("\n");
   const result = validateReadme(content, { version: "0.12.7" });
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /unbalanced/);
   assert.match(result.errors.join("\n"), /0\.8\.0/);
+});
+
+test("validateReadme rejects malformed npm run ci backticks", () => {
+  const content = [
+    "```bash",
+    "pi install npm:pi-multica-spine@0.12.7",
+    "```",
+    "",
+    "``npm run ci` runs build.",
+  ].join("\n");
+  const result = validateReadme(content, { version: "0.12.7" });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /malformed backticks around npm run ci/);
+});
+
+test("validateReadme rejects stray fence closer after maintenance-build entry skill", () => {
+  const content = [
+    "```bash",
+    "pi install npm:pi-multica-spine@0.12.7",
+    "```",
+    "",
+    "productionAllowed=false).",
+    "",
+    "```",
+    "",
+    "Install into the current project",
+  ].join("\n");
+  const result = validateReadme(content, { version: "0.12.7" });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /stray fenced-code closer after maintenance-build entry skill/);
 });
 
 test("parseCoverageSummary averages lib and extension ts files", () => {
