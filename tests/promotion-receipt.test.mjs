@@ -35,6 +35,17 @@ test("resuming a blocked receipt clears its stale blocker", async () => {
   assert.equal(receipt.blockedReason, undefined);
 });
 
+test("explicit reconciliation clears a stale blocker only after completion", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "promotion-receipt-reconcile-"));
+  const store = new PromotionReceiptStore(cwd, "idea-reconcile");
+  await store.start({ sessionId: "idea-reconcile", workflowRunId: "idea-reconcile", artifactBundleHash: "a".repeat(64), projectTitle: "Daily Relic iOS" });
+  await assert.rejects(store.reconcileCompleted(), /Only fully completed/);
+  for (const step of ["project_resolved", "binding_saved", "parent_created", "run_created", "artifacts_imported", "parent_summary_written", "spec_review_seeded", "project_activated"]) await store.completeStep(step);
+  await store.block("stale");
+  const reconciled = await store.reconcileCompleted();
+  assert.equal(reconciled.blockedReason, undefined);
+});
+
 test("route gap blocks candidate without creating agents", () => {
   const gap = detectRouteGap({
     requiredRoles: ["spec_reviewer", "scaffold_worker"],

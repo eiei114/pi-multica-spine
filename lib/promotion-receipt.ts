@@ -122,6 +122,18 @@ export class PromotionReceiptStore {
       return next;
     });
   }
+
+  /** Explicitly clears a stale blocker only after a completed receipt is externally reconciled. */
+  async reconcileCompleted(): Promise<PromotionReceipt> {
+    return withFileLock(this.path, async () => {
+      const receipt = await this.load();
+      if (!receipt) throw new Error("Promotion receipt not found");
+      if (receipt.completedSteps.length !== PROMOTION_RECEIPT_STEPS.length) throw new Error("Only fully completed promotion receipts can be reconciled");
+      const next: PromotionReceipt = { ...receipt, status: "completed", blockedReason: undefined, updatedAt: nowIso() };
+      await writeJsonAtomic(this.path, next);
+      return next;
+    });
+  }
 }
 
 export interface RouteGapCheckInput {
