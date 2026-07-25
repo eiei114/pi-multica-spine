@@ -78,7 +78,7 @@ const HERMES_STAGES = [
     outputs: ["11a-visual-review.json"],
     sourceBundle: SUPERPOWERS_BUNDLE,
     instructionRefs: ["superpowers-verification-before-completion.md"],
-    capabilityRequirements: ["visual_qa", "ios_simulator_evidence"],
+    capabilityRequirements: ["visual_qa", "macos_xcode", "ios_simulator_evidence"],
     permissionRequests: ["visual_qa"],
     costClass: "normal" as const,
     capabilityProfileId: "visual_qa",
