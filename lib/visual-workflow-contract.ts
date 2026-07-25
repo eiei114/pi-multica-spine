@@ -151,20 +151,40 @@ export function hashVisualContent(input: unknown): string {
   return sha256Hex(input);
 }
 
+function hashWithoutContentHash(input: Record<string, unknown>): string {
+  const { contentHash: _contentHash, ...payload } = input;
+  return hashVisualContent(payload);
+}
+
+function assertContentHash(input: Record<string, unknown>, label: string): void {
+  if (input.contentHash !== hashWithoutContentHash(input)) {
+    throw new Error(`${label} content hash mismatch`);
+  }
+}
+
 export function assertValidWorldPremise(input: unknown): WorldPremise {
-  return assertValid(validateSchema(WorldPremiseSchema, input), "Invalid World Premise");
+  const value = assertValid(validateSchema(WorldPremiseSchema, input), "Invalid World Premise");
+  assertContentHash(value, "World Premise");
+  return value;
 }
 
 export function assertValidVisualBrief(input: unknown): VisualBrief {
-  return assertValid(validateSchema(VisualBriefSchema, input), "Invalid Visual Brief");
+  const value = assertValid(validateSchema(VisualBriefSchema, input), "Invalid Visual Brief");
+  assertContentHash(value, "Visual Brief");
+  for (const asset of value.assets) assertContentHash(asset, `Visual Asset Spec ${asset.assetId}`);
+  return value;
 }
 
 export function assertValidVisualReview(input: unknown): VisualReview {
-  return assertValid(validateSchema(VisualReviewSchema, input), "Invalid Visual Review");
+  const value = assertValid(validateSchema(VisualReviewSchema, input), "Invalid Visual Review");
+  assertContentHash(value, "Visual Review");
+  return value;
 }
 
 export function assertValidVisualAssetPack(input: unknown): VisualAssetPack {
-  return assertValid(validateSchema(VisualAssetPackSchema, input), "Invalid Visual Asset Pack");
+  const value = assertValid(validateSchema(VisualAssetPackSchema, input), "Invalid Visual Asset Pack");
+  assertContentHash(value, "Visual Asset Pack");
+  return value;
 }
 
 export function assertValidVisualAssetManifest(input: unknown): VisualAssetManifest {

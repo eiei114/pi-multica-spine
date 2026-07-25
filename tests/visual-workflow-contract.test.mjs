@@ -25,9 +25,9 @@ function premise(overrides = {}) {
     provenance: [{ kind: "assumed", ref: "project-default:daily-relic" }],
     confidence: "medium",
     rationale: "The direction fits the title and keeps the daily choice legible.",
-    contentHash: "0".repeat(64),
   };
-  return { ...base, ...overrides };
+  const { contentHash, ...rest } = { ...base, ...overrides };
+  return { ...rest, contentHash: contentHash ?? hash(rest) };
 }
 
 test("World Premise requires autonomous provenance and hash", () => {
@@ -51,7 +51,20 @@ test("autonomous visual decisions continue with explicit assumed provenance", ()
 
 test("Visual Brief and Visual Review carry the upstream hash lineage", () => {
   const world = premise();
-  const worldHash = hash(world);
+  const worldHash = world.contentHash;
+  const assetSpec = {
+    assetId: "card-safe",
+    semanticRole: "safe card icon",
+    states: ["default", "selected"],
+    sourceKind: "generated",
+    format: "png",
+    width: 128,
+    height: 128,
+    alpha: true,
+    destination: "Assets.xcassets",
+    provenance: [{ kind: "inferred", ref: "world:material-language" }],
+    usageNote: "Generated for the Daily Relic MVP.",
+  };
   const brief = {
     schemaVersion: 1,
     target: "ios_game",
@@ -64,25 +77,12 @@ test("Visual Brief and Visual Review carry the upstream hash lineage", () => {
     motionBudget: ["selection pulse under 300ms"],
     soundHapticMapping: ["reward uses a short positive cue"],
     accessibilityRules: ["Never communicate state by color alone."],
-    assets: [{
-      assetId: "card-safe",
-      semanticRole: "safe card icon",
-      states: ["default", "selected"],
-      sourceKind: "generated",
-      format: "png",
-      width: 128,
-      height: 128,
-      alpha: true,
-      destination: "Assets.xcassets",
-      provenance: [{ kind: "inferred", ref: "world:material-language" }],
-      contentHash: "4".repeat(64),
-      usageNote: "Generated for the Daily Relic MVP.",
-    }],
+    assets: [{ ...assetSpec, contentHash: hash(assetSpec) }],
     provenance: [{ kind: "inferred", ref: "world-premise" }],
     confidence: "medium",
     rationale: "The brief turns the world premise into implementable visual rules.",
-    contentHash: "1".repeat(64),
   };
+  brief.contentHash = hash(brief);
   assert.doesNotThrow(() => assertValidVisualBrief(brief));
 
   const review = {
@@ -94,15 +94,14 @@ test("Visual Brief and Visual Review carry the upstream hash lineage", () => {
     accessibilityChecks: ["Dynamic Type", "Reduce Motion", "VoiceOver"],
     verdict: "pass",
     reviewerProvenance: [{ kind: "inferred", ref: "simulator:visual-review" }],
-    contentHash: "3".repeat(64),
   };
+  review.contentHash = hash(review);
   assert.doesNotThrow(() => assertValidVisualReview(review));
 
-  assert.doesNotThrow(() => assertValidVisualAssetPack({
+  const packPayload = {
     schemaVersion: 1,
     target: "ios_game",
     assetBriefHash: brief.contentHash,
-    manifestHash: "5".repeat(64),
     files: [{
       assetId: "card-safe",
       variantId: "card-safe-v1",
@@ -121,9 +120,17 @@ test("Visual Brief and Visual Review carry the upstream hash lineage", () => {
     rejectedVariants: [],
     selectionRubric: ["legibility", "material fit", "state clarity"],
     idempotencyKeys: { "card-safe": "proj_daily-relic:card-safe:" + brief.contentHash },
+  };
+  const packManifestHash = hash(packPayload);
+  const packContent = {
+    ...packPayload,
+    manifestHash: packManifestHash,
     provenance: [{ kind: "inferred", ref: "visual-brief:v1" }],
     confidence: "high",
     rationale: "The selected file is deterministic and ready for iOS integration.",
-    contentHash: "7".repeat(64),
+  };
+  assert.doesNotThrow(() => assertValidVisualAssetPack({
+    ...packContent,
+    contentHash: hash(packContent),
   }));
 });
