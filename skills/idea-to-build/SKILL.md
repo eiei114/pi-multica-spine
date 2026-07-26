@@ -20,7 +20,7 @@ Human-initiated entry into the **Hermes Idea-to-Build** workflow on the **sandbo
 2. If the rough idea is not already in the message after the command, ask once: **「どんなアイデアを作りたいですか？」**
 3. Do not debate the idea at length — capture it verbatim (light formatting OK).
 4. Bootstrap the workflow only (see below). Do not advance a campaign during entry.
-5. Advance the local lane to `promotion_ready` without per-stage human approval. Do not report a Multica parent or Project before promotion preflight succeeds.
+5. After explicit human approval, advance the local lane one stage at a time until `promotion_ready`. Report the explicit `visualTarget` when supplied. Do not report a Multica parent or Project before promotion preflight succeeds.
 
 ## Bootstrap (live)
 
@@ -29,6 +29,12 @@ From the **pi-multica-spine package root** (repo clone or installed npm package)
 ```bash
 npm run build
 node scripts/workflow-idea-entry.mjs --rough-idea "<ROUGH_IDEA>" --execute --json
+```
+
+For an iOS/game or other visual product, pass the target explicitly. Never infer it from keywords:
+
+```bash
+node scripts/workflow-idea-entry.mjs --rough-idea "<ROUGH_IDEA>" --visual-target ios_game --execute --json
 ```
 
 Use a here-doc for multi-line ideas:
@@ -61,6 +67,28 @@ After `--execute`:
 3. No Project, parent issue, Autopilot, resource, or Spine state is created.
 
 At `build_handoff`, the implementation lane creates or reuses its Project, attaches implementation resources, and begins using Spine. Until then, the user does **not** need to run `multica` commands.
+
+## Visual and iOS build lane
+
+When `--visual-target visual|game|ios_game` is explicit, Idea-to-Build inserts and requires `ui_design_brief` between `design_doc` and `implementation_spec`. The brief must carry:
+
+- a persisted design system: semantic palette/surface roles, typography scale, spacing, and anti-patterns;
+- screen/state matrix and interaction hierarchy;
+- accessibility rules: contrast, Dynamic Type, VoiceOver order/labels, 44pt controls, color-not-only semantics, and Reduce Motion;
+- implementation boundaries: preserve mechanics and asset IDs; fail closed when required assets/capabilities are missing;
+- an evidence plan: named states, device/OS, screenshot/video requirements, commit SHA, and SHA-256 manifest.
+
+For iOS work, the implementation agent follows the Tiny Loop Factory reference loop:
+
+1. **UI/UX Pro Max** — generate/persist the design system before screen changes.
+2. **iOS UI Debug Loop** — capture symptom → select lane → smallest useful fix → recapture.
+3. **iOS Local Build Loop** — run the exact macOS `xcodebuild` command and record pass/fail evidence.
+4. **iOS Debugger Agent** — use the booted Mac Simulator for UI tree, screenshots, logs, and gameplay video when runtime evidence is needed.
+5. **SwiftUI Expert** — review view structure, Dynamic Type, accessibility order, scroll safety, and API availability.
+
+Functional PASS is not Visual PASS. `visual_review` remains a separate target-conditional gate after implementation and verification. The UI brief cannot be skipped, and each local stage advances only after explicit human approval. Missing macOS/Xcode or Simulator evidence blocks the visual lane; no screenshots or findings may be fabricated. Human-owned actions remain merge, signing, TestFlight, App Store, production, billing, secrets, and destructive operations.
+
+See [`docs/idea-to-build-visual-ui-workflow.md`](../../docs/idea-to-build-visual-ui-workflow.md) for the complete stage/evidence contract.
 
 ## Report back
 

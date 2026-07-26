@@ -59,3 +59,37 @@ test("only a promotion-ready local lane can persist its implementation project",
   assert.equal(lane.status, "promoted");
   assert.equal(lane.implementationProjectId, "daily-relic");
 });
+
+test("visual local lane requires the explicit UI design brief before build handoff", () => {
+  let lane = createIdeaLocalLane({
+    sessionId: "idea-visual",
+    workflowRunId: "idea-visual",
+    roughIdea: "A sufficiently long visual game idea",
+    visualTarget: "ios_game",
+  });
+  for (const stageId of ["question_resolution", "design_doc", "ui_design_brief", "implementation_spec", "build_handoff"]) {
+    lane = IdeaLocalLaneStore.advance(lane);
+    assert.equal(lane.currentStageId, stageId);
+  }
+  assert.equal(IdeaLocalLaneStore.advance(lane).status, "promotion_ready");
+});
+
+test("local idea lane rejects a visual target change when reusing a session", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "idea-local-lane-target-"));
+  const store = new IdeaLocalLaneStore(cwd);
+  await store.create({
+    sessionId: "idea-target",
+    workflowRunId: "idea-target",
+    roughIdea: "A sufficiently long visual game idea",
+    visualTarget: "ios_game",
+  });
+  await assert.rejects(
+    store.create({
+      sessionId: "idea-target",
+      workflowRunId: "idea-target",
+      roughIdea: "A sufficiently long visual game idea",
+      visualTarget: "game",
+    }),
+    /visualTarget is immutable/,
+  );
+});

@@ -8,6 +8,7 @@ const {
   WorkflowControllerLeaseStore,
   assertGenericReconcilerMayAdvance,
   eventDedupeIdentity,
+  isStaleWorkflowEvent,
   reconcileWorkflowEvents,
   runControllerAutopilotTick,
   shouldGenericReconcilerSkip,
@@ -124,6 +125,38 @@ test("reconcileWorkflowEvents dedupes and rejects stale events", () => {
   assert.equal(result.accepted[0].eventId, "e1");
 });
 
+test("isStaleWorkflowEvent checks stage attempts and ledger state versions", () => {
+  const ledger = {
+    workflowRunId: "run_123",
+    stateVersion: 5,
+    stages: {
+      capture_interview: { stageId: "capture_interview", attempt: 2 },
+    },
+  };
+
+  assert.equal(
+    isStaleWorkflowEvent(
+      { eventId: "stale-attempt", workflowRunId: "run_123", stageId: "capture_interview", details: { attempt: 1 } },
+      ledger,
+    ),
+    true,
+  );
+  assert.equal(
+    isStaleWorkflowEvent(
+      { eventId: "stale-version", workflowRunId: "run_123", stageId: "capture_interview", details: { attempt: 2, stateVersion: 4 } },
+      ledger,
+    ),
+    true,
+  );
+  assert.equal(
+    isStaleWorkflowEvent(
+      { eventId: "fresh", workflowRunId: "run_123", stageId: "capture_interview", details: { attempt: 2, stateVersion: 5 } },
+      ledger,
+    ),
+    false,
+  );
+});
+
 test("WorkflowControllerLeaseStore rejects double-acquire by another writer", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "controller-lease-"));
   const store = new WorkflowControllerLeaseStore(cwd);
@@ -210,6 +243,51 @@ test("runControllerAutopilotTick seeds the next stage after acceptance", async (
 
   assert.equal(seeded.action, "seed_next_stage");
   assert.equal(seeded.ledger.stages.spec_review.status, "seeded");
+});
+
+test("runControllerAutopilotTick releases the lease when a stage is blocked", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "controller-blocked-route-"));
+  const runStore = await createRunStore(cwd, "accepted");
+  const leaseStore = new WorkflowControllerLeaseStore(cwd);
+  const manifest = sampleManifest();
+  const binding = {
+    ...sampleBinding(),
+    capabilityPools: [{
+      profileId: "reviewer",
+      candidates: [{
+        agentId: "agent_review",
+        runtimeId: "runtime_review",
+        provider: "provider",
+        model: "model",
+        capabilities: [],
+        permissionCapabilities: [],
+        priority: 1,
+      }],
+      telemetryPolicy: {},
+    }],
+  };
+  const now = new Date("2026-07-23T12:00:00.000Z");
+  const lease = await leaseStore.acquire("run_123", "controller_a", { now });
+  const ledger = await runStore.load("run_123");
+  const blocked = await runControllerAutopilotTick(
+    {
+      workflowRunId: "run_123",
+      holderId: "controller_a",
+      ledger,
+      lease,
+      manifest,
+      binding,
+      inventory: [],
+      telemetryStore: { load: async () => undefined },
+      now,
+    },
+    { leaseStore, runStore },
+  );
+
+  assert.equal(blocked.action, "block_stage");
+  assert.equal(blocked.stopped, true);
+  assert.ok(blocked.lease?.releasedAt);
+  assert.equal(blocked.ledger.stages.spec_review.status, "blocked");
 });
 
 test("runControllerAutopilotTick validates one produced stage", async () => {

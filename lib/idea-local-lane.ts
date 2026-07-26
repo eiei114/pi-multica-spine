@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { readJsonFile, withFileLock, writeJsonAtomic } from "./json-file-store.ts";
 import { SPINE_STATE_ROOT } from "./types.ts";
+import type { VisualTarget } from "./visual-workflow-contract.ts";
 
 export const LOCAL_IDEA_STAGE_IDS = [
   "capture",
@@ -10,13 +11,23 @@ export const LOCAL_IDEA_STAGE_IDS = [
   "build_handoff",
 ] as const;
 
-export type LocalIdeaStageId = (typeof LOCAL_IDEA_STAGE_IDS)[number];
+export const LOCAL_VISUAL_IDEA_STAGE_IDS = [
+  "capture",
+  "question_resolution",
+  "design_doc",
+  "ui_design_brief",
+  "implementation_spec",
+  "build_handoff",
+] as const;
+
+export type LocalIdeaStageId = (typeof LOCAL_VISUAL_IDEA_STAGE_IDS)[number];
 
 export interface IdeaLocalLaneState {
   schemaVersion: 1;
   sessionId: string;
   workflowRunId: string;
   roughIdea: string;
+  visualTarget?: VisualTarget;
   currentStageId: LocalIdeaStageId;
   status: "waiting" | "promotion_ready" | "promoted";
   implementationProjectId?: string;
@@ -29,6 +40,7 @@ export interface CreateIdeaLocalLaneInput {
   sessionId: string;
   workflowRunId: string;
   roughIdea: string;
+  visualTarget?: VisualTarget;
 }
 
 function nowIso(): string {
@@ -42,6 +54,7 @@ export function createIdeaLocalLane(input: CreateIdeaLocalLaneInput): IdeaLocalL
     sessionId: input.sessionId,
     workflowRunId: input.workflowRunId,
     roughIdea: input.roughIdea,
+    visualTarget: input.visualTarget,
     currentStageId: "capture",
     status: "waiting",
     createdAt: timestamp,
@@ -67,6 +80,9 @@ export class IdeaLocalLaneStore {
         if (existing.sessionId !== input.sessionId || existing.workflowRunId !== input.workflowRunId) {
           throw new Error("Local idea lane is already bound to a different session");
         }
+        if (input.visualTarget !== undefined && existing.visualTarget !== input.visualTarget) {
+          throw new Error("Local idea lane visualTarget is immutable once the session exists");
+        }
         return existing;
       }
       const state = createIdeaLocalLane(input);
@@ -77,14 +93,17 @@ export class IdeaLocalLaneStore {
 
   static advance(state: IdeaLocalLaneState): IdeaLocalLaneState {
     if (state.status === "promotion_ready" || state.status === "promoted") return state;
-    const currentIndex = LOCAL_IDEA_STAGE_IDS.indexOf(state.currentStageId);
+    const stages = state.visualTarget && state.visualTarget !== "non_visual"
+      ? LOCAL_VISUAL_IDEA_STAGE_IDS
+      : LOCAL_IDEA_STAGE_IDS;
+    const currentIndex = stages.indexOf(state.currentStageId as never);
     if (currentIndex < 0) throw new Error(`Unknown local idea stage: ${state.currentStageId}`);
-    if (currentIndex === LOCAL_IDEA_STAGE_IDS.length - 1) {
+    if (currentIndex === stages.length - 1) {
       return { ...state, status: "promotion_ready", updatedAt: nowIso() };
     }
     return {
       ...state,
-      currentStageId: LOCAL_IDEA_STAGE_IDS[currentIndex + 1],
+      currentStageId: stages[currentIndex + 1],
       updatedAt: nowIso(),
     };
   }

@@ -8,12 +8,14 @@ This project follows semantic versioning.
 
 ### Fixed
 
+- CodeRabbit review findings: preserve visual targets across resumed lanes/artifacts, reject malformed visual stages and non-finite asset scores, verify visual manifest hashes, propagate `--visual-target` continuation commands, and release leases after blocked routing.
 - README Install section: close the version-pin code fence, remove a stray fence closer after the maintenance-build skill, fix malformed ``npm run ci`` backticks in Development, and advance the pin example to `@0.12.7`.
 - `check:readme` validates README fence balance, install pin version alignment, and the known Install/Development markdown regressions.
 - `check:idea-entry` now runs `scripts/ci-offline-idea-entry-check.mjs` with a fixed invocation token, matching session suffix, and stale `.ci-tmp` scratch repair so repeated local `npm run ci` runs do not fail on an existing idea session manifest.
 
 ### Added
 
+- Explicit `--visual-target` Idea-to-Build activation for `visual`, `game`, and `ios_game`; visual sessions now require `ui_design_brief` before implementation specification and document the Tiny Loop Factory iOS UI/build/evidence loop.
 - Automatic Idea Portfolio Admission issues 04–11: hash-addressed local artifact lane, Portfolio Queue global-1 admission with dry-run/apply, Promotion Receipt recovery and route-gap skip, approved Build Template Catalog entries for SwiftUI iOS / Astro Web / Tauri Windows, resumable Scaffold Resolution, delivery lifecycle reconciliation, and fleet enablement preflight gate.
 - Portfolio fleet activation command, hash-verified evidence bundle, and fail-closed local-lane activation seam.
 - Explicit operator-configured Multica promotion factory and `workflow-portfolio-promote` command; no ambient route or client discovery.

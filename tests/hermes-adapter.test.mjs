@@ -10,6 +10,8 @@ import {
   createHermesStageExecutionPacket,
   evaluateHermesSpecReview,
   HERMES_ADAPTER_ID,
+  HERMES_ASSET_GENERATION_STAGE_ID,
+  HERMES_VISUAL_REVIEW_STAGE_ID,
   HERMES_MAX_FIX_CYCLES,
   HERMES_PINNED_SOURCE_BUNDLES,
   loadPinnedHermesBundles,
@@ -21,13 +23,14 @@ import {
 import { validateWorkflowCatalogManifest } from "../lib/workflow-catalog.ts";
 import { WorkflowRunStateStore } from "../lib/workflow-run-state.ts";
 
-function sampleBinding(enabledOptionalStages = []) {
+function sampleBinding(enabledOptionalStages = [], visualTarget) {
   const manifest = createHermesCompositeManifest();
   return {
     schemaVersion: 1,
     multicaProjectId: "proj_123",
     adapterId: manifest.adapterId,
     adapterVersion: manifest.adapterVersion,
+    visualTarget,
     artifactRoot: "Artifacts/workflows",
     enabledOptionalStages,
     projectGrants: ["design_doc", "implementation"],
@@ -67,6 +70,8 @@ test("Hermes manifest pins both audited bundles and runtime loads only by digest
   const validation = validateWorkflowCatalogManifest(manifest);
   assert.equal(validation.ok, true);
   assert.equal(manifest.adapterId, HERMES_ADAPTER_ID);
+  assert.equal(manifest.adapterVersion, 2);
+  assert.match(manifest.compatibleFrom[0], /hermes-idea-to-build@1#/);
   assert.deepEqual(
     manifest.sourceBundles.map((bundle) => bundle.sourceCommit),
     [
@@ -164,7 +169,7 @@ test("Hermes Question Tasks resolve serially with hashed provenance", () => {
   assert.equal(unresolved.answerStatus, "unresolved");
 });
 
-test("Hermes optional UI stage is skipped unless the Project Binding enables it", () => {
+test("Hermes UI design stage activates only from an explicit visual target", () => {
   const manifest = createHermesCompositeManifest();
   const ledger = {
     workflowRunId: "run_hermes",
@@ -174,8 +179,35 @@ test("Hermes optional UI stage is skipped unless the Project Binding enables it"
   };
   assert.equal(resolveNextHermesStageTarget(ledger, manifest, sampleBinding()).stageId, "implementation_spec");
   assert.equal(
-    resolveNextHermesStageTarget(ledger, manifest, sampleBinding(["ui_design_brief"])).stageId,
+    resolveNextHermesStageTarget(ledger, manifest, sampleBinding([], "ios_game")).stageId,
     "ui_design_brief",
+  );
+});
+
+test("Hermes visual stages activate only from explicit visual target metadata", () => {
+  const manifest = createHermesCompositeManifest();
+  const implementationPlanLedger = {
+    workflowRunId: "run_visual",
+    adapterId: HERMES_ADAPTER_ID,
+    currentStageId: "implementation_plan",
+    stages: { implementation_plan: { stageId: "implementation_plan", status: "accepted", attempt: 1 } },
+  };
+  assert.equal(
+    resolveNextHermesStageTarget(implementationPlanLedger, manifest, sampleBinding()).stageId,
+    "implementation",
+  );
+  assert.equal(
+    resolveNextHermesStageTarget(implementationPlanLedger, manifest, sampleBinding([], "ios_game")).stageId,
+    HERMES_ASSET_GENERATION_STAGE_ID,
+  );
+  const verificationLedger = {
+    ...implementationPlanLedger,
+    currentStageId: "verification",
+    stages: { verification: { stageId: "verification", status: "accepted", attempt: 1 } },
+  };
+  assert.equal(
+    resolveNextHermesStageTarget(verificationLedger, manifest, sampleBinding([], "ios_game")).stageId,
+    HERMES_VISUAL_REVIEW_STAGE_ID,
   );
 });
 

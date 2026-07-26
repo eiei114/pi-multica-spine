@@ -5,6 +5,7 @@ import { resolveStageActivation } from "./workflow-catalog.ts";
 import { WorkflowCapabilityPoolSchema } from "./workflow-routing.ts";
 import { StringEnum } from "./schema.ts";
 import { assertValid, type ValidationResult, uniqueValues, validateSchema } from "./validation.ts";
+import { VisualTargetSchema } from "./visual-workflow-contract.ts";
 
 export const WorkflowExecutionModeSchema = StringEnum(["interactive", "autonomous_until_final"]);
 export type WorkflowExecutionMode = Static<typeof WorkflowExecutionModeSchema>;
@@ -36,6 +37,7 @@ export const ProjectWorkflowBindingSchema = Type.Object({
   projectKey: Type.Optional(Type.String({ minLength: 1 })),
   adapterId: Type.String({ minLength: 1 }),
   adapterVersion: Type.Integer({ minimum: 1 }),
+  visualTarget: Type.Optional(VisualTargetSchema),
   artifactRoot: Type.String({ minLength: 1 }),
   enabledOptionalStages: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
   projectGrants: Type.Array(Type.String({ minLength: 1 })),

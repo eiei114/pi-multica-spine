@@ -62,6 +62,14 @@ test("validateWorkflowCatalogManifest rejects primary source bundle mismatch", (
   assert.ok(result.errors.includes("source-bundle-primary-mismatch"));
 });
 
+test("validateWorkflowCatalogManifest requires a target for target-conditional stages", () => {
+  const manifest = sampleManifest();
+  manifest.stages.push({ stageId: "visual_review", role: "reviewer", activation: "target_conditional" });
+  const result = validateWorkflowCatalogManifest(manifest);
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.includes("target-required-for-target-conditional:visual_review"));
+});
+
  test("workflow catalog entry transition follows lifecycle rules", () => {
   const entry = createWorkflowCatalogEntry(sampleManifest());
   assert.equal(entry.status, "quarantined");

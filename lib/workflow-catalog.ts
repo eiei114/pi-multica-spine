@@ -13,7 +13,7 @@ export type WorkflowCatalogStatus = Static<typeof WorkflowCatalogStatusSchema>;
 export const WorkflowQuestionParallelismSchema = StringEnum(["serial", "bounded"]);
 export type WorkflowQuestionParallelism = Static<typeof WorkflowQuestionParallelismSchema>;
 
-export const WorkflowStageActivationSchema = StringEnum(["always", "binding_optional", "controller_conditional"]);
+export const WorkflowStageActivationSchema = StringEnum(["always", "binding_optional", "controller_conditional", "target_conditional"]);
 export type WorkflowStageActivation = Static<typeof WorkflowStageActivationSchema>;
 
 export function resolveStageActivation(stage: Pick<WorkflowCatalogStage, "optional" | "activation">): WorkflowStageActivation {
@@ -36,6 +36,7 @@ export const WorkflowCatalogStageSchema = Type.Object({
   role: Type.String({ minLength: 1 }),
   optional: Type.Optional(Type.Boolean()),
   activation: Type.Optional(WorkflowStageActivationSchema),
+  target: Type.Optional(StringEnum(["visual"])),
   questionParallelism: Type.Optional(WorkflowQuestionParallelismSchema),
   outputs: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
   sourceBundle: Type.Optional(Type.String({ minLength: 1 })),
@@ -119,6 +120,9 @@ function validateCatalogSemantics(manifest: WorkflowCatalogManifest): string[] {
     }
     if ((stage.sourceBundle && !stage.instructionRefs?.length) || (!stage.sourceBundle && stage.instructionRefs?.length)) {
       errors.push(`stage-source-instructions-must-be-paired:${stage.stageId}`);
+    }
+    if (stage.activation === "target_conditional" && !stage.target) {
+      errors.push(`target-required-for-target-conditional:${stage.stageId}`);
     }
   }
 
