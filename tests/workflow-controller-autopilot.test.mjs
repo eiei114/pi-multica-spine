@@ -8,6 +8,7 @@ const {
   WorkflowControllerLeaseStore,
   assertGenericReconcilerMayAdvance,
   eventDedupeIdentity,
+  isStaleWorkflowEvent,
   reconcileWorkflowEvents,
   runControllerAutopilotTick,
   shouldGenericReconcilerSkip,
@@ -122,6 +123,38 @@ test("reconcileWorkflowEvents dedupes and rejects stale events", () => {
   assert.equal(result.rejectedStale, 2);
   assert.equal(result.accepted.length, 1);
   assert.equal(result.accepted[0].eventId, "e1");
+});
+
+test("isStaleWorkflowEvent checks stage attempts and ledger state versions", () => {
+  const ledger = {
+    workflowRunId: "run_123",
+    stateVersion: 5,
+    stages: {
+      capture_interview: { stageId: "capture_interview", attempt: 2 },
+    },
+  };
+
+  assert.equal(
+    isStaleWorkflowEvent(
+      { eventId: "stale-attempt", workflowRunId: "run_123", stageId: "capture_interview", details: { attempt: 1 } },
+      ledger,
+    ),
+    true,
+  );
+  assert.equal(
+    isStaleWorkflowEvent(
+      { eventId: "stale-version", workflowRunId: "run_123", stageId: "capture_interview", details: { attempt: 2, stateVersion: 4 } },
+      ledger,
+    ),
+    true,
+  );
+  assert.equal(
+    isStaleWorkflowEvent(
+      { eventId: "fresh", workflowRunId: "run_123", stageId: "capture_interview", details: { attempt: 2, stateVersion: 5 } },
+      ledger,
+    ),
+    false,
+  );
 });
 
 test("WorkflowControllerLeaseStore rejects double-acquire by another writer", async () => {

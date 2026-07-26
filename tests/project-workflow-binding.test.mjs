@@ -26,6 +26,7 @@ function sampleManifest() {
     stages: [
       { stageId: "capture_interview", role: "interview" },
       { stageId: "spec_review", role: "reviewer" },
+      { stageId: "optional_review", role: "reviewer", activation: "binding_optional" },
     ],
   };
 }
