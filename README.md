@@ -93,7 +93,8 @@ Replace `pi-multica-spine` with the exact `name` from `package.json` when you fo
 Pin a specific version when you want reproducible installs:
 
 ```bash
-pi install npm:pi-multica-spine@0.8.0
+pi install npm:pi-multica-spine@0.12.7
+```
 
 ### Idea-to-build entry skill
 
@@ -120,8 +121,6 @@ See [`docs/idea-to-build-visual-ui-workflow.md`](docs/idea-to-build-visual-ui-wo
 ```
 
 Paste your maintenance brief, then the agent runs `scripts/workflow-maintenance-entry.mjs --execute` on the Maintenance production-run lane (`productionAllowed=false`).
-
-```
 
 Install into the current project instead of your user Pi settings:
 
@@ -266,7 +265,7 @@ npm install
 npm run ci
 ```
 
-``npm run ci` runs build, typecheck, coverage gate, changelog lint, template re-sync check, sandbox checklist, sandbox full-closeout rehearsal, sandbox closeout evidence, production rehearsal, production gate checklist, `pack:check`, `pack:smoke` (install tarball + digest CLI), both walkthrough smokes, and `npm pack --dry-run`.
+`npm run ci` runs build, typecheck, coverage gate, changelog lint, `check:readme`, template re-sync check, sandbox checklist, sandbox full-closeout rehearsal, sandbox closeout evidence, production rehearsal, production gate checklist, `pack:check`, `pack:smoke` (install tarball + digest CLI), both walkthrough smokes, and `npm pack --dry-run`.
 
 Individual checks:
 
