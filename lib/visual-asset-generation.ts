@@ -64,6 +64,9 @@ export function selectAssetVariant(input: {
   confidence: VisualAssetSelection["confidence"];
 }): VisualAssetSelection {
   if (!input.variants.length) throw new Error(`No asset variants available: ${input.assetId}`);
+  if (!input.variants.every((variant) => Number.isFinite(variant.score))) {
+    throw new Error(`Asset variant scores must be finite: ${input.assetId}`);
+  }
   const sorted = [...input.variants].sort((left, right) => right.score - left.score || left.variantId.localeCompare(right.variantId));
   const winner = sorted[0];
   return {

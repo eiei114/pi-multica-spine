@@ -121,6 +121,9 @@ function validateCatalogSemantics(manifest: WorkflowCatalogManifest): string[] {
     if ((stage.sourceBundle && !stage.instructionRefs?.length) || (!stage.sourceBundle && stage.instructionRefs?.length)) {
       errors.push(`stage-source-instructions-must-be-paired:${stage.stageId}`);
     }
+    if (stage.activation === "target_conditional" && !stage.target) {
+      errors.push(`target-required-for-target-conditional:${stage.stageId}`);
+    }
   }
 
   return errors;

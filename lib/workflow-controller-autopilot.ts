@@ -507,11 +507,17 @@ export async function runControllerAutopilotTick(
           const reasons = selection.decision.blockedCandidates
             .flatMap((candidate) => candidate.reasons)
             .filter((reason, index, all) => all.indexOf(reason) === index);
+          const released = await leaseStore.release(
+            input.workflowRunId,
+            input.holderId,
+            lease.fencingToken,
+            now,
+          );
           return {
             action: "block_stage",
             stopped: true,
             reason: reasons.length ? `route_failure:${reasons.join(",")}` : "route_failure",
-            lease,
+            lease: released,
             ledger,
             reconcile,
           };

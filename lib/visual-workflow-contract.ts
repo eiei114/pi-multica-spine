@@ -8,6 +8,9 @@ const Sha256Hex = Type.String({ pattern: "^[a-f0-9]{64}$" });
 export const VisualTargetSchema = StringEnum(["non_visual", "visual", "game", "ios_game"]);
 export type VisualTarget = Static<typeof VisualTargetSchema>;
 
+export const VisualOnlyTargetSchema = StringEnum(["visual", "game", "ios_game"]);
+export type VisualOnlyTarget = Static<typeof VisualOnlyTargetSchema>;
+
 export const VisualAssetSourceKindSchema = StringEnum(["generated", "human_provided", "system_symbol", "vector"]);
 export type VisualAssetSourceKind = Static<typeof VisualAssetSourceKindSchema>;
 
@@ -83,7 +86,7 @@ export type VisualAssetSelection = Static<typeof VisualAssetSelectionSchema>;
 
 export const VisualAssetPackSchema = Type.Object({
   schemaVersion: Type.Integer({ minimum: 1 }),
-  target: VisualTargetSchema,
+  target: VisualOnlyTargetSchema,
   assetBriefHash: Sha256Hex,
   manifestHash: Sha256Hex,
   files: Type.Array(VisualAssetFileSchema, { minItems: 1 }),
@@ -103,7 +106,7 @@ export type VisualAssetManifest = VisualAssetPack;
 
 export const VisualBriefSchema = Type.Object({
   schemaVersion: Type.Integer({ minimum: 1 }),
-  target: VisualTargetSchema,
+  target: VisualOnlyTargetSchema,
   worldPremiseHash: Sha256Hex,
   visualDirectionVersion: Type.String({ minLength: 1 }),
   paletteRoles: Type.Record(Type.String(), Type.String({ minLength: 1 })),
@@ -131,7 +134,7 @@ export type VisualReviewEvidence = Static<typeof VisualReviewEvidenceSchema>;
 
 export const VisualReviewSchema = Type.Object({
   schemaVersion: Type.Integer({ minimum: 1 }),
-  target: VisualTargetSchema,
+  target: VisualOnlyTargetSchema,
   commitHash: Type.String({ minLength: 7 }),
   previewConfiguration: Type.Optional(Type.String({ minLength: 1 })),
   evidence: Type.Array(VisualReviewEvidenceSchema, { minItems: 1 }),
@@ -183,6 +186,19 @@ export function assertValidVisualReview(input: unknown): VisualReview {
 
 export function assertValidVisualAssetPack(input: unknown): VisualAssetPack {
   const value = assertValid(validateSchema(VisualAssetPackSchema, input), "Invalid Visual Asset Pack");
+  const expectedManifestHash = sha256Hex({
+    schemaVersion: value.schemaVersion,
+    target: value.target,
+    assetBriefHash: value.assetBriefHash,
+    files: value.files,
+    selections: value.selections,
+    rejectedVariants: value.rejectedVariants,
+    selectionRubric: value.selectionRubric,
+    idempotencyKeys: value.idempotencyKeys,
+  });
+  if (value.manifestHash !== expectedManifestHash) {
+    throw new Error("Visual Asset Pack manifest hash mismatch");
+  }
   assertContentHash(value, "Visual Asset Pack");
   return value;
 }

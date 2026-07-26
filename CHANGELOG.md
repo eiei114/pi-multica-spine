@@ -8,6 +8,7 @@ This project follows semantic versioning.
 
 ### Fixed
 
+- CodeRabbit review findings: preserve visual targets across resumed lanes/artifacts, reject malformed visual stages and non-finite asset scores, verify visual manifest hashes, propagate `--visual-target` continuation commands, and release leases after blocked routing.
 - `check:idea-entry` now runs `scripts/ci-offline-idea-entry-check.mjs` with a fixed invocation token, matching session suffix, and stale `.ci-tmp` scratch repair so repeated local `npm run ci` runs do not fail on an existing idea session manifest.
 
 ### Added

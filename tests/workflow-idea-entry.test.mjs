@@ -111,6 +111,21 @@ test("parseWorkflowIdeaEntryArgs accepts explicit visual target", () => {
   assert.equal(validateVisualTarget("ios-app").ok, false);
 });
 
+test("parseWorkflowIdeaEntryArgs distinguishes a missing visual target value", () => {
+  const args = parseWorkflowIdeaEntryArgs(["--visual-target"]);
+  assert.equal(args.visualTarget, undefined);
+  assert.equal(args.visualTargetMissingValue, true);
+});
+
+test("runWorkflowIdeaEntry rejects a visual target flag without a value", async () => {
+  const report = await runWorkflowIdeaEntry({
+    roughIdea: "Build a sufficiently long visual product idea",
+    visualTargetMissingValue: true,
+  });
+  assert.equal(report.ok, false);
+  assert.match(report.error, /--visual-target requires a value/);
+});
+
 test("parseWorkflowIdeaEntryArgs requires explicit full campaign opt-in", () => {
   const bootstrap = parseWorkflowIdeaEntryArgs(["--execute"]);
   const fullCampaign = parseWorkflowIdeaEntryArgs(["--execute", "--run-full-campaign"]);
@@ -198,6 +213,8 @@ test("runWorkflowIdeaEntry offline plan carries explicit visual target", async (
   });
   assert.equal(report.ok, true);
   assert.equal(report.visualTarget, "ios_game");
+  assert.match(report.next, /--visual-target ios_game/);
+  assert.ok(report.nextSteps.some((step) => step.includes("--visual-target ios_game")));
 });
 
 test("runWorkflowIdeaEntry execute creates only a local capture session", async () => {

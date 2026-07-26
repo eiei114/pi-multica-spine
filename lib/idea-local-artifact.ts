@@ -65,6 +65,9 @@ export function createLocalArtifactRecord(input: RecordLocalArtifactInput): Idea
 }
 
 export function validatePromotionReadyArtifacts(registry: IdeaLocalArtifactRegistry, visualTarget?: VisualTarget): void {
+  if (registry.visualTarget !== undefined && visualTarget !== undefined && registry.visualTarget !== visualTarget) {
+    throw new Error("Local artifact registry visualTarget is immutable once recorded");
+  }
   const recorded = new Set(registry.artifacts.map((artifact) => artifact.stageId));
   const target = visualTarget ?? registry.visualTarget;
   const requiredStages = target && target !== "non_visual"
@@ -120,6 +123,9 @@ export class IdeaLocalArtifactStore {
       if (existing && (existing.sessionId !== input.sessionId || existing.workflowRunId !== input.workflowRunId)) {
         throw new Error("Local artifact registry identity mismatch");
       }
+      if (existing && input.visualTarget !== undefined && existing.visualTarget !== input.visualTarget) {
+        throw new Error("Local artifact registry visualTarget is immutable once recorded");
+      }
       const record = createLocalArtifactRecord(input);
       const artifacts = [...(existing?.artifacts ?? [])];
       const duplicateIndex = artifacts.findIndex((artifact) => artifact.stageId === input.stageId);
@@ -134,7 +140,7 @@ export class IdeaLocalArtifactStore {
         schemaVersion: 1,
         sessionId: input.sessionId,
         workflowRunId: input.workflowRunId,
-        visualTarget: input.visualTarget ?? existing?.visualTarget,
+        visualTarget: existing?.visualTarget ?? input.visualTarget,
         artifacts,
         artifactBundleHash: computeBundleHash(artifacts),
         updatedAt: nowIso(),

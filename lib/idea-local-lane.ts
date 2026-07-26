@@ -80,6 +80,9 @@ export class IdeaLocalLaneStore {
         if (existing.sessionId !== input.sessionId || existing.workflowRunId !== input.workflowRunId) {
           throw new Error("Local idea lane is already bound to a different session");
         }
+        if (input.visualTarget !== undefined && existing.visualTarget !== input.visualTarget) {
+          throw new Error("Local idea lane visualTarget is immutable once the session exists");
+        }
         return existing;
       }
       const state = createIdeaLocalLane(input);

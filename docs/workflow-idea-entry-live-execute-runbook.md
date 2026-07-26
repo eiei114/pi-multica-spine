@@ -75,7 +75,7 @@ node scripts/workflow-idea-build-handoff.mjs --canary-path <session-path> --proj
 
 `--apply` lists Projects, reuses exactly one exact-title `planned` Project, or creates one. Duplicate planned titles fail closed. It records the selected Project in the local session and prints the mandatory `multica_spine_bind` handoff; perform that bind in the implementation agent session before creating implementation work.
 
-For `visual`, `game`, and `ios_game` sessions, the local lane includes `ui_design_brief` before `implementation_spec`. The implementation handoff must reference the brief, and the implementation lane must produce visual evidence for the later target-conditional `visual_review` stage. See [`idea-to-build-visual-ui-workflow.md`](idea-to-build-visual-ui-workflow.md).
+For `visual`, `game`, and `ios_game` sessions, the local lane includes `ui_design_brief` before `implementation_spec`. After each explicit human approval, advance one local stage; do not skip the UI brief. The implementation handoff must reference the brief, and the implementation lane must produce visual evidence for the later target-conditional `visual_review` stage. See [`idea-to-build-visual-ui-workflow.md`](idea-to-build-visual-ui-workflow.md).
 
 ### Plan first (no Multica mutations)
 

@@ -84,6 +84,11 @@ test("Visual Brief and Visual Review carry the upstream hash lineage", () => {
   };
   brief.contentHash = hash(brief);
   assert.doesNotThrow(() => assertValidVisualBrief(brief));
+  const nonVisualBrief = { ...brief, target: "non_visual" };
+  assert.throws(
+    () => assertValidVisualBrief({ ...nonVisualBrief, contentHash: hash(nonVisualBrief) }),
+    /Invalid Visual Brief/,
+  );
 
   const review = {
     schemaVersion: 1,
@@ -133,4 +138,10 @@ test("Visual Brief and Visual Review carry the upstream hash lineage", () => {
     ...packContent,
     contentHash: hash(packContent),
   }));
+
+  const tamperedManifest = { ...packContent, manifestHash: "0".repeat(64) };
+  assert.throws(
+    () => assertValidVisualAssetPack({ ...tamperedManifest, contentHash: hash(tamperedManifest) }),
+    /manifest hash mismatch/,
+  );
 });

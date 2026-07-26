@@ -51,7 +51,10 @@ export function parseWorkflowIdeaEntryArgs(argv = process.argv.slice(2)) {
   const invocationTokenArg = argv.find((arg, index) => argv[index - 1] === "--invocation-token");
   const vaultRootArg = argv.find((arg, index) => argv[index - 1] === "--vault-root");
   const sessionsRootArg = argv.find((arg, index) => argv[index - 1] === "--sessions-root");
-  const visualTargetArg = argv.find((arg, index) => argv[index - 1] === "--visual-target");
+  const visualTargetIndex = argv.indexOf("--visual-target");
+  const visualTargetProvided = visualTargetIndex >= 0;
+  const visualTargetArg = visualTargetProvided ? argv[visualTargetIndex + 1] : undefined;
+  const visualTargetMissingValue = visualTargetProvided && (!visualTargetArg || visualTargetArg.startsWith("--"));
   return {
     execute,
     runFullCampaign,
@@ -69,6 +72,7 @@ export function parseWorkflowIdeaEntryArgs(argv = process.argv.slice(2)) {
     vaultRoot: vaultRootArg,
     sessionsRoot: sessionsRootArg,
     visualTarget: visualTargetArg,
+    visualTargetMissingValue,
   };
 }
 
@@ -180,6 +184,9 @@ export async function runWorkflowIdeaEntry(options = {}) {
     return { ok: false, mode: "validation", error: validation.error };
   }
   const roughIdea = validation.roughIdea;
+  if (options.visualTargetMissingValue) {
+    return { ok: false, mode: "validation", error: "--visual-target requires a value" };
+  }
   const visualTargetValidation = validateVisualTarget(options.visualTarget);
   if (!visualTargetValidation.ok) {
     return { ok: false, mode: "validation", error: visualTargetValidation.error };
@@ -275,10 +282,10 @@ export async function runWorkflowIdeaEntry(options = {}) {
       config,
       skillCommand: "/skill:idea-to-build",
       result: `Planned sandbox idea session ${reservation.sessionId}`,
-      next: `node scripts/workflow-idea-entry.mjs --rough-idea ${JSON.stringify(roughIdea)} --execute --invocation-token ${invocationToken}`,
+      next: `node scripts/workflow-idea-entry.mjs --rough-idea ${JSON.stringify(roughIdea)}${visualTarget ? ` --visual-target ${visualTarget}` : ""} --execute --invocation-token ${invocationToken}`,
       nextSteps: [
         "Invoke /skill:idea-to-build then paste the rough idea",
-        `node scripts/workflow-idea-entry.mjs --rough-idea ${JSON.stringify(roughIdea)} --execute --invocation-token ${invocationToken}`,
+        `node scripts/workflow-idea-entry.mjs --rough-idea ${JSON.stringify(roughIdea)}${visualTarget ? ` --visual-target ${visualTarget}` : ""} --execute --invocation-token ${invocationToken}`,
         "After explicit approval, advance one local stage at a time; promote only after build_handoff is promotion_ready.",
       ],
     };
@@ -356,6 +363,7 @@ async function main() {
     reuseDefaultCanary: args.reuseDefaultCanary,
     roughIdea: await loadRoughIdeaFromArgs(args),
     visualTarget: args.visualTarget,
+    visualTargetMissingValue: args.visualTargetMissingValue,
     maxStageCycles: args.maxStageCycles,
     sessionSuffix: args.sessionSuffix,
     invocationToken: args.invocationToken,

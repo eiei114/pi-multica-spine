@@ -245,6 +245,51 @@ test("runControllerAutopilotTick seeds the next stage after acceptance", async (
   assert.equal(seeded.ledger.stages.spec_review.status, "seeded");
 });
 
+test("runControllerAutopilotTick releases the lease when a stage is blocked", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "controller-blocked-route-"));
+  const runStore = await createRunStore(cwd, "accepted");
+  const leaseStore = new WorkflowControllerLeaseStore(cwd);
+  const manifest = sampleManifest();
+  const binding = {
+    ...sampleBinding(),
+    capabilityPools: [{
+      profileId: "reviewer",
+      candidates: [{
+        agentId: "agent_review",
+        runtimeId: "runtime_review",
+        provider: "provider",
+        model: "model",
+        capabilities: [],
+        permissionCapabilities: [],
+        priority: 1,
+      }],
+      telemetryPolicy: {},
+    }],
+  };
+  const now = new Date("2026-07-23T12:00:00.000Z");
+  const lease = await leaseStore.acquire("run_123", "controller_a", { now });
+  const ledger = await runStore.load("run_123");
+  const blocked = await runControllerAutopilotTick(
+    {
+      workflowRunId: "run_123",
+      holderId: "controller_a",
+      ledger,
+      lease,
+      manifest,
+      binding,
+      inventory: [],
+      telemetryStore: { load: async () => undefined },
+      now,
+    },
+    { leaseStore, runStore },
+  );
+
+  assert.equal(blocked.action, "block_stage");
+  assert.equal(blocked.stopped, true);
+  assert.ok(blocked.lease?.releasedAt);
+  assert.equal(blocked.ledger.stages.spec_review.status, "blocked");
+});
+
 test("runControllerAutopilotTick validates one produced stage", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "controller-validate-"));
   const runStore = await createRunStore(cwd, "produced");

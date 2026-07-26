@@ -150,6 +150,30 @@ test("local artifact store rejects registry identity mismatch", async () => {
   );
 });
 
+test("local artifact store rejects a visual target change when reusing a registry", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "idea-artifact-target-"));
+  const store = new IdeaLocalArtifactStore(cwd, "idea-target");
+  await store.record({
+    sessionId: "idea-target",
+    workflowRunId: "idea-target",
+    stageId: "capture",
+    outputPath: "0-capture.md",
+    content: "artifact:capture",
+    visualTarget: "ios_game",
+  });
+  await assert.rejects(
+    store.record({
+      sessionId: "idea-target",
+      workflowRunId: "idea-target",
+      stageId: "question_resolution",
+      outputPath: "1-question-resolution.md",
+      content: "artifact:question-resolution",
+      visualTarget: "game",
+    }),
+    /visualTarget is immutable/,
+  );
+});
+
 test("assertArtifactBundleUnchanged accepts matching bundle hash", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "idea-artifact-unchanged-"));
   const store = new IdeaLocalArtifactStore(cwd, "idea-unchanged");

@@ -53,3 +53,22 @@ test("asset variant selection is deterministic and idempotent", () => {
   assert.equal(pack.idempotencyKeys["card-safe"], `project:card-safe:${briefHash}`);
   assert.equal(pack.manifestHash.length, 64);
 });
+
+test("asset variant selection rejects non-finite scores", () => {
+  assert.throws(
+    () => selectAssetVariant({
+      assetId: "card-safe",
+      confidence: "high",
+      variants: [{ variantId: "nan", score: Number.NaN, rationale: "invalid" }],
+    }),
+    /scores must be finite/,
+  );
+  assert.throws(
+    () => selectAssetVariant({
+      assetId: "card-safe",
+      confidence: "high",
+      variants: [{ variantId: "infinity", score: Number.POSITIVE_INFINITY, rationale: "invalid" }],
+    }),
+    /scores must be finite/,
+  );
+});
