@@ -27,6 +27,11 @@ Live idea entry creates a local sandbox session from `/skill:idea-to-build` thro
    ```
 5. Confirm `deliveryPolicy.productionAllowed=false` in dry-run output.
 
+6. For a visual product, choose the target explicitly. Do not infer it from the idea text:
+   - `visual`
+   - `game`
+   - `ios_game`
+
 ## Recommended command sequence
 
 ### Pi slash entry (preferred)
@@ -41,6 +46,12 @@ Agent runs:
 ```bash
 npm run build
 node scripts/workflow-idea-entry.mjs --rough-idea "<ROUGH_IDEA>" --execute --json
+```
+
+iOS/game example:
+
+```bash
+node scripts/workflow-idea-entry.mjs --rough-idea "Build a Daily Relic iOS game" --visual-target ios_game --execute --json
 ```
 
 This stops after creating the local session manifest and initial `capture` state. Report that stage and wait for explicit human approval before advancing. No Multica Project, parent issue, Controller Autopilot, resource, or Spine binding is permitted before `build_handoff`.
@@ -63,6 +74,8 @@ node scripts/workflow-idea-build-handoff.mjs --canary-path <session-path> --proj
 ```
 
 `--apply` lists Projects, reuses exactly one exact-title `planned` Project, or creates one. Duplicate planned titles fail closed. It records the selected Project in the local session and prints the mandatory `multica_spine_bind` handoff; perform that bind in the implementation agent session before creating implementation work.
+
+For `visual`, `game`, and `ios_game` sessions, the local lane includes `ui_design_brief` before `implementation_spec`. The implementation handoff must reference the brief, and the implementation lane must produce visual evidence for the later target-conditional `visual_review` stage. See [`idea-to-build-visual-ui-workflow.md`](idea-to-build-visual-ui-workflow.md).
 
 ### Plan first (no Multica mutations)
 

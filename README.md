@@ -105,6 +105,14 @@ After install, invoke explicitly (never auto-detected):
 
 Paste your rough idea, then the agent runs `scripts/workflow-idea-entry.mjs --execute` to create a local sandbox session and stop at `capture`. Each idea gets a fresh session path by default. It creates no Multica Project or Spine binding before `build_handoff`; implementation begins only after that boundary creates or reuses an implementation Project.
 
+For iOS/game or other visual work, pass an explicit target (`visual`, `game`, or `ios_game`); target keywords are never inferred. Visual sessions require `ui_design_brief` before `implementation_spec` and later run the evidence-backed `visual_review` lane:
+
+```bash
+node scripts/workflow-idea-entry.mjs --rough-idea "Build a Daily Relic iOS game" --visual-target ios_game --execute --json
+```
+
+See [`docs/idea-to-build-visual-ui-workflow.md`](docs/idea-to-build-visual-ui-workflow.md).
+
 ### Maintenance-build entry skill
 
 ```

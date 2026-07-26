@@ -21,6 +21,7 @@ import {
   runWorkflowIdeaEntry,
   summarizeBootstrapRun,
   validateRoughIdea,
+  validateVisualTarget,
 } from "../scripts/workflow-idea-entry.mjs";
 import {
   CI_OFFLINE_IDEA_ENTRY,
@@ -42,6 +43,18 @@ test("local idea bootstrap reaches capture without a Multica project or parent i
   assert.equal("projectId" in session, false);
   assert.equal("parentIssueId" in session, false);
   assert.equal("autopilotId" in session, false);
+});
+
+test("local idea bootstrap preserves explicit visual target for the visual lane", async () => {
+  const session = await bootstrapLocalIdeaSession({
+    canaryPath: "C:/sandbox/daily-relic-visual",
+    sessionId: "daily-relic-visual-20260724",
+    roughIdea: "Build a Daily Relic iOS game",
+    visualTarget: "ios_game",
+    bootstrapSandboxRepo: async () => "abc123",
+  });
+
+  assert.equal(session.visualTarget, "ios_game");
 });
 
 test("slugifyRoughIdea produces filesystem-safe slug", () => {
@@ -89,6 +102,13 @@ test("parseWorkflowIdeaEntryArgs defaults to offline json", () => {
   assert.equal(args.runFullCampaign, false);
   assert.equal(args.dryRun, true);
   assert.equal(args.json, true);
+});
+
+test("parseWorkflowIdeaEntryArgs accepts explicit visual target", () => {
+  const args = parseWorkflowIdeaEntryArgs(["--visual-target", "ios_game", "--execute"]);
+  assert.equal(args.visualTarget, "ios_game");
+  assert.deepEqual(validateVisualTarget(args.visualTarget), { ok: true, visualTarget: "ios_game" });
+  assert.equal(validateVisualTarget("ios-app").ok, false);
 });
 
 test("parseWorkflowIdeaEntryArgs requires explicit full campaign opt-in", () => {
@@ -166,6 +186,18 @@ test("runWorkflowIdeaEntry offline plan uses fresh session by default", async ()
   assert.equal(report.skillCommand, "/skill:idea-to-build");
   assert.equal(report.nextSteps.some((step) => step.includes("--run-full-campaign")), false);
   assert.match(report.nextSteps.at(-1), /advance one local stage/i);
+});
+
+test("runWorkflowIdeaEntry offline plan carries explicit visual target", async () => {
+  const sessionsRoot = await mkdtemp(join(tmpdir(), "idea-entry-visual-"));
+  const report = await runWorkflowIdeaEntry({
+    roughIdea: "Build a Daily Relic iOS game with a three-minute daily run",
+    visualTarget: "ios_game",
+    sessionSuffix: `ci-offline-visual-${Date.now()}`,
+    sessionsRoot,
+  });
+  assert.equal(report.ok, true);
+  assert.equal(report.visualTarget, "ios_game");
 });
 
 test("runWorkflowIdeaEntry execute creates only a local capture session", async () => {

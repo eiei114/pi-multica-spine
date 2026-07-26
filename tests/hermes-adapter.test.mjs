@@ -169,7 +169,7 @@ test("Hermes Question Tasks resolve serially with hashed provenance", () => {
   assert.equal(unresolved.answerStatus, "unresolved");
 });
 
-test("Hermes optional UI stage is skipped unless the Project Binding enables it", () => {
+test("Hermes UI design stage activates only from an explicit visual target", () => {
   const manifest = createHermesCompositeManifest();
   const ledger = {
     workflowRunId: "run_hermes",
@@ -179,7 +179,7 @@ test("Hermes optional UI stage is skipped unless the Project Binding enables it"
   };
   assert.equal(resolveNextHermesStageTarget(ledger, manifest, sampleBinding()).stageId, "implementation_spec");
   assert.equal(
-    resolveNextHermesStageTarget(ledger, manifest, sampleBinding(["ui_design_brief"])).stageId,
+    resolveNextHermesStageTarget(ledger, manifest, sampleBinding([], "ios_game")).stageId,
     "ui_design_brief",
   );
 });

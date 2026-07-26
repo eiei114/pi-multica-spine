@@ -33,6 +33,7 @@ const {
 ]);
 
 export const MIN_ROUGH_IDEA_LENGTH = 12;
+const VALID_VISUAL_TARGETS = new Set(["non_visual", "visual", "game", "ios_game"]);
 
 export function parseWorkflowIdeaEntryArgs(argv = process.argv.slice(2)) {
   const execute = argv.includes("--execute");
@@ -50,6 +51,7 @@ export function parseWorkflowIdeaEntryArgs(argv = process.argv.slice(2)) {
   const invocationTokenArg = argv.find((arg, index) => argv[index - 1] === "--invocation-token");
   const vaultRootArg = argv.find((arg, index) => argv[index - 1] === "--vault-root");
   const sessionsRootArg = argv.find((arg, index) => argv[index - 1] === "--sessions-root");
+  const visualTargetArg = argv.find((arg, index) => argv[index - 1] === "--visual-target");
   return {
     execute,
     runFullCampaign,
@@ -66,6 +68,7 @@ export function parseWorkflowIdeaEntryArgs(argv = process.argv.slice(2)) {
     invocationToken: invocationTokenArg,
     vaultRoot: vaultRootArg,
     sessionsRoot: sessionsRootArg,
+    visualTarget: visualTargetArg,
   };
 }
 
@@ -84,6 +87,7 @@ export async function bootstrapLocalIdeaSession({
   canaryPath,
   sessionId,
   roughIdea,
+  visualTarget,
   bootstrapSandboxRepo: bootstrap = bootstrapSandboxRepo,
 }) {
   const initialCommit = await bootstrap(canaryPath);
@@ -91,11 +95,13 @@ export async function bootstrapLocalIdeaSession({
     sessionId,
     workflowRunId: `idea-${sessionId}`,
     roughIdea,
+    visualTarget,
   });
   return {
     workflowRunId: lane.workflowRunId,
     currentStageId: lane.currentStageId,
     workflowStatus: lane.status,
+    visualTarget: lane.visualTarget,
     initialCommit,
   };
 }
@@ -137,6 +143,14 @@ export function validateRoughIdea(roughIdea) {
   return { ok: true, roughIdea: roughIdea.trim() };
 }
 
+export function validateVisualTarget(visualTarget) {
+  if (visualTarget === undefined) return { ok: true, visualTarget: undefined };
+  if (!VALID_VISUAL_TARGETS.has(visualTarget)) {
+    return { ok: false, error: `visual target must be one of: ${[...VALID_VISUAL_TARGETS].join(", ")}` };
+  }
+  return { ok: true, visualTarget };
+}
+
 function canaryArgv(canaryPath, roughIdea, extra = []) {
   return ["--canary-path", canaryPath, "--rough-idea", roughIdea, ...extra];
 }
@@ -166,6 +180,11 @@ export async function runWorkflowIdeaEntry(options = {}) {
     return { ok: false, mode: "validation", error: validation.error };
   }
   const roughIdea = validation.roughIdea;
+  const visualTargetValidation = validateVisualTarget(options.visualTarget);
+  if (!visualTargetValidation.ok) {
+    return { ok: false, mode: "validation", error: visualTargetValidation.error };
+  }
+  const visualTarget = visualTargetValidation.visualTarget;
   const normalizedInput = normalizeRoughIdea(roughIdea);
 
   let config;
@@ -246,6 +265,7 @@ export async function runWorkflowIdeaEntry(options = {}) {
       ok: true,
       mode: "offline-plan",
       roughIdea,
+      visualTarget,
       canaryPath,
       freshSession,
       plan,
@@ -279,6 +299,7 @@ export async function runWorkflowIdeaEntry(options = {}) {
     canaryPath,
     sessionId: reservation.sessionId,
     roughIdea,
+    visualTarget,
   });
   const campaign = {
     completed: false,
@@ -308,6 +329,7 @@ export async function runWorkflowIdeaEntry(options = {}) {
     ok,
     mode: "live-start",
     roughIdea,
+    visualTarget,
     canaryPath,
     freshSession,
     checklist,
@@ -333,6 +355,7 @@ async function main() {
     canaryPath: args.canaryPath,
     reuseDefaultCanary: args.reuseDefaultCanary,
     roughIdea: await loadRoughIdeaFromArgs(args),
+    visualTarget: args.visualTarget,
     maxStageCycles: args.maxStageCycles,
     sessionSuffix: args.sessionSuffix,
     invocationToken: args.invocationToken,
