@@ -139,9 +139,12 @@ export async function runWorkflowMaintenanceEntry(options = {}) {
     };
   }
 
-  const priorState = await loadProductionRunState(repoPath);
+  const loadState = options.loadProductionRunState ?? loadProductionRunState;
+  const startRun = options.startProductionWorkflowRun ?? startProductionWorkflowRun;
+  const runCampaign = options.runProductionCampaign ?? runProductionCampaign;
+  const priorState = await loadState(repoPath);
   const startConfig = parseProductionRunArgs(productionArgv(repoPath, maintenanceBrief, ["--start"]));
-  const startResult = await startProductionWorkflowRun(startConfig);
+  const startResult = await startRun(startConfig);
   const campaignConfig = parseProductionRunArgs(
     productionArgv(repoPath, maintenanceBrief, [
       "--campaign",
@@ -149,7 +152,7 @@ export async function runWorkflowMaintenanceEntry(options = {}) {
       String(options.maxStageCycles ?? FULL_LIVE_CAMPAIGN_STAGE_CYCLES),
     ]),
   );
-  const campaignResult = await runProductionCampaign(campaignConfig);
+  const campaignResult = await runCampaign(campaignConfig);
 
   const ok =
     Boolean(startResult.state?.workflowRunId) &&
