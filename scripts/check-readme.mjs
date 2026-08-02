@@ -2,9 +2,31 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
+const CI_DESCRIPTION_PREFIX = "`npm run ci` runs";
+
+export function extractCiCheckScripts(ciScript = "") {
+  return [...ciScript.matchAll(/npm run (check:[a-z0-9-]+)/g)].map((match) => match[1]);
+}
+
+export function validateCiReadmeAlignment(content, ciScript) {
+  const errors = [];
+  const ciLine = content.split("\n").find((line) => line.includes(CI_DESCRIPTION_PREFIX));
+  if (!ciLine) {
+    errors.push("Development section missing npm run ci description line");
+    return { ok: false, errors };
+  }
+
+  const missing = extractCiCheckScripts(ciScript).filter((script) => !ciLine.includes(`\`${script}\``));
+  if (missing.length > 0) {
+    errors.push(`npm run ci description omits check scripts: ${missing.join(", ")}`);
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
 const FENCE = /^```/;
 
-export function validateReadme(content, { version } = {}) {
+export function validateReadme(content, { version, ciScript } = {}) {
   const errors = [];
   const fenceLines = content.split("\n").filter((line) => FENCE.test(line.trim()));
   if (fenceLines.length % 2 !== 0) {
@@ -28,18 +50,26 @@ export function validateReadme(content, { version } = {}) {
     errors.push("stray fenced-code closer after maintenance-build entry skill");
   }
 
+  if (ciScript) {
+    const ciAlignment = validateCiReadmeAlignment(content, ciScript);
+    errors.push(...ciAlignment.errors);
+  }
+
   return { ok: errors.length === 0, errors };
 }
 
 export function runCheckReadme({ readmePath = "README.md", packageJsonPath = "package.json" } = {}) {
   const content = readFileSync(readmePath, "utf8");
   let version;
+  let ciScript;
   try {
-    version = JSON.parse(readFileSync(packageJsonPath, "utf8")).version;
+    const pkg = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+    version = pkg.version;
+    ciScript = pkg.scripts?.ci;
   } catch {
     // optional version alignment when package.json is unavailable
   }
-  const result = validateReadme(content, { version });
+  const result = validateReadme(content, { version, ciScript });
   if (!result.ok) {
     console.error(result.errors.join("\n"));
     return 1;

@@ -265,7 +265,7 @@ npm install
 npm run ci
 ```
 
-`npm run ci` runs build, typecheck, coverage gate, changelog lint, `check:readme`, template re-sync check, sandbox checklist, sandbox full-closeout rehearsal, sandbox closeout evidence, production rehearsal, production gate checklist, `pack:check`, `pack:smoke` (install tarball + digest CLI), both walkthrough smokes, and `npm pack --dry-run`.
+`npm run ci` runs build, typecheck, `check:coverage`, `check:changelog`, `check:readme`, `check:template`, `check:sandbox-checklist`, `check:sandbox-rehearsal`, `check:sandbox-evidence`, `check:idea-entry`, `check:idea-status`, `check:live-sandbox-smoke`, `check:maintenance-live-smoke`, `check:maintenance-entry`, `check:production-rehearsal`, `check:production-gate`, `pack:check`, `pack:smoke` (install tarball + digest CLI), both walkthrough smokes, and `npm pack --dry-run`.
 
 Individual checks:
 

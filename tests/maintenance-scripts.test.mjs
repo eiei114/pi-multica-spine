@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { validateChangelog } from "../scripts/check-changelog.mjs";
-import { validateReadme } from "../scripts/check-readme.mjs";
+import {
+  extractCiCheckScripts,
+  validateCiReadmeAlignment,
+  validateReadme,
+} from "../scripts/check-readme.mjs";
 import {
   evaluateCoverage,
   evaluateCoverageExtensionFunctions,
@@ -26,17 +30,54 @@ test("validateChangelog rejects missing Unreleased", () => {
   assert.equal(result.ok, false);
 });
 
+const sampleCiScript = [
+  "npm run build",
+  "npm run check:coverage",
+  "npm run check:readme",
+  "npm run check:idea-entry",
+].join(" && ");
+
+const sampleCiDescription = [
+  "`npm run ci` runs build, typecheck, `check:coverage`, `check:readme`, `check:idea-entry`.",
+].join("\n");
+
+const sampleReadme = [
+  "Pin a specific version when you want reproducible installs:",
+  "",
+  "```bash",
+  "pi install npm:pi-multica-spine@0.12.7",
+  "```",
+  "",
+  sampleCiDescription,
+].join("\n");
+
+test("extractCiCheckScripts returns check:* scripts from package ci", () => {
+  assert.deepEqual(extractCiCheckScripts(sampleCiScript), [
+    "check:coverage",
+    "check:readme",
+    "check:idea-entry",
+  ]);
+});
+
+test("validateCiReadmeAlignment accepts aligned ci description", () => {
+  const result = validateCiReadmeAlignment(sampleReadme, sampleCiScript);
+  assert.equal(result.ok, true);
+});
+
+test("validateCiReadmeAlignment rejects missing check scripts", () => {
+  const result = validateCiReadmeAlignment(
+    sampleReadme.replace("`check:idea-entry`", ""),
+    sampleCiScript,
+  );
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /check:idea-entry/);
+});
+
 test("validateReadme accepts current README shape", () => {
-  const content = [
-    "Pin a specific version when you want reproducible installs:",
-    "",
-    "```bash",
-    "pi install npm:pi-multica-spine@0.12.7",
-    "```",
-    "",
-    "`npm run ci` runs build.",
-  ].join("\n");
-  const result = validateReadme(content, { version: "0.12.7" });
+  const result = validateReadme(sampleReadme, {
+    version: "0.12.7",
+    ciScript: sampleCiScript,
+  });
   assert.equal(result.ok, true);
 });
 
