@@ -8,6 +8,9 @@ This project follows semantic versioning.
 
 ### Fixed
 
+- README Development section: list every `check:*` script from `npm run ci`, including idea-entry, idea-status, live sandbox smoke, maintenance live smoke, and maintenance-entry gates.
+- `check:readme` now rejects README `npm run ci` descriptions that omit any `check:*` script wired into `package.json` `scripts.ci`.
+- `check:readme` scopes the `npm run ci` description lookup to the README `## Development` section so stray matches elsewhere cannot satisfy validation.
 - CodeRabbit review findings: preserve visual targets across resumed lanes/artifacts, reject malformed visual stages and non-finite asset scores, verify visual manifest hashes, propagate `--visual-target` continuation commands, and release leases after blocked routing.
 - README Install section: close the version-pin code fence, remove a stray fence closer after the maintenance-build skill, fix malformed ``npm run ci`` backticks in Development, and advance the pin example to `@0.12.7`.
 - `check:readme` validates README fence balance, install pin version alignment, and the known Install/Development markdown regressions.
