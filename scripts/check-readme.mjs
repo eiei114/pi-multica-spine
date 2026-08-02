@@ -3,6 +3,20 @@ import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 const CI_DESCRIPTION_PREFIX = "`npm run ci` runs";
+const DEVELOPMENT_SECTION_HEADING = /^## Development\b.*$/m;
+
+export function extractDevelopmentSection(content) {
+  const headingMatch = content.match(DEVELOPMENT_SECTION_HEADING);
+  if (!headingMatch) {
+    return null;
+  }
+
+  const sectionStart = headingMatch.index;
+  const rest = content.slice(sectionStart + headingMatch[0].length);
+  const nextHeading = rest.search(/^## /m);
+  const sectionBody = nextHeading === -1 ? rest : rest.slice(0, nextHeading);
+  return headingMatch[0] + sectionBody;
+}
 
 export function extractCiCheckScripts(ciScript = "") {
   return [...ciScript.matchAll(/npm run (check:[a-z0-9-]+)/g)].map((match) => match[1]);
@@ -10,7 +24,15 @@ export function extractCiCheckScripts(ciScript = "") {
 
 export function validateCiReadmeAlignment(content, ciScript) {
   const errors = [];
-  const ciLine = content.split("\n").find((line) => line.includes(CI_DESCRIPTION_PREFIX));
+  const developmentSection = extractDevelopmentSection(content);
+  if (!developmentSection) {
+    errors.push("Development section missing npm run ci description line");
+    return { ok: false, errors };
+  }
+
+  const ciLine = developmentSection
+    .split("\n")
+    .find((line) => line.includes(CI_DESCRIPTION_PREFIX));
   if (!ciLine) {
     errors.push("Development section missing npm run ci description line");
     return { ok: false, errors };

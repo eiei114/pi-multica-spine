@@ -4,6 +4,7 @@ import test from "node:test";
 import { validateChangelog } from "../scripts/check-changelog.mjs";
 import {
   extractCiCheckScripts,
+  extractDevelopmentSection,
   validateCiReadmeAlignment,
   validateReadme,
 } from "../scripts/check-readme.mjs";
@@ -48,6 +49,8 @@ const sampleReadme = [
   "pi install npm:pi-multica-spine@0.12.7",
   "```",
   "",
+  "## Development",
+  "",
   sampleCiDescription,
 ].join("\n");
 
@@ -71,6 +74,26 @@ test("validateCiReadmeAlignment rejects missing check scripts", () => {
   );
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /check:idea-entry/);
+});
+
+test("extractDevelopmentSection returns content until the next heading", () => {
+  const section = extractDevelopmentSection(sampleReadme + "\n\n## License\n\nMIT");
+  assert.match(section, /^## Development/);
+  assert.match(section, /check:idea-entry/);
+  assert.doesNotMatch(section, /## License/);
+});
+
+test("validateCiReadmeAlignment rejects ci description outside Development section", () => {
+  const readmeWithMisplacedLine = [
+    sampleCiDescription,
+    "",
+    "## Development",
+    "",
+    "Other development notes.",
+  ].join("\n");
+  const result = validateCiReadmeAlignment(readmeWithMisplacedLine, sampleCiScript);
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /Development section missing npm run ci description line/);
 });
 
 test("validateReadme accepts current README shape", () => {
