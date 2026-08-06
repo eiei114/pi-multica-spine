@@ -52,9 +52,19 @@ test("production stage artifact content covers implementation and final package"
   const implementation = buildProductionStageArtifactContent("implementation", manifest, ledger, PRODUCTION_ROUGH_IDEA);
   assert.match(implementation, /workflow-production-run/);
   assert.doesNotMatch(implementation, /v0\.\d+\.\d+/);
+  assert.doesNotMatch(implementation, /@0\.\d+\.\d+/);
+  const questionResolution = buildProductionStageArtifactContent(
+    "question_resolution",
+    manifest,
+    ledger,
+    PRODUCTION_ROUGH_IDEA,
+  );
+  assert.doesNotMatch(questionResolution, /v0\.\d+\.\d+/);
+  assert.doesNotMatch(questionResolution, /@0\.\d+\.\d+/);
   const finalPackage = buildProductionStageArtifactContent("final_package", manifest, ledger, PRODUCTION_ROUGH_IDEA);
   assert.match(finalPackage, /workflow_run_id: prod-test/);
   assert.doesNotMatch(finalPackage, /v0\.\d+\.\d+/);
+  assert.doesNotMatch(finalPackage, /@0\.\d+\.\d+/);
 });
 
 test("production campaign state aliases repo path to canaryPath", () => {
