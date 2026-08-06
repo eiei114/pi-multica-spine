@@ -25,6 +25,12 @@ test("production run plan targets maintenance project", () => {
   assert.match(plan.roughIdea, /README/);
 });
 
+test("PRODUCTION_ROUGH_IDEA avoids stale version pins", () => {
+  assert.doesNotMatch(PRODUCTION_ROUGH_IDEA, /v0\.\d+\.\d+/);
+  assert.doesNotMatch(PRODUCTION_ROUGH_IDEA, /@0\.\d+\.\d+/);
+  assert.match(PRODUCTION_ROUGH_IDEA, /maintenance baseline/);
+});
+
 test("production workflow run id is unique per call", () => {
   const a = buildProductionWorkflowRunId();
   const b = buildProductionWorkflowRunId();
@@ -45,8 +51,10 @@ test("production stage artifact content covers implementation and final package"
   });
   const implementation = buildProductionStageArtifactContent("implementation", manifest, ledger, PRODUCTION_ROUGH_IDEA);
   assert.match(implementation, /workflow-production-run/);
+  assert.doesNotMatch(implementation, /v0\.\d+\.\d+/);
   const finalPackage = buildProductionStageArtifactContent("final_package", manifest, ledger, PRODUCTION_ROUGH_IDEA);
   assert.match(finalPackage, /workflow_run_id: prod-test/);
+  assert.doesNotMatch(finalPackage, /v0\.\d+\.\d+/);
 });
 
 test("production campaign state aliases repo path to canaryPath", () => {
