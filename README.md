@@ -70,6 +70,11 @@ The `multica_spine_metadata_*` tools are CLI wrappers around the `multica` CLI. 
 | `multica_workflow_hermes_manifest` | Return the dedicated Hermes Idea-to-Build manifest with both audited source bundles pinned by commit and content digest. |
 | `multica_workflow_hermes_question_answer` | Resolve the next Question Task serially and persist a provenance-bearing hashed Answer Artifact record. |
 | `multica_workflow_hermes_review_decide` | Record PASS / PASS WITH CHANGES / FAIL and enforce the two-cycle spec-fix cap. |
+| `multica_workflow_telemetry_record` | Record allowlisted provider telemetry headers into the repo-local telemetry snapshot store. |
+| `multica_workflow_route_preflight` | Pure route preflight for one stage attempt using capability pool, inventory, and telemetry snapshots. |
+| `multica_workflow_adapter_migration_dry_run` | Evaluate adapter migration compatibility without writes. |
+| `multica_workflow_adapter_migration_apply` | Apply a compatible adapter migration using controller lease authority (`holderId`, `fencingToken`). |
+| `multica_workflow_adapter_migration_rollback` | Roll back a preparing or failed adapter migration from the persisted snapshot. |
 | `multica_workflow_permission_check` | Compute effective permission as Adapter ∩ Project ∩ Stage ∩ Issue ∩ Agent capability. |
 | `multica_workflow_controller_tick` | Run one bounded Controller Autopilot tick (lease acquire, validate/seed, persist summary, release, or stop). Optional `live=true` writes parent summary metadata. |
 | `multica_workflow_autopilot_trigger` | Invoke `multica autopilot trigger` for controller reconciliation paths. |

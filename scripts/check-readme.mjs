@@ -47,8 +47,23 @@ export function validateCiReadmeAlignment(content, ciScript) {
 }
 
 const FENCE = /^```/;
+const REGISTERED_TOOL_PATTERN = /name:\s*"(multica_(?:spine|workflow)_[a-z0-9_]+)"/g;
 
-export function validateReadme(content, { version, ciScript } = {}) {
+export function extractRegisteredToolNames(extensionSource = "") {
+  return [...extensionSource.matchAll(REGISTERED_TOOL_PATTERN)].map((match) => match[1]).sort();
+}
+
+export function validateReadmeToolAlignment(content, extensionSource = "") {
+  const errors = [];
+  const registered = extractRegisteredToolNames(extensionSource);
+  const missing = registered.filter((name) => !content.includes(`\`${name}\``));
+  if (missing.length > 0) {
+    errors.push(`README omits registered tool references: ${missing.join(", ")}`);
+  }
+  return { ok: errors.length === 0, errors, registered, missing };
+}
+
+export function validateReadme(content, { version, ciScript, extensionSource } = {}) {
   const errors = [];
   const fenceLines = content.split("\n").filter((line) => FENCE.test(line.trim()));
   if (fenceLines.length % 2 !== 0) {
@@ -77,13 +92,23 @@ export function validateReadme(content, { version, ciScript } = {}) {
     errors.push(...ciAlignment.errors);
   }
 
+  if (extensionSource) {
+    const toolAlignment = validateReadmeToolAlignment(content, extensionSource);
+    errors.push(...toolAlignment.errors);
+  }
+
   return { ok: errors.length === 0, errors };
 }
 
-export function runCheckReadme({ readmePath = "README.md", packageJsonPath = "package.json" } = {}) {
+export function runCheckReadme({
+  readmePath = "README.md",
+  packageJsonPath = "package.json",
+  extensionPath = "extensions/index.ts",
+} = {}) {
   const content = readFileSync(readmePath, "utf8");
   let version;
   let ciScript;
+  let extensionSource;
   try {
     const pkg = JSON.parse(readFileSync(packageJsonPath, "utf8"));
     version = pkg.version;
@@ -91,7 +116,12 @@ export function runCheckReadme({ readmePath = "README.md", packageJsonPath = "pa
   } catch {
     // optional version alignment when package.json is unavailable
   }
-  const result = validateReadme(content, { version, ciScript });
+  try {
+    extensionSource = readFileSync(extensionPath, "utf8");
+  } catch {
+    // optional tool alignment when extension entry is unavailable
+  }
+  const result = validateReadme(content, { version, ciScript, extensionSource });
   if (!result.ok) {
     console.error(result.errors.join("\n"));
     return 1;
