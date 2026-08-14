@@ -9,6 +9,7 @@ import {
   validateCiReadmeAlignment,
   validateReadme,
   validateReadmeToolAlignment,
+  runCheckReadme,
 } from "../scripts/check-readme.mjs";
 import {
   evaluateCoverage,
@@ -114,6 +115,25 @@ test("validateReadmeToolAlignment rejects missing registered tool references", (
   const result = validateReadmeToolAlignment("# README", extensionSource);
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /multica_workflow_telemetry_record/);
+});
+
+test("validateReadme fails when registered tool validation is required without extension source", () => {
+  const result = validateReadme(sampleReadme, {
+    version: "0.12.7",
+    ciScript: sampleCiScript,
+    validateRegisteredTools: true,
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /extension entry source required/);
+});
+
+test("runCheckReadme fails when extension entry is unavailable", () => {
+  const exitCode = runCheckReadme({
+    readmePath: "README.md",
+    packageJsonPath: "package.json",
+    extensionPath: "extensions/__missing-index.ts",
+  });
+  assert.equal(exitCode, 1);
 });
 
 test("validateReadme accepts current README shape", () => {

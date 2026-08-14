@@ -63,7 +63,7 @@ export function validateReadmeToolAlignment(content, extensionSource = "") {
   return { ok: errors.length === 0, errors, registered, missing };
 }
 
-export function validateReadme(content, { version, ciScript, extensionSource } = {}) {
+export function validateReadme(content, { version, ciScript, extensionSource, validateRegisteredTools = false } = {}) {
   const errors = [];
   const fenceLines = content.split("\n").filter((line) => FENCE.test(line.trim()));
   if (fenceLines.length % 2 !== 0) {
@@ -92,9 +92,13 @@ export function validateReadme(content, { version, ciScript, extensionSource } =
     errors.push(...ciAlignment.errors);
   }
 
-  if (extensionSource) {
-    const toolAlignment = validateReadmeToolAlignment(content, extensionSource);
-    errors.push(...toolAlignment.errors);
+  if (validateRegisteredTools) {
+    if (!extensionSource) {
+      errors.push("extension entry source required for registered tool alignment but was unavailable");
+    } else {
+      const toolAlignment = validateReadmeToolAlignment(content, extensionSource);
+      errors.push(...toolAlignment.errors);
+    }
   }
 
   return { ok: errors.length === 0, errors };
@@ -119,9 +123,10 @@ export function runCheckReadme({
   try {
     extensionSource = readFileSync(extensionPath, "utf8");
   } catch {
-    // optional tool alignment when extension entry is unavailable
+    console.error(`unable to read extension entry: ${extensionPath}`);
+    return 1;
   }
-  const result = validateReadme(content, { version, ciScript, extensionSource });
+  const result = validateReadme(content, { version, ciScript, extensionSource, validateRegisteredTools: true });
   if (!result.ok) {
     console.error(result.errors.join("\n"));
     return 1;

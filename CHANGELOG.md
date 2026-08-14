@@ -17,6 +17,7 @@ This project follows semantic versioning.
 - `check:idea-entry` now runs `scripts/ci-offline-idea-entry-check.mjs` with a fixed invocation token, matching session suffix, and stale `.ci-tmp` scratch repair so repeated local `npm run ci` runs do not fail on an existing idea session manifest.
 - README workflow tools table documents `multica_workflow_telemetry_record`, `multica_workflow_route_preflight`, and the adapter migration dry-run/apply/rollback tools that were already registered in `extensions/index.ts`.
 - `check:readme` now rejects README tool tables that omit any `multica_spine_*` or `multica_workflow_*` tool registered in `extensions/index.ts`.
+- `check:readme` fails closed when `extensions/index.ts` cannot be read instead of skipping registered-tool validation.
 
 ### Added
 
