@@ -5,8 +5,11 @@ import { validateChangelog } from "../scripts/check-changelog.mjs";
 import {
   extractCiCheckScripts,
   extractDevelopmentSection,
+  extractRegisteredToolNames,
   validateCiReadmeAlignment,
   validateReadme,
+  validateReadmeToolAlignment,
+  runCheckReadme,
 } from "../scripts/check-readme.mjs";
 import {
   evaluateCoverage,
@@ -94,6 +97,43 @@ test("validateCiReadmeAlignment rejects ci description outside Development secti
   const result = validateCiReadmeAlignment(readmeWithMisplacedLine, sampleCiScript);
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /Development section missing npm run ci description line/);
+});
+
+test("extractRegisteredToolNames returns multica tool names from extension source", () => {
+  const source = [
+    'name: "multica_spine_bind",',
+    'name: "multica_workflow_route_preflight",',
+  ].join("\n");
+  assert.deepEqual(extractRegisteredToolNames(source), [
+    "multica_spine_bind",
+    "multica_workflow_route_preflight",
+  ]);
+});
+
+test("validateReadmeToolAlignment rejects missing registered tool references", () => {
+  const extensionSource = 'name: "multica_workflow_telemetry_record"';
+  const result = validateReadmeToolAlignment("# README", extensionSource);
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /multica_workflow_telemetry_record/);
+});
+
+test("validateReadme fails when registered tool validation is required without extension source", () => {
+  const result = validateReadme(sampleReadme, {
+    version: "0.12.7",
+    ciScript: sampleCiScript,
+    validateRegisteredTools: true,
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /extension entry source required/);
+});
+
+test("runCheckReadme fails when extension entry is unavailable", () => {
+  const exitCode = runCheckReadme({
+    readmePath: "README.md",
+    packageJsonPath: "package.json",
+    extensionPath: "extensions/__missing-index.ts",
+  });
+  assert.equal(exitCode, 1);
 });
 
 test("validateReadme accepts current README shape", () => {
