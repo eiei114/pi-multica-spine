@@ -3,6 +3,7 @@ import { StringEnum } from "./schema.ts";
 import { assertValid, validateSchema } from "./validation.ts";
 import type { IdeaSessionInventoryRecord, IdeaSessionInventorySnapshot } from "./idea-session-inventory.ts";
 import type { HydrationSourceResult } from "./operations-hydration.ts";
+import { IDEA_SESSION_RETENTION_DRY_RUN_BANNER } from "./idea-session-retention-policy.ts";
 
 export const WorkflowOperationsReasonCodeSchema = StringEnum(["NO_SESSIONS","NO_MATCHES","ACTION_REQUIRED","READY_FOR_REVIEW","REVIEWED_CLEANUP_PENDING","UNKNOWN_SOURCE","CORRUPT_INVENTORY","CORRUPT_LEDGER","REFRESH_PARTIAL","REFRESH_TIMED_OUT","CURSOR_MISMATCH","CONFIG_ERROR","INTERNAL_ERROR","RETENTION_REPORT","CLEAN_SUCCESS"]);
 export type WorkflowOperationsReasonCode = Static<typeof WorkflowOperationsReasonCodeSchema>;
@@ -48,11 +49,12 @@ export function buildOperationsViewV1(input: BuildOperationsViewInput): Operatio
   let dataState: OperationsDataState = "COMPLETE"; let exitCode: 0|1|2 = actions.length ? 1 : 0;
   if (records.some((r) => r.corrupt)) { dataState = "CORRUPT_SOURCE"; exitCode = 2; }
   else if (unknownItems.length || input.hydration?.some((item) => item.status === "unknown")) { dataState = unknownItems.length ? "PARTIAL" : "REFRESH_TIMED_OUT"; exitCode = 2; }
+  const retentionBanner = input.retentionDryRun ? IDEA_SESSION_RETENTION_DRY_RUN_BANNER : undefined;
   const nextAction = actions[0] ? { command: actions[0].next, reasonCode: actions[0].reasonCode } : ready ? { command: ready.next, reasonCode: "READY_FOR_REVIEW" as const } : input.retentionDryRun ? { command: "/skill:idea-status --retention-dry-run", reasonCode: "RETENTION_REPORT" as const } : { command: "/skill:idea-to-build", reasonCode: "CLEAN_SUCCESS" as const };
   const startIndex = input.cursor ? records.findIndex((record) => `${record.stateUpdatedAt}:${record.sessionId}` === input.cursor!.lastSortKey) + 1 : 0;
   const pageRecords = records.slice(startIndex, startIndex + pageSize); const last = pageRecords.at(-1);
   const nextCursor = startIndex + pageSize < records.length && last ? encodeOperationsCursor({ schemaVersion: 1, inventoryGeneration: input.inventory.generation, queryHash: queryHash(input), lastSortKey: `${last.stateUpdatedAt}:${last.sessionId}` }) : undefined;
-  return assertValid(validateSchema(OperationsViewV1Schema, { schemaVersion: 1, command: input.command, generatedAt: now, dataState, exitCode, summary, actionRequired: actions.slice(0, pageSize), readyItem: ready, nextAction, sources, truncated: Boolean(nextCursor), nextCursor, retentionBanner: input.retentionDryRun ? "RETENTION DRY-RUN — NO FILES WERE DELETED" : undefined, unknownItems: unknownItems.length ? unknownItems : undefined }), "Invalid operations view");
+  return assertValid(validateSchema(OperationsViewV1Schema, { schemaVersion: 1, command: input.command, generatedAt: now, dataState, exitCode, summary, actionRequired: actions.slice(0, pageSize), readyItem: ready, nextAction, sources, truncated: Boolean(nextCursor), nextCursor, retentionBanner, unknownItems: unknownItems.length ? unknownItems : undefined }), "Invalid operations view");
 }
 export function mapWorkflowOperationsError(error: WorkflowOperationsError): OperationsViewV1 { const exitCode = error.code === "CONFIG_ERROR" ? 64 : error.code === "INTERNAL_ERROR" ? 70 : 2; return assertValid(validateSchema(OperationsViewV1Schema, { schemaVersion: 1, command: "idea-status", generatedAt: new Date().toISOString(), dataState: "ERROR", exitCode, summary: { active: 0, ready: 0, cleanup: 0, blocked: 0, unknown: 0, total: 0, noActionRequired: false }, actionRequired: [{ sessionId: "system", what: "Operations command failed", why: error.message, next: error.code === "CONFIG_ERROR" ? "/skill:idea-status --help" : "/skill:idea-status --rebuild", reasonCode: error.code, priority: 0 }], nextAction: { command: error.code === "CONFIG_ERROR" ? "/skill:idea-status --help" : "/skill:idea-status --rebuild", reasonCode: error.code }, sources: [], truncated: false }), "Invalid error operations view"); }
 export function wrapUnknownOperationsError(error: unknown): WorkflowOperationsError { return error instanceof WorkflowOperationsError ? error : new WorkflowOperationsError("INTERNAL_ERROR", error instanceof Error ? error.message : String(error)); }

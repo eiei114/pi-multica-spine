@@ -73,6 +73,7 @@ export const COVERAGE_RELEASE_A_SAFETY_FLOORS = {
   "lib/operations-view.ts": { lines: 100, branches: 84, functions: 88 },
   "lib/operations-renderer.ts": { lines: 100, branches: 76, functions: 100 },
   "lib/operations-hydration.ts": { lines: 100, branches: 73, functions: 61 },
+  "lib/idea-session-retention-policy.ts": { lines: 100, branches: 90, functions: 100 },
   "lib/retention-classifier.ts": { lines: 95, branches: 52, functions: 83 },
   "lib/workflow-human-final-review-journal.ts": { lines: 99, branches: 85, functions: 95 },
 };

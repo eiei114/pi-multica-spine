@@ -26,7 +26,6 @@
 | ID | Seed | Scope |
 | --- | --- | --- |
 | R-MNT-41 | Maintenance entry live execute smoke | ~45 min |
-| R-MNT-42 | Idea session cleanup / retention policy | ~45 min |
 | R-MNT-43 | Slash skill discovery docs in README | ~30 min |
 
 ## Completed seeds (reference)
@@ -36,3 +35,4 @@
 | ~~R-MNT-1..33~~ | v0.6.0–v0.7.8 |
 | ~~R-MNT-37~~ | v0.7.9 — Idea-to-build slash entry skill |
 | ~~R-MNT-38..40~~ | v0.8.0 — Fresh idea sessions, idea-entry live docs/smoke, maintenance-build skill |
+| ~~R-MNT-42~~ | v0.8.1 — Idea session retention policy (dry-run classification + docs) |
