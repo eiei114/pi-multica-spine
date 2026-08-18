@@ -103,6 +103,14 @@ test("operations view states and cursor", () => {
   assert.equal(paged.truncated, true);
   const clean = buildOperationsViewV1({ command: "idea-status", inventory: emptyInventory([record({ lifecycleStatus: "active" })]), retentionDryRun: true });
   assert.equal(clean.nextAction.reasonCode, "RETENTION_REPORT");
+  const emptyRetention = buildOperationsViewV1({ command: "idea-status --retention-dry-run", inventory: emptyInventory(), retentionDryRun: true });
+  assert.equal(emptyRetention.dataState, "NO_IDEA_SESSIONS");
+  assert.equal(emptyRetention.retentionBanner, IDEA_SESSION_RETENTION_DRY_RUN_BANNER);
+  assert.equal(emptyRetention.nextAction.reasonCode, "RETENTION_REPORT");
+  const noMatchRetention = buildOperationsViewV1({ command: "idea-status --retention-dry-run", inventory: inv, workflowRunId: "missing", retentionDryRun: true });
+  assert.equal(noMatchRetention.dataState, "NO_MATCHES");
+  assert.equal(noMatchRetention.retentionBanner, IDEA_SESSION_RETENTION_DRY_RUN_BANNER);
+  assert.equal(noMatchRetention.nextAction.reasonCode, "RETENTION_REPORT");
   const err = mapWorkflowOperationsError(new WorkflowOperationsError("CONFIG_ERROR", "bad"));
   assert.equal(err.exitCode, 64);
   const internal = mapWorkflowOperationsError(wrapUnknownOperationsError(new Error("boom")));
