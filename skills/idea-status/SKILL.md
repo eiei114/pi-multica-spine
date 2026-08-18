@@ -18,3 +18,5 @@ Retention dry-run (zero deletion):
 ```bash
 node scripts/workflow-idea-status.mjs --retention-dry-run --json
 ```
+
+Policy: [`docs/idea-session-retention-policy.md`](../../docs/idea-session-retention-policy.md) — dry-run only; 7-day future-review window; parent Multica metadata counts as external evidence.

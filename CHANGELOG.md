@@ -21,6 +21,8 @@ This project follows semantic versioning.
 
 ### Added
 
+- Idea session retention policy (R-MNT-42): `lib/idea-session-retention-policy.ts`, parent-receipt external-evidence classification in `retention-classifier`, operator doc `docs/idea-session-retention-policy.md`, and `check:idea-retention` CI gate.
+
 - `check:maintenance-live-smoke` exercises the `/skill:maintenance-build` `--execute` branch with mocked Multica adapters while verifying `productionAllowed=false`.
 - Explicit `--visual-target` Idea-to-Build activation for `visual`, `game`, and `ios_game`; visual sessions now require `ui_design_brief` before implementation specification and document the Tiny Loop Factory iOS UI/build/evidence loop.
 - Automatic Idea Portfolio Admission issues 04–11: hash-addressed local artifact lane, Portfolio Queue global-1 admission with dry-run/apply, Promotion Receipt recovery and route-gap skip, approved Build Template Catalog entries for SwiftUI iOS / Astro Web / Tauri Windows, resumable Scaffold Resolution, delivery lifecycle reconciliation, and fleet enablement preflight gate.

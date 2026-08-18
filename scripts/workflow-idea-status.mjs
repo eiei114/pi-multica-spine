@@ -28,7 +28,7 @@ export async function runWorkflowIdeaStatus(options = {}) {
   const view = buildOperationsViewV1({ command: options.retentionDryRun ? "idea-status --retention-dry-run" : "idea-status", inventory, hydration, workflowRunId: options.workflowRunId, retentionDryRun: options.retentionDryRun, cursor, pageSize: options.all ? inventory.records.length : 20, now: options.now });
   let retention;
   if (options.retentionDryRun) {
-    retention = await buildRetentionDryRunReport(options.workflowRunId ? inventory.records.filter((record) => record.workflowRunId === options.workflowRunId) : inventory.records, inventory.generation, { syntheticExternalEvidenceFor: options.syntheticExternalEvidenceFor });
+    retention = await buildRetentionDryRunReport(options.workflowRunId ? inventory.records.filter((record) => record.workflowRunId === options.workflowRunId) : inventory.records, inventory.generation, { now: options.now ? new Date(options.now) : undefined });
     view.exitCode = retention.exitCode; view.retentionBanner = retention.banner;
   }
   return { ok: true, view, retention, inventory, config };

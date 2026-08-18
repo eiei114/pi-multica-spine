@@ -13,6 +13,13 @@ import { buildVaultIdeaNoteMarkdown, parseVaultIdeaNoteFrontmatter, validateVaul
 import { buildOperationsViewV1, decodeOperationsCursor, encodeOperationsCursor, mapWorkflowOperationsError, wrapUnknownOperationsError, WorkflowOperationsError } from "../lib/operations-view.ts";
 import { renderOperationsReport, renderOperationsViewHuman, renderOperationsViewJson, shouldUseColor, truncateGraphemes } from "../lib/operations-renderer.ts";
 import { runBoundedHydration, runCancellableCommand, DEFAULT_HYDRATION_BUDGET } from "../lib/operations-hydration.ts";
+import {
+  IDEA_SESSION_FUTURE_REVIEW_WINDOW_DAYS,
+  IDEA_SESSION_RETENTION_DRY_RUN_BANNER,
+  hasExternalRetentionEvidence,
+  isPastFutureReviewWindow,
+  reviewReceiptCompleted,
+} from "../lib/idea-session-retention-policy.ts";
 import { buildRetentionDryRunReport, classifyRetentionCandidate, retentionReportFingerprint } from "../lib/retention-classifier.ts";
 import { deriveReviewJournalLifecycle, HumanFinalReviewJournalStore, runResumableHumanFinalReview } from "../lib/workflow-human-final-review-journal.ts";
 import { rebuildIdeaSessionInventory, IdeaSessionInventoryStore } from "../lib/idea-session-inventory.ts";
@@ -96,6 +103,14 @@ test("operations view states and cursor", () => {
   assert.equal(paged.truncated, true);
   const clean = buildOperationsViewV1({ command: "idea-status", inventory: emptyInventory([record({ lifecycleStatus: "active" })]), retentionDryRun: true });
   assert.equal(clean.nextAction.reasonCode, "RETENTION_REPORT");
+  const emptyRetention = buildOperationsViewV1({ command: "idea-status --retention-dry-run", inventory: emptyInventory(), retentionDryRun: true });
+  assert.equal(emptyRetention.dataState, "NO_IDEA_SESSIONS");
+  assert.equal(emptyRetention.retentionBanner, IDEA_SESSION_RETENTION_DRY_RUN_BANNER);
+  assert.equal(emptyRetention.nextAction.reasonCode, "RETENTION_REPORT");
+  const noMatchRetention = buildOperationsViewV1({ command: "idea-status --retention-dry-run", inventory: inv, workflowRunId: "missing", retentionDryRun: true });
+  assert.equal(noMatchRetention.dataState, "NO_MATCHES");
+  assert.equal(noMatchRetention.retentionBanner, IDEA_SESSION_RETENTION_DRY_RUN_BANNER);
+  assert.equal(noMatchRetention.nextAction.reasonCode, "RETENTION_REPORT");
   const err = mapWorkflowOperationsError(new WorkflowOperationsError("CONFIG_ERROR", "bad"));
   assert.equal(err.exitCode, 64);
   const internal = mapWorkflowOperationsError(wrapUnknownOperationsError(new Error("boom")));
@@ -105,7 +120,7 @@ test("operations view states and cursor", () => {
 
 test("operations renderer", () => {
   const view = buildOperationsViewV1({ command: "idea-status", inventory: emptyInventory() });
-  assert.match(renderOperationsViewHuman({ ...view, retentionBanner: "RETENTION DRY-RUN — NO FILES WERE DELETED", actionRequired: [{ sessionId: "s1", workflowRunId: "run1", what: "w", why: "y", next: "n", reasonCode: "ACTION_REQUIRED", priority: 1 }], readyItem: { sessionId: "s1", workflowRunId: "run1", label: "l", next: "n", stateUpdatedAt: "t", priority: 1 }, truncated: true, nextCursor: "abc" }, { columns: 80, verbose: true }), /NEXT/);
+  assert.match(renderOperationsViewHuman({ ...view, retentionBanner: IDEA_SESSION_RETENTION_DRY_RUN_BANNER, actionRequired: [{ sessionId: "s1", workflowRunId: "run1", what: "w", why: "y", next: "n", reasonCode: "ACTION_REQUIRED", priority: 1 }], readyItem: { sessionId: "s1", workflowRunId: "run1", label: "l", next: "n", stateUpdatedAt: "t", priority: 1 }, truncated: true, nextCursor: "abc" }, { columns: 80, verbose: true }), /NEXT/);
   assert.match(renderOperationsViewJson(view), /schemaVersion/);
   assert.equal(shouldUseColor(true, {}, true), false);
   assert.equal(truncateGraphemes("abcdef", 3).endsWith("…"), true);
@@ -131,8 +146,29 @@ test("retention classifier matrix", async () => {
   const blocked = await classifyRetentionCandidate({ ...base, canaryPath: "/tmp", corrupt: true, corruptReason: "x" }, 1);
   assert.equal(blocked.state, "blocked");
   const report = await buildRetentionDryRunReport([base], 1);
-  assert.match(report.banner, /NO FILES WERE DELETED/);
+  assert.equal(report.banner, IDEA_SESSION_RETENTION_DRY_RUN_BANNER);
   assert.ok(retentionReportFingerprint(report).length === 64);
+});
+
+test("retention policy external evidence helpers", () => {
+  const journal = {
+    schemaVersion: 1,
+    workflowRunId: "run1",
+    status: "committed",
+    binding: { reviewAttempt: 1, normalizedVerdict: "approved", baseLedgerStateVersion: 1, baseLedgerHash: "a".repeat(64), reviewArtifactHash: "b".repeat(64), reviewedAt: "2026-01-01T00:00:00.000Z" },
+    receipts: [
+      { step: "commit_parent_metadata", status: "completed", attempt: 1, completedAt: "2026-01-01T00:00:00.000Z" },
+      { step: "transition_parent_status", status: "completed", attempt: 1, completedAt: "2026-01-01T00:00:00.000Z" },
+    ],
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+  const hash = "a".repeat(64);
+  assert.equal(hasExternalRetentionEvidence(journal, hash), true);
+  assert.equal(hasExternalRetentionEvidence({ ...journal, status: "reviewed_cleanup_pending" }, hash), false);
+  assert.equal(reviewReceiptCompleted(journal, "commit_parent_metadata"), true);
+  const old = new Date(Date.now() - (IDEA_SESSION_FUTURE_REVIEW_WINDOW_DAYS + 1) * 86_400_000);
+  assert.equal(isPastFutureReviewWindow({ ...journal, updatedAt: old.toISOString() }, new Date()), true);
+  assert.equal(isPastFutureReviewWindow({ ...journal, updatedAt: new Date().toISOString() }, new Date()), false);
 });
 
 test("final review committed and derive lifecycle", async () => {
@@ -237,10 +273,14 @@ test("retention eligible and blocked deep paths", async () => {
   journal.updatedAt = new Date(Date.now() - 8 * 86_400_000).toISOString();
   await writeFile(journalPath, JSON.stringify(journal), "utf8");
   const record = { sessionId: "s1", invocationToken: "t", canaryPath: cwd, workflowRunId: "run1", lifecycleStatus: "reviewed", stateUpdatedAt: journal.updatedAt, manifestPresent: true, ledgerPresent: true, corrupt: false };
-  const young = await classifyRetentionCandidate(record, 2, { now: new Date(), syntheticExternalEvidence: true });
+  const young = await classifyRetentionCandidate(record, 2, { now: new Date() });
   assert.equal(young.state, "eligible_for_future_review");
-  const noSynth = await classifyRetentionCandidate(record, 2, { now: new Date() });
-  assert.equal(noSynth.state, "blocked");
+  const recentJournal = JSON.parse(await readFile(journalPath, "utf8"));
+  recentJournal.updatedAt = new Date().toISOString();
+  await writeFile(journalPath, JSON.stringify(recentJournal), "utf8");
+  const tooYoung = await classifyRetentionCandidate(record, 2, { now: new Date() });
+  assert.equal(tooYoung.state, "blocked");
+  assert.match(tooYoung.reason, new RegExp(`${IDEA_SESSION_FUTURE_REVIEW_WINDOW_DAYS}-day`));
   const noLedger = await classifyRetentionCandidate({ ...record, workflowRunId: "missing" }, 2);
   assert.equal(noLedger.state, "unknown");
 });
