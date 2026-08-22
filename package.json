@@ -1,6 +1,6 @@
 {
   "name": "pi-multica-spine",
-  "version": "0.12.8",
+  "version": "0.12.9",
   "description": "Pi extension that keeps Multica work agents bound to issue, PR, evidence, and handoff contracts.",
   "type": "module",
   "license": "MIT",
@@ -83,10 +83,10 @@
     "typebox": "*"
   },
   "devDependencies": {
-    "@earendil-works/pi-agent-core": "^0.83.0",
-    "@earendil-works/pi-ai": "^0.83.0",
-    "@earendil-works/pi-coding-agent": "^0.83.0",
-    "@earendil-works/pi-tui": "^0.83.0",
+    "@earendil-works/pi-agent-core": "^0.84.2",
+    "@earendil-works/pi-ai": "^0.84.2",
+    "@earendil-works/pi-coding-agent": "^0.84.2",
+    "@earendil-works/pi-tui": "^0.84.2",
     "@types/node": "^26.0.0",
     "typebox": "latest",
     "typescript": "^7.0.2"
