@@ -6,6 +6,8 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.12.9] - 2026-08-22
+
 ### Fixed
 
 - README Development section: list every `check:*` script from `npm run ci`, including idea-entry, idea-status, live sandbox smoke, maintenance live smoke, and maintenance-entry gates.

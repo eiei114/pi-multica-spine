@@ -11,16 +11,16 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(scriptDir, "..");
 
 export const TEMPLATE_RESYNC_BASELINE = {
-  templateRef: "pi-extension-template@0.1.6",
-  piPeerBaseline: "0.83.x",
+  templateRef: "pi-extension-template@0.2.1",
+  piPeerBaseline: "0.84.x",
   piPeerPackages: [
     "@earendil-works/pi-agent-core",
     "@earendil-works/pi-ai",
     "@earendil-works/pi-coding-agent",
     "@earendil-works/pi-tui",
   ],
-  expectedPeerMajor: "0.83",
-  lastReviewed: "2026-08-07",
+  expectedPeerMajor: "0.84",
+  lastReviewed: "2026-08-22",
 };
 
 export const TEMPLATE_RESYNC_RULES = [
