@@ -3,11 +3,14 @@ import test from "node:test";
 
 import { validateChangelog } from "../scripts/check-changelog.mjs";
 import {
+  buildReadmeDocsSectionLine,
   extractCiCheckScripts,
   extractDevelopmentSection,
   extractRegisteredToolNames,
+  README_DOCS_SECTION_ENTRIES,
   validateCiReadmeAlignment,
   validateReadme,
+  validateReadmeDocsSectionAlignment,
   validateReadmeToolAlignment,
   runCheckReadme,
 } from "../scripts/check-readme.mjs";
@@ -108,6 +111,40 @@ test("extractRegisteredToolNames returns multica tool names from extension sourc
     "multica_spine_bind",
     "multica_workflow_route_preflight",
   ]);
+});
+
+test("validateReadmeDocsSectionAlignment accepts aligned workflow runbook entries", () => {
+  const content = [
+    "## Docs",
+    ...README_DOCS_SECTION_ENTRIES.map((entry) => buildReadmeDocsSectionLine(entry)),
+  ].join("\n");
+  const result = validateReadmeDocsSectionAlignment(content);
+  assert.equal(result.ok, true);
+});
+
+test("validateReadmeDocsSectionAlignment rejects concatenated runbook descriptions", () => {
+  const content = [
+    "## Docs",
+    buildReadmeDocsSectionLine(README_DOCS_SECTION_ENTRIES[0]),
+    buildReadmeDocsSectionLine(README_DOCS_SECTION_ENTRIES[1]),
+    `${buildReadmeDocsSectionLine(README_DOCS_SECTION_ENTRIES[2])} — live sandbox \`--execute\` path — daily sandbox / Maintenance rehearsal path`,
+  ].join("\n");
+  const result = validateReadmeDocsSectionAlignment(content);
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /workflow-production-live-execute-runbook\.md/);
+});
+
+test("validateReadmeDocsSectionAlignment ignores matching entries outside Docs section", () => {
+  const content = [
+    "## Docs",
+    buildReadmeDocsSectionLine(README_DOCS_SECTION_ENTRIES[0]),
+    buildReadmeDocsSectionLine(README_DOCS_SECTION_ENTRIES[1]),
+    "## Examples",
+    buildReadmeDocsSectionLine(README_DOCS_SECTION_ENTRIES[2]),
+  ].join("\n");
+  const result = validateReadmeDocsSectionAlignment(content);
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /workflow-production-live-execute-runbook\.md/);
 });
 
 test("validateReadmeToolAlignment rejects missing registered tool references", () => {

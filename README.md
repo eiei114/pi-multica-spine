@@ -308,9 +308,9 @@ See [`docs/release.md`](docs/release.md) for setup details.
 - [`examples/workflow-campaign-walkthrough/`](examples/workflow-campaign-walkthrough/) — offline Hermes Campaign walkthrough (repo-only)
 - [`CONTEXT.md`](CONTEXT.md) — domain glossary (repo-only)
 - [`docs/investigations/2026-07-24-workflow-adapter-completion-closeout.md`](docs/investigations/2026-07-24-workflow-adapter-completion-closeout.md) — DOT-1116 master plan closeout (repo-only)
-- [`docs/workflow-ops-checklist.md`](docs/workflow-ops-checklist.md)
-- [`docs/workflow-sandbox-live-execute-runbook.md`](docs/workflow-sandbox-live-execute-runbook.md)
-- [`docs/workflow-production-live-execute-runbook.md`](docs/workflow-production-live-execute-runbook.md) — live Maintenance `--execute` path — live sandbox `--execute` path — daily sandbox / Maintenance rehearsal path
+- [`docs/workflow-ops-checklist.md`](docs/workflow-ops-checklist.md) — daily sandbox / Maintenance rehearsal path
+- [`docs/workflow-sandbox-live-execute-runbook.md`](docs/workflow-sandbox-live-execute-runbook.md) — live sandbox `--execute` path
+- [`docs/workflow-production-live-execute-runbook.md`](docs/workflow-production-live-execute-runbook.md) — live Maintenance `--execute` path
 - [`docs/production-gate-decision.md`](docs/production-gate-decision.md) — when a human may open `productionAllowed` (default: closed)
 - [`ROADMAP.md`](ROADMAP.md) — maintenance context and seed history (repo-only, not packaged)
 
