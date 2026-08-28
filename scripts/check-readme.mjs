@@ -84,7 +84,14 @@ export function buildReadmeDocsSectionLine({ path, description }) {
 
 export function validateReadmeDocsSectionAlignment(content) {
   const errors = [];
-  const lines = content.split("\n");
+  const headingMatch = content.match(/^## Docs\b.*$/m);
+  if (!headingMatch) {
+    return { ok: false, errors: ["README Docs section missing"] };
+  }
+  const rest = content.slice(headingMatch.index + headingMatch[0].length);
+  const nextHeading = rest.search(/^## /m);
+  const section = nextHeading === -1 ? rest : rest.slice(0, nextHeading);
+  const lines = section.split("\n");
   for (const entry of README_DOCS_SECTION_ENTRIES) {
     const expectedLine = buildReadmeDocsSectionLine(entry);
     const matchingLines = lines.filter((line) => line === expectedLine);
