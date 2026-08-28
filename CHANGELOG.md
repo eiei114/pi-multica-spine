@@ -6,6 +6,11 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- README Docs section: split the concatenated workflow runbook blurbs so `workflow-ops-checklist`, `workflow-sandbox-live-execute-runbook`, and `workflow-production-live-execute-runbook` each carry one accurate description.
+- `check:readme` now rejects README Docs section drift for those three workflow runbook entries.
+
 ## [0.12.9] - 2026-08-22
 
 ### Fixed

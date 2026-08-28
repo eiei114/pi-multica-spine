@@ -63,7 +63,39 @@ export function validateReadmeToolAlignment(content, extensionSource = "") {
   return { ok: errors.length === 0, errors, registered, missing };
 }
 
-export function validateReadme(content, { version, ciScript, extensionSource, validateRegisteredTools = false } = {}) {
+export const README_DOCS_SECTION_ENTRIES = [
+  {
+    path: "docs/workflow-ops-checklist.md",
+    description: "daily sandbox / Maintenance rehearsal path",
+  },
+  {
+    path: "docs/workflow-sandbox-live-execute-runbook.md",
+    description: "live sandbox `--execute` path",
+  },
+  {
+    path: "docs/workflow-production-live-execute-runbook.md",
+    description: "live Maintenance `--execute` path",
+  },
+];
+
+export function buildReadmeDocsSectionLine({ path, description }) {
+  return `- [\`${path}\`](${path}) — ${description}`;
+}
+
+export function validateReadmeDocsSectionAlignment(content) {
+  const errors = [];
+  const lines = content.split("\n");
+  for (const entry of README_DOCS_SECTION_ENTRIES) {
+    const expectedLine = buildReadmeDocsSectionLine(entry);
+    const matchingLines = lines.filter((line) => line === expectedLine);
+    if (matchingLines.length !== 1) {
+      errors.push(`README Docs section missing or drifted entry: ${entry.path}`);
+    }
+  }
+  return { ok: errors.length === 0, errors };
+}
+
+export function validateReadme(content, { version, ciScript, extensionSource, validateRegisteredTools = false, validateDocsSection = false } = {}) {
   const errors = [];
   const fenceLines = content.split("\n").filter((line) => FENCE.test(line.trim()));
   if (fenceLines.length % 2 !== 0) {
@@ -101,6 +133,11 @@ export function validateReadme(content, { version, ciScript, extensionSource, va
     }
   }
 
+  if (validateDocsSection) {
+    const docsAlignment = validateReadmeDocsSectionAlignment(content);
+    errors.push(...docsAlignment.errors);
+  }
+
   return { ok: errors.length === 0, errors };
 }
 
@@ -126,7 +163,7 @@ export function runCheckReadme({
     console.error(`unable to read extension entry: ${extensionPath}`);
     return 1;
   }
-  const result = validateReadme(content, { version, ciScript, extensionSource, validateRegisteredTools: true });
+  const result = validateReadme(content, { version, ciScript, extensionSource, validateRegisteredTools: true, validateDocsSection: true });
   if (!result.ok) {
     console.error(result.errors.join("\n"));
     return 1;
