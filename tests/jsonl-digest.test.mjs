@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   computeJsonlDigest,
+  extractJsonlRecordStatus,
   formatJsonlDigestHuman,
   formatJsonlDigestJson,
   parseJsonlLines,
@@ -33,4 +34,26 @@ test("formatJsonlDigestHuman supports plain and color modes", () => {
 
 test("parseJsonlLines ignores blank lines", () => {
   assert.equal(parseJsonlLines('{"status":"open"}\n\n').length, 1);
+});
+
+test("extractJsonlRecordStatus reads top-level status without nested false positives", () => {
+  assert.equal(extractJsonlRecordStatus('{"id":"t1","status":"open"}'), "open");
+  assert.equal(extractJsonlRecordStatus('{"meta":{"status":"ignored"},"status":"done"}'), "done");
+  assert.equal(extractJsonlRecordStatus('{"id":"t1"}'), "unknown");
+  assert.equal(extractJsonlRecordStatus('{"status":42}'), "42");
+  assert.equal(extractJsonlRecordStatus("not-json"), "unknown");
+});
+
+test("computeJsonlDigest fast path matches JSON.parse fallback digest", () => {
+  const lines = [
+    '{"id":"t1","status":"open","metadata":{"status":"ignored"}}',
+    '{"id":"t2","status":"done"}',
+    '{"id":"t3","status":"open"}',
+    '{"id":"t4","status":null}',
+    '{"id":"t5"}',
+  ];
+  const result = computeJsonlDigest(lines);
+  assert.deepEqual(result.counts, { done: 1, null: 1, open: 2, unknown: 1 });
+  assert.equal(result.lineCount, 5);
+  assert.match(result.digest, /^[a-f0-9]{64}$/);
 });

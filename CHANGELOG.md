@@ -6,6 +6,10 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- `computeJsonlDigest` extracts top-level JSONL `status` without full `JSON.parse` on each line, keeping digest output stable while speeding large task-file scans (~5x in a 10k-line local benchmark).
+
 ### Fixed
 
 - README Docs section: split the concatenated workflow runbook blurbs so `workflow-ops-checklist`, `workflow-sandbox-live-execute-runbook`, and `workflow-production-live-execute-runbook` each carry one accurate description.
