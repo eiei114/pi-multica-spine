@@ -44,6 +44,51 @@ test("extractJsonlRecordStatus reads top-level status without nested false posit
   assert.equal(extractJsonlRecordStatus("not-json"), "unknown");
 });
 
+test("extractJsonlRecordStatus matches JSON.parse semantics on hostile shapes", () => {
+  const inputs = [
+    '{"status":"first","status":"last"}',
+    '{"status":"done"} trailing',
+    '{"status":1e3}',
+    '{"status":-12.5e2}',
+    '{"status":[]}',
+    '{"status":{}}',
+    '{"status":true}',
+    '{"status":null}',
+    '{"status":"a\\nb"}',
+    '{"status":"\\q"}',
+    '{"a":"\\q","status":"x"}',
+    '{"status":"x",}',
+    '{"status" "x"}',
+    '{"status":"unterminated}',
+    '{"status":{"a":1}}',
+    '{"status":[1,2]}',
+    '{"meta":{"status":"in"},"status":"top"}',
+    '{"status" : "spaced" }',
+    '{}',
+    '{"Status":"caps"}',
+    '{"statusX":"y"}',
+    '  {"status":"pad"}  ',
+    '{"status":01}',
+    '{"status":+1}',
+    '[{"status":"arr"}]',
+    '"bare"',
+    '',
+  ];
+  for (const input of inputs) {
+    let expected;
+    try {
+      const record = JSON.parse(input);
+      expected =
+        record !== null && typeof record === "object" && !Array.isArray(record) && "status" in record
+          ? String(record.status)
+          : String(record?.status ?? "unknown");
+    } catch {
+      expected = "unknown";
+    }
+    assert.equal(extractJsonlRecordStatus(input), expected, `mismatch for ${input}`);
+  }
+});
+
 test("computeJsonlDigest fast path matches JSON.parse fallback digest", () => {
   const lines = [
     '{"id":"t1","status":"open","metadata":{"status":"ignored"}}',
