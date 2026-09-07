@@ -123,7 +123,7 @@ See [`docs/idea-to-build-visual-ui-workflow.md`](docs/idea-to-build-visual-ui-wo
 
 ### Vault-native idea entry
 
-When your rough idea lives in an Obsidian vault, use `scripts/workflow-vault-idea-entry.mjs` instead of the repo-local `workflow-idea-entry.mjs` path. The script writes a vault idea note under `4_Project/Multica-Agent-Strategy/Ideas/`, then plans or executes the same sandbox Idea-to-Build lane (`productionAllowed=false`).
+When your rough idea lives in an Obsidian vault, use `scripts/workflow-vault-idea-entry.mjs` instead of the repo-local `workflow-idea-entry.mjs` path. The script writes a vault idea note under `4_Project/Multica-Agent-Strategy/Ideas/` by default (`resolveIdeaEntryConfig` can override this via `vaultIdeaRelativeDir` before `writeVaultIdeaNote` writes the note), then plans or executes the same sandbox Idea-to-Build lane (`productionAllowed=false`).
 
 Offline / sandbox boundary:
 
