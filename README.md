@@ -121,6 +121,26 @@ node scripts/workflow-idea-entry.mjs --rough-idea "Build a Daily Relic iOS game"
 
 See [`docs/idea-to-build-visual-ui-workflow.md`](docs/idea-to-build-visual-ui-workflow.md).
 
+### Vault-native idea entry
+
+When your rough idea lives in an Obsidian vault, use `scripts/workflow-vault-idea-entry.mjs` instead of the repo-local `workflow-idea-entry.mjs` path. The script writes a vault idea note under `4_Project/Multica-Agent-Strategy/Ideas/`, then plans or executes the same sandbox Idea-to-Build lane (`productionAllowed=false`).
+
+Offline / sandbox boundary:
+
+- `--dry-run` (default in CI via `check:vault-idea-entry`) plans the session, validates the vault note, and skips live Multica CLI/auth checks.
+- `--execute` advances the sandbox lane one stage at a time; production remains closed.
+- Pass `--vault-root` or set `PI_VAULT_ROOT`; CI uses `.ci-tmp/vault` scratch paths.
+
+```bash
+node scripts/workflow-vault-idea-entry.mjs \
+  --rough-idea "Build a Daily Relic iOS game" \
+  --dry-run \
+  --vault-root /path/to/vault \
+  --json
+```
+
+After the vault note is written, commit it with your vault split-commit helper before invoking `/skill:idea-to-build`.
+
 ### Maintenance-build entry skill
 
 ```
@@ -272,7 +292,7 @@ npm install
 npm run ci
 ```
 
-`npm run ci` runs build, typecheck, `check:coverage`, `check:changelog`, `check:readme`, `check:template`, `check:sandbox-checklist`, `check:sandbox-rehearsal`, `check:sandbox-evidence`, `check:idea-entry`, `check:idea-status`, `check:idea-retention`, `check:live-sandbox-smoke`, `check:maintenance-live-smoke`, `check:maintenance-entry`, `check:production-rehearsal`, `check:production-gate`, `pack:check`, `pack:smoke` (install tarball + digest CLI), both walkthrough smokes, and `npm pack --dry-run`.
+`npm run ci` runs build, typecheck, `check:coverage`, `check:changelog`, `check:readme`, `check:template`, `check:sandbox-checklist`, `check:sandbox-rehearsal`, `check:sandbox-evidence`, `check:idea-entry`, `check:vault-idea-entry`, `check:idea-status`, `check:idea-retention`, `check:live-sandbox-smoke`, `check:maintenance-live-smoke`, `check:maintenance-entry`, `check:production-rehearsal`, `check:production-gate`, `pack:check`, `pack:smoke` (install tarball + digest CLI), both walkthrough smokes, and `npm pack --dry-run`.
 
 Individual checks:
 
