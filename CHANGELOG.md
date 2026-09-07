@@ -8,6 +8,8 @@ This project follows semantic versioning.
 
 ### Changed
 
+- `npm run ci` now runs `check:vault-idea-entry` so vault-native Idea-to-Build dry-run planning stays covered offline.
+- README documents the vault-native entry flow (`workflow-vault-idea-entry.mjs`), vault note path, and offline/sandbox boundary (`--dry-run`, `productionAllowed=false`).
 - `computeJsonlDigest` extracts top-level JSONL `status` without full `JSON.parse` on each line, keeping digest output stable while speeding large task-file scans (~5x in a 10k-line local benchmark).
 
 ### Fixed
