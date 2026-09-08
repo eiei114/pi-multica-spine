@@ -11,7 +11,7 @@ Short path to run Multica work through the workflow adapter **without** opening 
 
 ## Preconditions (both lanes)
 
-0. Optional offline rehearsal: `node examples/workflow-campaign-walkthrough/run-walkthrough.mjs` (no Multica CLI).
+0. Optional offline rehearsal: `npm run walkthrough` (minimal spine verify + Hermes campaign; no Multica CLI).
 0a. **Idea entry (Pi):** `/skill:idea-to-build` then paste rough idea → `node scripts/workflow-idea-entry.mjs --rough-idea "..." --execute` (fresh session path by default).
 0a2. **Maintenance entry (Pi):** `/skill:maintenance-build` then paste brief → `node scripts/workflow-maintenance-entry.mjs --maintenance-brief "..." --execute`.
 0a3. **Idea entry live runbook:** [`workflow-idea-entry-live-execute-runbook.md`](workflow-idea-entry-live-execute-runbook.md).
