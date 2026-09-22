@@ -103,6 +103,17 @@ Pin a specific version when you want reproducible installs:
 pi install npm:pi-multica-spine@0.12.9
 ```
 
+### Pi skill entry points
+
+This package registers two explicit slash-command skills; neither is auto-detected:
+
+| Skill | Use when | Command |
+| --- | --- | --- |
+| Idea-to-Build | Starting a new idea in a sandbox | `/skill:idea-to-build` |
+| Maintenance-build | Performing bounded repository maintenance | `/skill:maintenance-build` |
+
+Invoke the command after installing the package, then paste the requested idea or maintenance brief. The detailed flows below show the corresponding CLI commands.
+
 ### Idea-to-build entry skill
 
 After install, invoke explicitly (never auto-detected):
