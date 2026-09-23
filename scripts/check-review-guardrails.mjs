@@ -80,6 +80,9 @@ function checkReleaseState() {
 
 function checkPackageDocs() {
   const { files, prefix } = packedFiles();
+  for (const required of ["CONTEXT.md", "SECURITY.md"]) {
+    assert.ok(files.has(`${prefix}${required}`), `${required} must be included in the npm tarball`);
+  }
   const sourceRoot = prefix ? join(ROOT, "packages", "create-pi-extension", "template") : ROOT;
   const markdown = [join(sourceRoot, "README.md"), ...walkMarkdown(join(sourceRoot, "docs"))].filter(existsSync);
   for (const source of markdown) {
