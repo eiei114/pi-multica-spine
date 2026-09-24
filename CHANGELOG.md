@@ -16,6 +16,7 @@ This project follows semantic versioning.
 
 ### Fixed
 
+- `check:readme` now validates ROADMAP version markers and requires at least three scoped open maintenance seeds.
 - README Docs section: split the concatenated workflow runbook blurbs so `workflow-ops-checklist`, `workflow-sandbox-live-execute-runbook`, and `workflow-production-live-execute-runbook` each carry one accurate description.
 - `check:readme` now rejects README Docs section drift for those three workflow runbook entries.
 

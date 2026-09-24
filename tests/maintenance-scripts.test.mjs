@@ -6,12 +6,15 @@ import {
   buildReadmeDocsSectionLine,
   extractCiCheckScripts,
   extractDevelopmentSection,
+  extractOpenRoadmapSeeds,
   extractRegisteredToolNames,
+  extractRoadmapDocumentedVersions,
   README_DOCS_SECTION_ENTRIES,
   validateCiReadmeAlignment,
   validateReadme,
   validateReadmeDocsSectionAlignment,
   validateReadmeToolAlignment,
+  validateRoadmapFreshness,
   runCheckReadme,
 } from "../scripts/check-readme.mjs";
 import {
@@ -58,6 +61,27 @@ const sampleReadme = [
   "## Development",
   "",
   sampleCiDescription,
+].join("\n");
+
+const sampleRoadmap = [
+  "# Roadmap",
+  "",
+  "## Current release status",
+  "",
+  "| Item | Value |",
+  "| --- | --- |",
+  "| Published version | **0.12.7** (npm) |",
+  "| Working-tree version | `0.12.7` |",
+  "",
+  "## Candidate maintenance seeds",
+  "",
+  "| ID | Task | Est. | Why needed |",
+  "| --- | --- | --- | --- |",
+  "| R-MNT-45 | First scoped task | ~30 min | Keeps the first lane healthy |",
+  "| R-MNT-46 | Second scoped task | ~45 min | Keeps the second lane healthy |",
+  "| R-MNT-47 | Third scoped task | ~60 min | Keeps the third lane healthy |",
+  "",
+  "## Completed seeds (reference)",
 ].join("\n");
 
 test("extractCiCheckScripts returns check:* scripts from package ci", () => {
@@ -173,10 +197,52 @@ test("runCheckReadme fails when extension entry is unavailable", () => {
   assert.equal(exitCode, 1);
 });
 
-test("validateReadme accepts current README shape", () => {
+test("extractRoadmapDocumentedVersions returns both current version markers", () => {
+  assert.deepEqual(extractRoadmapDocumentedVersions(sampleRoadmap), {
+    published: "0.12.7",
+    workingTree: "0.12.7",
+  });
+});
+
+test("extractOpenRoadmapSeeds ignores completed entries and parses scope columns", () => {
+  const roadmap = sampleRoadmap.replace(
+    "| R-MNT-47 | Third scoped task | ~60 min | Keeps the third lane healthy |",
+    "| ~~R-MNT-47~~ | Completed task | ~60 min | Already shipped |",
+  );
+  assert.deepEqual(extractOpenRoadmapSeeds(roadmap), [
+    { id: "R-MNT-45", task: "First scoped task", estimate: "~30 min", scopeNote: "Keeps the first lane healthy" },
+    { id: "R-MNT-46", task: "Second scoped task", estimate: "~45 min", scopeNote: "Keeps the second lane healthy" },
+  ]);
+});
+
+test("validateRoadmapFreshness accepts aligned versions and three scoped seeds", () => {
+  const result = validateRoadmapFreshness(sampleRoadmap, "0.12.7");
+  assert.equal(result.ok, true);
+  assert.equal(result.scopedSeeds.length, 3);
+});
+
+test("validateRoadmapFreshness rejects version drift", () => {
+  const roadmap = sampleRoadmap.replace("| Working-tree version | `0.12.7` |", "| Working-tree version | `0.12.6` |");
+  const result = validateRoadmapFreshness(roadmap, "0.12.7");
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /Working-tree version 0\.12\.6 does not match package\.json version 0\.12\.7/);
+});
+
+test("validateRoadmapFreshness rejects too few or unscoped open seeds", () => {
+  const roadmap = sampleRoadmap
+    .replace("| R-MNT-46 | Second scoped task | ~45 min | Keeps the second lane healthy |", "")
+    .replace("| R-MNT-47 | Third scoped task | ~60 min | Keeps the third lane healthy |", "| R-MNT-47 | Third scoped task | ~60 min | |\n");
+  const result = validateRoadmapFreshness(roadmap, "0.12.7");
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /missing scope notes.*R-MNT-47/);
+  assert.match(result.errors.join("\n"), /at least 3 open seed entries with scope notes; found 1/);
+});
+
+test("validateReadme accepts current README and roadmap shape", () => {
   const result = validateReadme(sampleReadme, {
     version: "0.12.7",
     ciScript: sampleCiScript,
+    roadmapContent: sampleRoadmap,
   });
   assert.equal(result.ok, true);
 });
