@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 
 const CI_DESCRIPTION_PREFIX = "`npm run ci` runs";
 const DEVELOPMENT_SECTION_HEADING = /^## Development\b.*$/m;
+export const MIN_OPEN_ROADMAP_SEEDS = 3;
 
 export function extractDevelopmentSection(content) {
   const headingMatch = content.match(DEVELOPMENT_SECTION_HEADING);
@@ -102,7 +103,100 @@ export function validateReadmeDocsSectionAlignment(content) {
   return { ok: errors.length === 0, errors };
 }
 
-export function validateReadme(content, { version, ciScript, extensionSource, validateRegisteredTools = false, validateDocsSection = false } = {}) {
+export function extractRoadmapDocumentedVersions(content = "") {
+  const publishedMatch = content.match(
+    /^\|\s*Published version\s*\|\s*\*\*(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\*\*/m,
+  );
+  const workingTreeMatch = content.match(
+    /^\|\s*Working-tree version\s*\|\s*`(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)`/m,
+  );
+  return {
+    published: publishedMatch?.[1] ?? null,
+    workingTree: workingTreeMatch?.[1] ?? null,
+  };
+}
+
+function extractRoadmapCandidateSection(content) {
+  const headingMatch = content.match(/^## Candidate maintenance seeds\b.*$/m);
+  if (!headingMatch) {
+    return null;
+  }
+  const rest = content.slice(headingMatch.index + headingMatch[0].length);
+  const nextHeading = rest.search(/^## /m);
+  return nextHeading === -1 ? rest : rest.slice(0, nextHeading);
+}
+
+export function extractOpenRoadmapSeeds(content = "") {
+  const section = extractRoadmapCandidateSection(content);
+  if (section === null) {
+    return null;
+  }
+
+  return section.split("\n").flatMap((line) => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("|")) {
+      return [];
+    }
+    const cells = trimmed
+      .split("|")
+      .slice(1, trimmed.endsWith("|") ? -1 : undefined)
+      .map((cell) => cell.trim());
+    const [id, task = "", estimate = "", scopeNote = ""] = cells;
+    if (!/^R-MNT-\d+$/.test(id ?? "")) {
+      return [];
+    }
+    return [{ id, task, estimate, scopeNote }];
+  });
+}
+
+function hasRoadmapSeedScope(seed) {
+  return [seed.task, seed.estimate, seed.scopeNote].every((value) => value.trim().length > 0);
+}
+
+export function validateRoadmapFreshness(content, packageVersion, { minOpenSeeds = MIN_OPEN_ROADMAP_SEEDS } = {}) {
+  const errors = [];
+  const versions = extractRoadmapDocumentedVersions(content);
+  const versionLabels = [
+    ["published", "Published version"],
+    ["workingTree", "Working-tree version"],
+  ];
+
+  if (!packageVersion) {
+    errors.push("package.json version unavailable for ROADMAP freshness validation");
+  }
+  for (const [key, label] of versionLabels) {
+    const documentedVersion = versions[key];
+    if (!documentedVersion) {
+      errors.push(`ROADMAP ${label} is missing or not a semantic version`);
+    } else if (packageVersion && documentedVersion !== packageVersion) {
+      errors.push(`ROADMAP ${label} ${documentedVersion} does not match package.json version ${packageVersion}`);
+    }
+  }
+
+  const openSeeds = extractOpenRoadmapSeeds(content);
+  if (openSeeds === null) {
+    errors.push("ROADMAP Candidate maintenance seeds section missing");
+    return { ok: false, errors, versions, openSeeds: [], scopedSeeds: [] };
+  }
+
+  const unscopedSeeds = openSeeds.filter((seed) => !hasRoadmapSeedScope(seed));
+  if (unscopedSeeds.length > 0) {
+    errors.push(
+      `ROADMAP open seed entries missing scope notes (Task, Est., and Why needed): ${unscopedSeeds.map((seed) => seed.id).join(", ")}`,
+    );
+  }
+
+  const scopedSeeds = openSeeds.filter(hasRoadmapSeedScope);
+  if (scopedSeeds.length < minOpenSeeds) {
+    errors.push(
+      `ROADMAP requires at least ${minOpenSeeds} open seed entries with scope notes; found ${scopedSeeds.length}`,
+    );
+  }
+
+  return { ok: errors.length === 0, errors, versions, openSeeds, scopedSeeds };
+}
+
+export function validateReadme(content, { version, ciScript, extensionSource, roadmapContent, validateRegisteredTools = false, validateDocsSection = false } = {}) {
   const errors = [];
   const fenceLines = content.split("\n").filter((line) => FENCE.test(line.trim()));
   if (fenceLines.length % 2 !== 0) {
@@ -145,6 +239,11 @@ export function validateReadme(content, { version, ciScript, extensionSource, va
     errors.push(...docsAlignment.errors);
   }
 
+  if (roadmapContent !== undefined) {
+    const roadmapFreshness = validateRoadmapFreshness(roadmapContent, version);
+    errors.push(...roadmapFreshness.errors);
+  }
+
   return { ok: errors.length === 0, errors };
 }
 
@@ -152,11 +251,13 @@ export function runCheckReadme({
   readmePath = "README.md",
   packageJsonPath = "package.json",
   extensionPath = "extensions/index.ts",
+  roadmapPath = "ROADMAP.md",
 } = {}) {
   const content = readFileSync(readmePath, "utf8");
   let version;
   let ciScript;
   let extensionSource;
+  let roadmapContent;
   try {
     const pkg = JSON.parse(readFileSync(packageJsonPath, "utf8"));
     version = pkg.version;
@@ -170,7 +271,20 @@ export function runCheckReadme({
     console.error(`unable to read extension entry: ${extensionPath}`);
     return 1;
   }
-  const result = validateReadme(content, { version, ciScript, extensionSource, validateRegisteredTools: true, validateDocsSection: true });
+  try {
+    roadmapContent = readFileSync(roadmapPath, "utf8");
+  } catch {
+    console.error(`unable to read roadmap: ${roadmapPath}`);
+    return 1;
+  }
+  const result = validateReadme(content, {
+    version,
+    ciScript,
+    extensionSource,
+    roadmapContent,
+    validateRegisteredTools: true,
+    validateDocsSection: true,
+  });
   if (!result.ok) {
     console.error(result.errors.join("\n"));
     return 1;

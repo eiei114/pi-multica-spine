@@ -30,7 +30,10 @@ Each item is scoped to ~30–90 minutes for weekly seed planner conversion.
 | --- | --- | --- | --- |
 | ~~R-MNT-43~~ | Add README "Pi skills" discovery section listing `/skill:idea-to-build` and `/skill:maintenance-build` with install + invoke paths | ~30 min | Skills are documented inline under Install but lack a scannable index; seed planner and new operators cannot find entry points quickly |
 | ~~R-MNT-44~~ | Add `check:vault-idea-entry` to `npm run ci` and document vault-native flow in README | ~45 min | Script and offline check are now covered by CI; regressions are caught in the offline gate |
-| R-MNT-45 | Add ROADMAP freshness guard to `check:readme` (version alignment + ≥3 open seeds with scope notes) | ~60 min | ROADMAP drift blocked seed planner (DOT-1011); automated guard prevents repeat |
+| ~~R-MNT-45~~ | Add ROADMAP freshness guard to `check:readme` (version alignment + ≥3 open seeds with scope notes) | ~60 min | ROADMAP drift blocked seed planner (DOT-1011); automated guard prevents repeat |
+| R-MNT-46 | Add a package manifest and pack-content freshness guard for documented shipped paths | ~45 min | README package contents and npm pack output can drift when entry points change; an offline allowlist keeps release artifacts discoverable |
+| R-MNT-47 | Add deterministic offline coverage for walkthrough and maintenance smoke inputs | ~60 min | Operator-facing workflows can drift from their fixtures; a local check should catch contract changes before live runs |
+| R-MNT-48 | Add a release-status consistency guard for CHANGELOG and ROADMAP version markers | ~45 min | Version metadata is duplicated across release docs; a local check prevents stale status from misleading maintainers |
 
 ## Completed seeds (reference)
 
@@ -43,3 +46,4 @@ Each item is scoped to ~30–90 minutes for weekly seed planner conversion.
 | ~~R-MNT-42~~ | v0.12.9 — Idea session retention policy (dry-run classification + docs) |
 | ~~R-MNT-43~~ | Next release — README Pi skill entry-point table for Idea-to-Build and Maintenance-build |
 | ~~R-MNT-44~~ | Current release — vault-native idea entry docs and offline CI coverage |
+| ~~R-MNT-45~~ | Current release — ROADMAP freshness guard in `check:readme` |
