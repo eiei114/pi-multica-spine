@@ -228,7 +228,7 @@ function findPermissionBlocks(content) {
   for (let index = 0; index < lines.length; index += 1) {
     const line = stripInlineComment(lines[index]);
     const trimmed = line.trim();
-    const match = trimmed.match(/^permissions:\s*(.*)$/);
+    const match = trimmed.match(/^["']?permissions["']?:\s*(.*)$/);
     if (!match) continue;
     blocks.push(parsePermissionsBlock(lines, index, lineIndent(line), match[1]));
   }
@@ -285,7 +285,7 @@ function findCheckoutSteps(content) {
   const steps = [];
   for (let index = 0; index < lines.length; index += 1) {
     const line = stripInlineComment(lines[index]);
-    if (!/^\s*(?:-\s*)?uses:\s*actions\/checkout@/i.test(line)) continue;
+    if (!/^\s*(?:-\s*)?uses:\s*["']?actions\/checkout@/i.test(line)) continue;
 
     const usesIndent = lineIndent(line);
     const start = findStepStart(lines, index, usesIndent);
