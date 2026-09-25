@@ -343,7 +343,7 @@ See [`docs/release.md`](docs/release.md) for setup details.
 - [`docs/workflow-sandbox-live-execute-runbook.md`](docs/workflow-sandbox-live-execute-runbook.md) — live sandbox `--execute` path
 - [`docs/workflow-production-live-execute-runbook.md`](docs/workflow-production-live-execute-runbook.md) — live Maintenance `--execute` path
 - [`docs/production-gate-decision.md`](docs/production-gate-decision.md) — when a human may open `productionAllowed` (default: closed)
-- [`ROADMAP.md`](ROADMAP.md) — maintenance context and seed history (repo-only, not packaged)
+- `ROADMAP.md` — maintenance context and seed history (repo-only, not packaged)
 
 ## Security
 
