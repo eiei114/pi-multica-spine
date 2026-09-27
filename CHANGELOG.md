@@ -1,45 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
 ## [0.12.14] - 2026-09-27
 
 - chore: periodic patch bump after 7+ days without npm publish
 
-## 0.12.13 - 2026-09-27
 
-- chore: periodic patch bump after 7+ days without npm publish
 
-## 0.12.12 - 2026-09-27
 
-- chore: periodic patch bump after 7+ days without npm publish
-
-## 0.12.11 - 2026-09-27
-
-- chore: periodic patch bump after 7+ days without npm publish
-
-## 0.12.10 - 2026-09-27
-
-- chore: periodic patch bump after 7+ days without npm publish
 
 All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
-
-## [Unreleased]
-
-### Changed
-
-- README adds a scannable Pi skill entry-point table for `/skill:idea-to-build` and `/skill:maintenance-build`, including when to use each command.
-- Example READMEs document `npm run walkthrough`, expected minimal-walkthrough output, and the 12 default offline Hermes stages (with skipped conditional stages named). Workflow ops checklist step 0 uses the same command.
-- `npm run ci` now runs `check:vault-idea-entry` so vault-native Idea-to-Build dry-run planning stays covered offline.
-- README documents the vault-native entry flow (`workflow-vault-idea-entry.mjs`), vault note path, and offline/sandbox boundary (`--dry-run`, `productionAllowed=false`).
-- `computeJsonlDigest` extracts top-level JSONL `status` without full `JSON.parse` on each line, keeping digest output stable while speeding large task-file scans (~5x in a 10k-line local benchmark).
-
-### Fixed
-
-- `check:readme` now validates ROADMAP version markers and requires at least three scoped open maintenance seeds.
-- README Docs section: split the concatenated workflow runbook blurbs so `workflow-ops-checklist`, `workflow-sandbox-live-execute-runbook`, and `workflow-production-live-execute-runbook` each carry one accurate description.
-- `check:readme` now rejects README Docs section drift for those three workflow runbook entries.
-
 ## [0.12.9] - 2026-08-22
 
 ### Fixed
@@ -74,9 +47,7 @@ This project follows semantic versioning.
 
 - `autoPromoteIdeaSession` now orchestrates queue fencing, receipt-based resume, project activation after all initial identities exist, and fail-closed route/template handling.
 - Hermes workflow manifest includes `scaffold_resolution` between accepted `spec_review` and `implementation_plan`.
-
 ## [0.12.0] - 2026-07-24
-
 ## [0.11.0] - 2026-07-25
 
 ### Added
@@ -86,14 +57,12 @@ This project follows semantic versioning.
 ### Changed
 
 - Local idea stages can advance to `promotion_ready` without per-stage human approval; autonomous bindings retain only final/protected human gates.
-
 ## [0.10.1] - 2026-07-24
 
 ### Changed
 
 - `/skill:idea-to-build --execute` now creates only a local `capture` session. It no longer creates a Multica Project, parent issue, Controller Autopilot, resource, or Work Agent Spine binding before `build_handoff`.
 - Documented `build_handoff` as the boundary that reuses an exact-title planned Project or creates an implementation Project before Spine-governed implementation begins.
-
 ## [0.10.0] - 2026-07-24
 
 ### Changed
@@ -101,7 +70,6 @@ This project follows semantic versioning.
 - `/skill:idea-to-build` and `workflow-idea-entry.mjs --execute` now stop after sandbox bootstrap and the initial `capture` stage.
 - Full campaign execution requires explicit `--run-full-campaign`; normal stage advancement uses a human-approved, one-stage `--campaign --max-stage-cycles 1` tick.
 - Idea-entry runbook documents the staged Autopilot contract and side-effect boundary.
-
 ## [0.8.0] - 2026-07-24
 
 ### Added
@@ -116,7 +84,6 @@ This project follows semantic versioning.
 - `workflow-idea-entry.mjs` allocates under `pi-multica-spine-idea-sessions/` unless `--reuse-default-canary`.
 - CI runs `check:maintenance-entry`; `pack:smoke` exercises installed idea-entry CLI.
 - `package.json` registers `pi.skills` for maintenance-build.
-
 ## [0.7.9] - 2026-07-24
 
 ### Added
@@ -129,7 +96,6 @@ This project follows semantic versioning.
 
 - CI runs `check:idea-entry`.
 - `package.json` ships `skills/` and registers `pi.skills`.
-
 ## [0.7.8] - 2026-07-24
 
 ### Added
@@ -142,7 +108,6 @@ This project follows semantic versioning.
 
 - `check:sandbox-evidence` validates `tests/fixtures/sandbox-closeout-evidence.reference.json`.
 - ROADMAP: R-MNT-31..33 absorbed.
-
 ## [0.7.7] - 2026-07-24
 
 ### Added
@@ -154,7 +119,6 @@ This project follows semantic versioning.
 ### Changed
 
 - ROADMAP: R-MNT-28..30 absorbed.
-
 ## [0.7.6] - 2026-07-24
 
 ### Added
@@ -168,7 +132,6 @@ This project follows semantic versioning.
 - CI runs `check:sandbox-evidence` and `check:production-gate`.
 - Live `--full-closeout --execute` rehearsal captures closeout evidence when successful.
 - ROADMAP: R-MNT-25..27 absorbed.
-
 ## [0.7.5] - 2026-07-24
 
 ### Added
@@ -182,7 +145,6 @@ This project follows semantic versioning.
 - `check:sandbox-rehearsal` uses `--full-closeout`; CI adds `check:production-rehearsal`.
 - `workflow-production-run.mjs` accepts `--max-stage-cycles`.
 - ROADMAP: R-MNT-22..24 absorbed.
-
 ## [0.7.4] - 2026-07-24
 
 ### Added
@@ -196,7 +158,6 @@ This project follows semantic versioning.
 
 - CI runs `check:sandbox-rehearsal`.
 - ROADMAP: R-MNT-19..21 absorbed.
-
 ## [0.7.3] - 2026-07-24
 
 ### Added
@@ -210,7 +171,6 @@ This project follows semantic versioning.
 - Campaign walkthrough human review runs only after natural `final_package` completion.
 - CI runs `check:template` and `check:sandbox-checklist`.
 - ROADMAP: R-MNT-16..18 absorbed.
-
 ## [0.7.2] - 2026-07-24
 
 ### Added
@@ -223,7 +183,6 @@ This project follows semantic versioning.
 - **R-MNT-14:** `publish.yml` uses registry HTTP `curl` pre-check before `setup-node` OIDC.
 - Walkthrough bootstraps a minimal repo for implementation-stage artifacts.
 - ROADMAP: R-MNT-12..15 absorbed.
-
 ## [0.7.1] - 2026-07-24
 
 ### Added
@@ -235,7 +194,6 @@ This project follows semantic versioning.
 
 - **R-MNT-12:** CI includes campaign walkthrough smoke.
 - README and workflow ops checklist link to the new example.
-
 ## [0.7.0] - 2026-07-24
 
 ### Added
@@ -250,7 +208,6 @@ This project follows semantic versioning.
 - **R-MNT-10:** coverage gate floors raised to lines ≥ 75%, branches ≥ 68%, functions ≥ 75%.
 - **R-MNT-11:** CI actions bumped to `checkout@v7` / `setup-node@v6` per pi-extension-template hygiene.
 - ROADMAP: R-MNT-7..11 absorbed; next lane is onboarding expansion.
-
 ## [0.6.1] - 2026-07-24
 
 ### Added
@@ -263,7 +220,6 @@ This project follows semantic versioning.
 
 - ROADMAP refreshed for post-0.6.0 reality (R-MNT-1..6 absorbed; new R-MNT-7..11 candidates).
 - `npm run ci` includes `pack:smoke`.
-
 ## [0.6.0] - 2026-07-24
 
 ### Added
@@ -279,7 +235,6 @@ This project follows semantic versioning.
 - Maintenance Bundle: R-MNT-1..6 absorbed into one release (publish single-trigger already documented; coverage gate; changelog lint; README tarball notes).
 - Workflow/jsonl scripts import compiled `dist/lib`.
 - `CONTRIBUTING.md` documents enforced coverage floors.
-
 ## [0.5.2] - 2026-07-24
 
 ### Added
@@ -292,7 +247,6 @@ This project follows semantic versioning.
 - Sandbox canary and production run scripts auto-clear stale `.multica/daemon_task_context.json` before live Multica calls.
 - ROADMAP refreshed for v0.5.1 workflow ops and live lane evidence.
 - README install pin example advances to `@0.5.1`.
-
 ## [0.5.1] - 2026-07-24
 
 ### Added
@@ -304,7 +258,6 @@ This project follows semantic versioning.
 ### Changed
 
 - Install pin example advances to `@0.5.0`.
-
 ## [0.5.0] - 2026-07-23
 
 ### Added
@@ -338,7 +291,6 @@ This project follows semantic versioning.
 - Hermes `spec_fix` is controller-conditional; `ui_design_brief` remains binding-optional.
 - Catalog `compatibleFrom` accepts canonical adapter identity strings.
 - Package version advances to `0.4.0`.
-
 ## [0.3.0] - 2026-07-23
 
 ### Added
@@ -357,7 +309,6 @@ This project follows semantic versioning.
 - Project Workflow Bindings may explicitly enable optional Adapter stages; optional stages are skipped by default.
 - Workflow Catalog manifests may record multiple audited source bundles for dedicated composite Adapters.
 - Package version advances to `0.3.0` for the Controller + Hermes workflow lane.
-
 ## [0.2.1] - 2026-07-23
 
 ### Added
@@ -371,7 +322,6 @@ This project follows semantic versioning.
 
 - `ProjectWorkflowBindingStore.save` validates the bound Multica project via `multica project get` when the live CLI bridge is enabled.
 - Every workflow-stage metadata writeback sets `completion_authority=workflow_controller`.
-
 ## [0.2.0] - 2026-07-23
 
 ### Changed
@@ -382,7 +332,6 @@ This project follows semantic versioning.
 
 - Experimental Multica workflow-adapter foundation modules under `lib/`: workflow catalog manifest validation/lifecycle, project workflow binding + compact parent issue summary, and repo-local workflow run state-ledger storage for the latest adapter-contract design.
 - Experimental workflow-adapter tools: catalog put/get/list/transition, binding put/get/list, parent summary generation, workflow run create/context, stage seed/transition, artifact/question record, and effective-permission check.
-
 ## [0.1.5] - 2026-07-20
 
 ### Changed
@@ -394,7 +343,6 @@ This project follows semantic versioning.
 
 - `multica_spine_metadata_list`, `multica_spine_metadata_set`, and `multica_spine_metadata_delete` tools: CLI wrappers around `multica issue metadata list|set|delete` that force `--output json` and return the parsed key/value map. Each tool defaults to the bound issue when `issueIdentifier` is omitted, and `set` preserves the JS value type by default (overridable via `type`). These tools are independent of the `multica_spine_verify` completion gate.
 - `multica_spine_add_evidence` now dedups evidence: repeated calls with the same `kind`, `command`, and `exitCode` refresh the existing record instead of appending a duplicate, keeping at most one entry per verification step.
-
 ## [0.1.4] - 2026-07-07
 
 ### Added
@@ -402,7 +350,6 @@ This project follows semantic versioning.
 - `multica_spine_verify` now checks linked local issue markdown for `ready_for_multica: false` before completion.
 - Optional `localIssuePath` on `multica_spine_bind` and auto-discovery under `Issues/` / vault import folders.
 - Work-agent contract prompt now reminds agents to close local import issues before reporting done.
-
 ## [0.1.3] - 2026-07-04
 
 ### Added
@@ -414,20 +361,17 @@ This project follows semantic versioning.
 - `npm run test:coverage` using Node's built-in `--experimental-test-coverage` reporter; CI runs coverage in report-only mode (no enforced thresholds yet).
 - Fail fast on silent hung git network commands (`git push`, `git fetch`, `git pull`, `git ls-remote`) in work-agent bash calls with a 3-minute idle transport watchdog, distinct failure output, and actionable next-step hints for auth, remote, network, credential prompt, or shell issues.
 - Regression tests for git network command detection, failure classification, and silent subprocess idle abort.
-
 ## [0.1.2] - 2026-06-28
 
 ### Added
 
 - Added git completion checks to `multica_spine_verify` so Multica work agents cannot report done while a rebase/merge is still in progress, conflict markers remain, the worktree is dirty, local commits are unpushed, or PR head SHA metadata is stale.
 - Added git next-action guidance that tells agents to run `git push --force-with-lease` after successful rebase verification instead of stopping for confirmation.
-
 ## [0.1.1] - 2026-06-27
 
 ### Changed
 
 - Align README with the current Pi extension template: add `Features`, `Install`, `Quick start`, `Package contents`, `Release`, and `Links` sections while preserving Multica spine contract, state file, and example-flow content.
-
 ## [0.1.0] - 2026-06-18
 
 ### Added
