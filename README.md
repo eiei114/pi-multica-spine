@@ -100,7 +100,7 @@ Replace `pi-multica-spine` with the exact `name` from `package.json` when you fo
 Pin a specific version when you want reproducible installs:
 
 ```bash
-pi install npm:pi-multica-spine@0.12.9
+pi install npm:pi-multica-spine@0.12.14
 ```
 
 ### Pi skill entry points
