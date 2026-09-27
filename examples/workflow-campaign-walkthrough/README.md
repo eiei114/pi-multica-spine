@@ -18,7 +18,7 @@ Or run only this example:
 node examples/workflow-campaign-walkthrough/run-walkthrough.mjs
 ```
 
-Success prints JSON with `ok: true`, `campaign.currentStageId: "final_package"`, `humanReview.verdict: "approved"`, and a stable `ledgerHash`. `deliveryPolicy.productionAllowed` stays `false`.
+Success prints JSON with `ok: true`, `campaign.currentStageId: "final_package"`, `humanReview.verdict: "approved"`, and a 64-character `ledgerHash`. The hash is derived from the temporary walkthrough ledger, so it can differ between runs. `deliveryPolicy.productionAllowed` stays `false`.
 
 The campaign advances through Hermes stages without manual ledger seeding. Human review runs only after the campaign completes at `final_package`.
 
