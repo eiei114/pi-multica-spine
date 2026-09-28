@@ -84,6 +84,7 @@ export function buildReadmeDocsSectionLine({ path, description }) {
 }
 
 export function validateReadmeDocsSectionAlignment(content) {
+  content = content.replace(/\r\n/g, "\n");
   const errors = [];
   const headingMatch = content.match(/^## Docs\b.*$/m);
   if (!headingMatch) {
@@ -197,6 +198,7 @@ export function validateRoadmapFreshness(content, packageVersion, { minOpenSeeds
 }
 
 export function validateReadme(content, { version, ciScript, extensionSource, roadmapContent, validateRegisteredTools = false, validateDocsSection = false } = {}) {
+  content = content.replace(/\r\n/g, "\n");
   const errors = [];
   const fenceLines = content.split("\n").filter((line) => FENCE.test(line.trim()));
   if (fenceLines.length % 2 !== 0) {
