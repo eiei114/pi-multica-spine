@@ -146,6 +146,15 @@ test("validateReadmeDocsSectionAlignment accepts aligned workflow runbook entrie
   assert.equal(result.ok, true);
 });
 
+test("validateReadmeDocsSectionAlignment accepts CRLF README line endings", () => {
+  const content = [
+    "## Docs",
+    ...README_DOCS_SECTION_ENTRIES.map((entry) => buildReadmeDocsSectionLine(entry)),
+  ].join("\r\n");
+  const result = validateReadmeDocsSectionAlignment(content);
+  assert.equal(result.ok, true);
+});
+
 test("validateReadmeDocsSectionAlignment rejects concatenated runbook descriptions", () => {
   const content = [
     "## Docs",
