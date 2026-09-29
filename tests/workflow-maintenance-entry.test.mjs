@@ -15,10 +15,20 @@ test("parseWorkflowMaintenanceEntryArgs defaults to offline json", () => {
   assert.equal(args.json, true);
 });
 
-test("validateMaintenanceBrief rejects empty and short briefs", () => {
-  assert.equal(validateMaintenanceBrief("").ok, false);
-  assert.equal(validateMaintenanceBrief("too short").ok, false);
-  assert.equal(validateMaintenanceBrief("Bump docs and CI for maintenance lane entry").ok, true);
+test("validateMaintenanceBrief reports missing or malformed required fields and preserves valid entries", () => {
+  const missing = validateMaintenanceBrief("");
+  assert.equal(missing.ok, false);
+  assert.match(missing.error, /maintenance brief/);
+
+  const malformed = validateMaintenanceBrief("too short");
+  assert.equal(malformed.ok, false);
+  assert.match(malformed.error, /maintenance brief/);
+
+  const validBrief = "Bump docs and CI for maintenance lane entry";
+  assert.deepEqual(validateMaintenanceBrief(validBrief), {
+    ok: true,
+    maintenanceBrief: validBrief,
+  });
 });
 
 test("runWorkflowMaintenanceEntry offline plan passes in CI", async () => {
