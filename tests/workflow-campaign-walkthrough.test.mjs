@@ -33,6 +33,9 @@ test("workflow campaign walkthrough reaches final_package and human review offli
   assert.equal(summary.humanReview?.verdict, "approved");
   assert.match(summary.humanReview?.reviewArtifactPath ?? "", /10-human-final-review\.md$/);
   assert.match(summary.ledgerHash, /^[a-f0-9]{64}$/);
+
+  const secondSummary = await runWorkflowCampaignWalkthrough({ includeHumanReview: true });
+  assert.notEqual(summary.ledgerHash, secondSummary.ledgerHash);
 });
 
 test("workflow campaign README describes the per-run ledger hash", () => {
@@ -42,5 +45,8 @@ test("workflow campaign README describes the per-run ledger hash", () => {
   );
   assert.match(readme, /64-character `ledgerHash`/);
   assert.match(readme, /can differ between runs/);
-  assert.doesNotMatch(readme, /stable `ledgerHash`/);
+  assert.doesNotMatch(
+    readme,
+    /(?:stable.{0,40}`ledgerHash`|`ledgerHash`.{0,40}stable)/i,
+  );
 });
