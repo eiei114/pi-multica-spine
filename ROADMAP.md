@@ -6,8 +6,8 @@
 
 | Item | Value |
 | --- | --- |
-| Published version | **0.12.14** (npm) |
-| Working-tree version | `0.12.14` |
+| Published version | **0.12.15** (npm) |
+| Working-tree version | `0.12.15` |
 | Entry skills | `/skill:idea-to-build` · `/skill:maintenance-build` |
 | Vault entry | `scripts/workflow-vault-idea-entry.mjs` (offline check covered by `npm run ci`) |
 | Production gate | **CLOSED** (`productionAllowed=false`) |
