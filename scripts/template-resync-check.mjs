@@ -12,14 +12,14 @@ const repoRoot = join(scriptDir, "..");
 
 export const TEMPLATE_RESYNC_BASELINE = {
   templateRef: "pi-extension-template@0.2.1",
-  piPeerBaseline: "0.84.x",
+  piPeerBaseline: "0.99.x",
   piPeerPackages: [
     "@earendil-works/pi-agent-core",
     "@earendil-works/pi-ai",
     "@earendil-works/pi-coding-agent",
     "@earendil-works/pi-tui",
   ],
-  expectedPeerMajor: "0.84",
+  expectedPeerMajor: "0.99",
   lastReviewed: "2026-08-22",
 };
 
