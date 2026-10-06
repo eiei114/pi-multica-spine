@@ -1,6 +1,8 @@
 # Roadmap
 
 > Maintenance context for `pi-multica-spine`. Repo-level only — **not** shipped in the npm tarball.
+>
+> Refreshed for 2026-W41 on 2026-10-06. `ROADMAP.md` is the authoritative roadmap source; no separate roadmap file is required.
 
 ## Current release status
 
@@ -8,6 +10,7 @@
 | --- | --- |
 | Published version | **0.12.15** (npm) |
 | Working-tree version | `0.12.15` |
+| Roadmap freshness | Refreshed 2026-10-06 (2026-W41) |
 | Entry skills | `/skill:idea-to-build` · `/skill:maintenance-build` |
 | Vault entry | `scripts/workflow-vault-idea-entry.mjs` (offline check covered by `npm run ci`) |
 | Production gate | **CLOSED** (`productionAllowed=false`) |
@@ -28,9 +31,9 @@ Each item is scoped to ~30–90 minutes for weekly seed planner conversion.
 
 | ID | Task | Est. | Why needed |
 | --- | --- | --- | --- |
-| ~~R-MNT-43~~ | Add README "Pi skills" discovery section listing `/skill:idea-to-build` and `/skill:maintenance-build` with install + invoke paths | ~30 min | Skills are documented inline under Install but lack a scannable index; seed planner and new operators cannot find entry points quickly |
-| ~~R-MNT-44~~ | Add `check:vault-idea-entry` to `npm run ci` and document vault-native flow in README | ~45 min | Script and offline check are now covered by CI; regressions are caught in the offline gate |
-| ~~R-MNT-45~~ | Add ROADMAP freshness guard to `check:readme` (version alignment + ≥3 open seeds with scope notes) | ~60 min | ROADMAP drift blocked seed planner (DOT-1011); automated guard prevents repeat |
+| ~~R-MNT-43~~ | Add README "Pi skills" discovery section listing `/skill:idea-to-build` and `/skill:maintenance-build` with install + invoke paths | ~30 min | Completed and retained as the operator-facing entry-point index |
+| ~~R-MNT-44~~ | Add `check:vault-idea-entry` to `npm run ci` and document vault-native flow in README | ~45 min | Completed; the offline vault check is now part of the CI gate |
+| ~~R-MNT-45~~ | Add ROADMAP freshness guard to `check:readme` (version alignment + ≥3 open seeds with scope notes) | ~60 min | Completed; this refresh keeps the source current for the seed planner |
 | R-MNT-46 | Add a package manifest and pack-content freshness guard for documented shipped paths | ~45 min | README package contents and npm pack output can drift when entry points change; an offline allowlist keeps release artifacts discoverable |
 | R-MNT-47 | Add deterministic offline coverage for walkthrough and maintenance smoke inputs | ~60 min | Operator-facing workflows can drift from their fixtures; a local check should catch contract changes before live runs |
 | R-MNT-48 | Add a release-status consistency guard for CHANGELOG and ROADMAP version markers | ~45 min | Version metadata is duplicated across release docs; a local check prevents stale status from misleading maintainers |
