@@ -14,7 +14,9 @@ import {
 } from "./pi-sdk-smoke-contract.mjs";
 
 const root = resolve(import.meta.dirname, "..");
-const reportPath = resolve(root, "docs/verification/pi-sdk-smoke.json");
+const reportPath = process.argv.includes("--update-curated-report")
+  ? resolve(root, "docs/verification/pi-sdk-smoke.json")
+  : resolve(root, ".tmp/pi-sdk-smoke.json");
 const manifest = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
 const piPackageRoot = resolve(root, "node_modules/@earendil-works/pi-coding-agent");
 const piManifest = JSON.parse(readFileSync(resolve(piPackageRoot, "package.json"), "utf8"));
