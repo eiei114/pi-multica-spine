@@ -14,7 +14,9 @@ test("merging code cannot directly or indirectly trigger npm publish or release"
   assert.match(release, /on:\r?\n\s+workflow_dispatch:/, "release must be manually triggered only");
   assert.doesNotMatch(release, /^\s+push:/m, "a merge must not start release");
   const publish = triggers(publishWorkflow);
-  assert.match(publish, /push:\r?\n\s+tags:/, "publishing must remain version-tag gated");
+  assert.match(publish, /release:\r?\n\s+types:\s*\[published\]/, "publishing must follow an explicitly published release");
+  assert.match(publish, /^[ \t]{2}workflow_dispatch:/m, "publishing may also be started manually");
+  assert.doesNotMatch(publish, /^\s+push:/m, "a merge or tag push must not start publishing directly");
   assert.doesNotMatch(publish, /^\s+branches:/m, "main branch edits must not publish");
   assert.match(publishWorkflow, /npm publish/);
 });
