@@ -319,8 +319,18 @@ export class WorkflowRunStateStore {
       if (new Set(artifact.inputArtifactHashes).size !== artifact.inputArtifactHashes.length) {
         throw new Error("Artifact input hashes must be unique");
       }
+      const inputArtifacts = artifact.inputArtifactHashes.length > 1
+        ? new Map<string, WorkflowArtifactEnvelope>()
+        : undefined;
+      if (inputArtifacts) {
+        for (const existing of ledger.artifacts) {
+          if (!inputArtifacts.has(existing.outputHash)) inputArtifacts.set(existing.outputHash, existing);
+        }
+      }
       for (const inputHash of artifact.inputArtifactHashes) {
-        const inputArtifact = ledger.artifacts.find((item) => item.outputHash === inputHash);
+        const inputArtifact = inputArtifacts
+          ? inputArtifacts.get(inputHash)
+          : ledger.artifacts.find((item) => item.outputHash === inputHash);
         if (!inputArtifact) throw new Error(`Artifact input hash not found: ${inputHash}`);
         if (inputArtifact.status !== "immutable") throw new Error(`Artifact input is superseded: ${inputHash}`);
       }

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.12.17] - 2026-10-15
+
+### Fixed
+
+- Index multi-artifact input validation to avoid repeated ledger scans.
+
 ## [0.12.16] - 2026-10-12
 
 ### Changed
