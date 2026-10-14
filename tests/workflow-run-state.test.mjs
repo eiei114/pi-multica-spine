@@ -186,6 +186,62 @@ test("WorkflowRunStateStore rejects encoded path escapes and tolerates reordered
   assert.equal(ledger.artifacts.length, 1);
 });
 
+test("WorkflowRunStateStore validates multiple artifact inputs against the ledger", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "workflow-run-state-multiple-inputs-"));
+  const store = new WorkflowRunStateStore(cwd);
+  await store.create({
+    workflowRunId: "run_123",
+    multicaProjectId: "proj_123",
+    adapterId: "hermes-idea-workflow",
+    adapterVersion: 1,
+    adapterBundleHash: "a".repeat(64),
+    executionMode: "interactive",
+    initialStageId: "capture_interview",
+  });
+
+  const artifact = {
+    artifactSchemaVersion: 1,
+    workflowRunId: "run_123",
+    stageId: "capture_interview",
+    producerIssueId: "issue_123",
+    producerRunId: "attempt_1",
+    attempt: 1,
+    adapterBundleHash: "a".repeat(64),
+    inputArtifactHashes: [],
+    outputPath: "Artifacts/run_123/source.md",
+    outputHash: "b".repeat(64),
+    status: "immutable",
+  };
+  const secondHash = "c".repeat(64);
+  await store.recordArtifact("run_123", artifact);
+  await store.recordArtifact("run_123", {
+    ...artifact,
+    producerRunId: "attempt_2",
+    outputPath: "Artifacts/run_123/second-source.md",
+    outputHash: secondHash,
+  });
+
+  const combined = await store.recordArtifact("run_123", {
+    ...artifact,
+    producerRunId: "attempt_3",
+    inputArtifactHashes: [artifact.outputHash, secondHash],
+    outputPath: "Artifacts/run_123/combined.md",
+    outputHash: "d".repeat(64),
+  });
+  assert.equal(combined.artifacts.length, 3);
+
+  await assert.rejects(
+    () => store.recordArtifact("run_123", {
+      ...artifact,
+      producerRunId: "attempt_4",
+      inputArtifactHashes: [artifact.outputHash, "e".repeat(64)],
+      outputPath: "Artifacts/run_123/missing-input.md",
+      outputHash: "f".repeat(64),
+    }),
+    /Artifact input hash not found/,
+  );
+});
+
 test("WorkflowRunStateStore serializes concurrent mutations and records status events", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "workflow-run-state-concurrency-"));
   const store = new WorkflowRunStateStore(cwd);
