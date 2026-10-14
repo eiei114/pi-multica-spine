@@ -65,7 +65,8 @@
     "check:idea-retention": "node scripts/ci-offline-idea-retention-check.mjs",
     "check:live-sandbox-smoke": "node scripts/workflow-live-sandbox-smoke.mjs",
     "check:maintenance-live-smoke": "node scripts/workflow-maintenance-live-execute-smoke.mjs",
-    "check:vault-idea-entry": "node scripts/workflow-vault-idea-entry.mjs --rough-idea \"CI offline vault idea entry validation seed\" --dry-run --vault-root .ci-tmp/vault --sessions-root .ci-tmp/idea-sessions --session-suffix ci-offline-vault-idea-entry-validation --invocation-token ci-offline-vault-idea-entry-validation"
+    "check:vault-idea-entry": "node scripts/workflow-vault-idea-entry.mjs --rough-idea \"CI offline vault idea entry validation seed\" --dry-run --vault-root .ci-tmp/vault --sessions-root .ci-tmp/idea-sessions --session-suffix ci-offline-vault-idea-entry-validation --invocation-token ci-offline-vault-idea-entry-validation",
+    "smoke:pi:evidence": "node scripts/pi-sdk-smoke.mjs --write-evidence"
   },
   "pi": {
     "extensions": [

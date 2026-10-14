@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -81,4 +82,14 @@ test("host_shell rejects a wrong local CLI version even with exit zero", () => {
   assert.equal(behaviorAssertions("host_shell", {
     shell: "PowerShell", exitCode: 0, output: "0.99.1", expectedVersion: "1.1.0",
   })[0].passed, false);
+});
+
+test("routine smoke runs use the scratch path and only an explicit flag updates the record", () => {
+  const source = readFileSync(new URL("../scripts/pi-sdk-smoke.mjs", import.meta.url), "utf8");
+  // The documented flag must select the tracked record.
+  assert.match(source, /includes\("--write-evidence"\)/);
+  assert.match(source, /resolve\(root, "docs\/verification\/pi-sdk-smoke\.json"\)/);
+  // The default must be the git-ignored scratch path, not the tracked record.
+  assert.match(source, /resolve\(root, "\.ci-tmp\/pi-sdk-smoke\.json"\)/);
+  assert.doesNotMatch(source, /resolve\(root, "\.tmp\/pi-sdk-smoke\.json"\)/);
 });

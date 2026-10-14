@@ -14,9 +14,14 @@ import {
 } from "./pi-sdk-smoke-contract.mjs";
 
 const root = resolve(import.meta.dirname, "..");
-const reportPath = process.argv.includes("--update-curated-report")
+// Routine CI/local runs write to the documented, git-ignored .ci-tmp scratch
+// path. Refresh the committed record only with an explicit --write-evidence (or
+// the legacy --update-curated-report alias).
+const writesEvidence = process.argv.includes("--write-evidence")
+  || process.argv.includes("--update-curated-report");
+const reportPath = writesEvidence
   ? resolve(root, "docs/verification/pi-sdk-smoke.json")
-  : resolve(root, ".tmp/pi-sdk-smoke.json");
+  : resolve(root, ".ci-tmp/pi-sdk-smoke.json");
 const manifest = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
 const piPackageRoot = resolve(root, "node_modules/@earendil-works/pi-coding-agent");
 const piManifest = JSON.parse(readFileSync(resolve(piPackageRoot, "package.json"), "utf8"));
