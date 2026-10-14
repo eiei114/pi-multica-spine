@@ -1,6 +1,6 @@
 {
   "name": "pi-multica-spine",
-  "version": "0.12.15",
+  "version": "0.12.16",
   "description": "Pi extension that keeps Multica work agents bound to issue, PR, evidence, and handoff contracts.",
   "type": "module",
   "license": "MIT",
@@ -38,6 +38,7 @@
     "prepack": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs tests/error-contract.test.mjs",
+    "smoke:pi": "node scripts/pi-sdk-smoke.mjs",
     "test:coverage": "node --experimental-test-coverage --test tests/*.test.mjs",
     "check:changelog": "node scripts/check-changelog.mjs",
     "check:readme": "node scripts/check-readme.mjs",
@@ -52,7 +53,7 @@
     "check:maintenance-entry-docs": "node scripts/check-maintenance-entry-docs.mjs",
     "review:guardrails": "node scripts/check-review-guardrails.mjs",
     "check:production-gate": "node scripts/production-gate-checklist.mjs",
-    "ci": "npm run build && npm run typecheck && npm run check:coverage && npm run check:changelog && npm run check:readme && npm run check:template && npm run check:sandbox-checklist && npm run check:sandbox-rehearsal && npm run check:sandbox-evidence && npm run check:idea-entry && npm run check:vault-idea-entry && npm run check:idea-status && npm run check:idea-retention && npm run check:live-sandbox-smoke && npm run check:maintenance-live-smoke && npm run check:maintenance-entry && npm run check:maintenance-entry-docs && npm run check:production-rehearsal && npm run check:production-gate && npm run pack:check && npm run pack:smoke && node examples/minimal-walkthrough/run-walkthrough.mjs && node examples/workflow-campaign-walkthrough/run-walkthrough.mjs",
+    "ci": "npm run build && npm run typecheck && npm run test && npm run smoke:pi && npm run check:coverage && npm run check:changelog && npm run check:readme && npm run check:template && npm run check:sandbox-checklist && npm run check:sandbox-rehearsal && npm run check:sandbox-evidence && npm run check:idea-entry && npm run check:vault-idea-entry && npm run check:idea-status && npm run check:idea-retention && npm run check:live-sandbox-smoke && npm run check:maintenance-live-smoke && npm run check:maintenance-entry && npm run check:maintenance-entry-docs && npm run check:production-rehearsal && npm run check:production-gate && npm run pack:check && npm run pack:smoke && node examples/minimal-walkthrough/run-walkthrough.mjs && node examples/workflow-campaign-walkthrough/run-walkthrough.mjs",
     "pack:check": "npm pack --dry-run",
     "pack:smoke": "node scripts/pack-smoke.mjs",
     "walkthrough": "node examples/minimal-walkthrough/run-walkthrough.mjs && node examples/workflow-campaign-walkthrough/run-walkthrough.mjs",
@@ -64,7 +65,8 @@
     "check:idea-retention": "node scripts/ci-offline-idea-retention-check.mjs",
     "check:live-sandbox-smoke": "node scripts/workflow-live-sandbox-smoke.mjs",
     "check:maintenance-live-smoke": "node scripts/workflow-maintenance-live-execute-smoke.mjs",
-    "check:vault-idea-entry": "node scripts/workflow-vault-idea-entry.mjs --rough-idea \"CI offline vault idea entry validation seed\" --dry-run --vault-root .ci-tmp/vault --sessions-root .ci-tmp/idea-sessions --session-suffix ci-offline-vault-idea-entry-validation --invocation-token ci-offline-vault-idea-entry-validation"
+    "check:vault-idea-entry": "node scripts/workflow-vault-idea-entry.mjs --rough-idea \"CI offline vault idea entry validation seed\" --dry-run --vault-root .ci-tmp/vault --sessions-root .ci-tmp/idea-sessions --session-suffix ci-offline-vault-idea-entry-validation --invocation-token ci-offline-vault-idea-entry-validation",
+    "smoke:pi:evidence": "node scripts/pi-sdk-smoke.mjs --write-evidence"
   },
   "pi": {
     "extensions": [
@@ -87,10 +89,10 @@
     "typebox": "*"
   },
   "devDependencies": {
-    "@earendil-works/pi-agent-core": "^0.99.1",
-    "@earendil-works/pi-ai": "^0.99.1",
-    "@earendil-works/pi-coding-agent": "^0.99.1",
-    "@earendil-works/pi-tui": "^0.99.1",
+    "@earendil-works/pi-agent-core": "1.1.0",
+    "@earendil-works/pi-ai": "1.1.0",
+    "@earendil-works/pi-coding-agent": "1.1.0",
+    "@earendil-works/pi-tui": "1.1.0",
     "@types/node": "^26.0.0",
     "typebox": "latest",
     "typescript": "^7.0.2"

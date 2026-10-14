@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "verification_contract": "pi-sdk-behavior-v2",
+  "sdk_versions": {
+    "@earendil-works/pi-agent-core": "1.1.0",
+    "@earendil-works/pi-ai": "1.1.0",
+    "@earendil-works/pi-coding-agent": "1.1.0",
+    "@earendil-works/pi-tui": "1.1.0"
+  },
+  "platform": "win32",
+  "model_inference": "none; deterministic provider is local-only on 127.0.0.1 and returns a fixed Spine tool call",
+  "unhandled_errors": 0,
+  "extension_load_errors": 0,
+  "cases": [
+    {
+      "name": "extension_load",
+      "command": "npm run smoke:pi",
+      "exit_code": 0,
+      "passed": true,
+      "evidence": "{\n  \"command\": \"npm run smoke:pi\",\n  \"captured_pi_rpc_output\": [\n    [\n      {\n        \"type\": \"extension_ui_request\",\n        \"method\": \"setStatus\",\n        \"statusKey\": \"multica-spine\",\n        \"statusText\": \"Multica spine ready\"\n      }\n    ]\n  ],\n  \"shutdown\": {\n    \"code\": 0,\n    \"signal\": null,\n    \"forced\": false\n  }\n}",
+      "assertions": [
+        {
+          "id": "extension_registered",
+          "expected": "The actual Pi host loads pi-multica-spine and emits its RPC session status.",
+          "observed": "{\"method\":\"setStatus\",\"statusKey\":\"multica-spine\",\"statusText\":\"Multica spine ready\"}",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "happy_path",
+      "command": "npm run smoke:pi",
+      "exit_code": 0,
+      "passed": true,
+      "evidence": "{\n  \"command\": \"npm run smoke:pi\",\n  \"captured_pi_rpc_output\": [\n    [\n      {\n        \"type\": \"extension_ui_request\",\n        \"method\": \"setStatus\",\n        \"statusKey\": \"multica-spine\",\n        \"statusText\": \"Multica spine ready\"\n      },\n      {\n        \"type\": \"response\",\n        \"command\": \"prompt\",\n        \"success\": true,\n        \"data\": {\n          \"disposition\": \"started\"\n        }\n      },\n      {\n        \"type\": \"tool_execution_start\",\n        \"toolName\": \"multica_spine_bind\",\n        \"args\": {\n          \"issueIdentifier\": \"PI-SDK-SMOKE-HAPPY\"\n        }\n      },\n      {\n        \"type\": \"tool_execution_end\",\n        \"toolName\": \"multica_spine_bind\",\n        \"isError\": false,\n        \"output\": [\n          \"status: BOUND\\nverified: no\\nissue: PI-SDK-SMOKE-HAPPY\\nevidence: 0\\nhandoff: no\\nmissing: PR URL, PR metadata: prNumber, PR metadata: prHeadSha, PR metadata: prBranch, PR issue reference, PR binding writeback, verification evidence, handoff\\nnext: multica_spine_link_pr - Link the PR URL and metadata. Include pr_number, pr_head_sha, pr_branch, and writebackRecorded=true after source issue metadata is updated or manually recorded.\\nrecommended_pr_body: Multica Issue: PI-SDK-SMOKE-HAPPY\"\n        ]\n      },\n      {\n        \"type\": \"agent_settled\",\n        \"aborted\": false\n      }\n    ]\n  ],\n  \"provider_requests\": [\n    {\n      \"model\": \"spine-smoke\",\n      \"bindToolAdvertised\": true\n    },\n    {\n      \"model\": \"spine-smoke\",\n      \"bindToolAdvertised\": true\n    }\n  ],\n  \"provider_errors\": [],\n  \"shutdown\": {\n    \"code\": 0,\n    \"signal\": null,\n    \"forced\": false\n  }\n}",
+      "assertions": [
+        {
+          "id": "feature_response",
+          "expected": "Pi advertises and executes multica_spine_bind; it returns BOUND for the requested issue and persists that binding.",
+          "observed": "{\"advertised\":true,\"providerErrors\":[],\"promptAccepted\":true,\"toolName\":\"multica_spine_bind\",\"isError\":false,\"output\":\"status: BOUND\\nverified: no\\nissue: PI-SDK-SMOKE-HAPPY\\nevidence: 0\\nhandoff: no\\nmissing: PR URL, PR metadata: prNumber, PR metadata: prHeadSha, PR metadata: prBranch, PR issue reference, PR binding writeback, verification evidence, handoff\\nnext: multica_spine_link_pr - Link the PR URL and metadata. Include pr_number, pr_head_sha, pr_branch, and writebackRecorded=true after source issue metadata is updated or manually recorded.\\nrecommended_pr_body: Multica Issue: PI-SDK-SMOKE-HAPPY\",\"persistedIssueIdentifier\":\"PI-SDK-SMOKE-HAPPY\"}",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "error_path",
+      "command": "npm run smoke:pi",
+      "exit_code": 0,
+      "passed": true,
+      "evidence": "{\n  \"command\": \"npm run smoke:pi\",\n  \"captured_pi_rpc_output\": [\n    [\n      {\n        \"type\": \"extension_ui_request\",\n        \"method\": \"setStatus\",\n        \"statusKey\": \"multica-spine\",\n        \"statusText\": \"Multica spine ready\"\n      },\n      {\n        \"type\": \"response\",\n        \"command\": \"prompt\",\n        \"success\": true,\n        \"data\": {\n          \"disposition\": \"started\"\n        }\n      },\n      {\n        \"type\": \"tool_execution_start\",\n        \"toolName\": \"multica_spine_bind\",\n        \"args\": {\n          \"issueIdentifier\": \"\"\n        }\n      },\n      {\n        \"type\": \"tool_execution_end\",\n        \"toolName\": \"multica_spine_bind\",\n        \"isError\": true,\n        \"output\": [\n          \"issueIdentifier is required\"\n        ]\n      },\n      {\n        \"type\": \"agent_settled\",\n        \"aborted\": false\n      }\n    ]\n  ],\n  \"provider_requests\": [\n    {\n      \"model\": \"spine-smoke\",\n      \"bindToolAdvertised\": true\n    },\n    {\n      \"model\": \"spine-smoke\",\n      \"bindToolAdvertised\": true\n    }\n  ],\n  \"provider_errors\": [],\n  \"shutdown\": {\n    \"code\": 0,\n    \"signal\": null,\n    \"forced\": false\n  }\n}",
+      "assertions": [
+        {
+          "id": "handled_error",
+          "expected": "Pi executes multica_spine_bind with an empty identifier, reports a failed tool result containing the validation error, and settles the run.",
+          "observed": "{\"toolName\":\"multica_spine_bind\",\"isError\":true,\"output\":\"issueIdentifier is required\",\"providerErrors\":[],\"promptAccepted\":true,\"settled\":true}",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "reload_cleanup",
+      "command": "npm run smoke:pi",
+      "exit_code": 0,
+      "passed": true,
+      "evidence": "{\n  \"command\": \"npm run smoke:pi\",\n  \"captured_pi_rpc_output\": [\n    [\n      {\n        \"type\": \"extension_ui_request\",\n        \"method\": \"setStatus\",\n        \"statusKey\": \"multica-spine\",\n        \"statusText\": \"Multica spine ready\"\n      }\n    ],\n    [\n      {\n        \"type\": \"extension_ui_request\",\n        \"method\": \"setStatus\",\n        \"statusKey\": \"multica-spine\",\n        \"statusText\": \"Multica spine ready\"\n      },\n      {\n        \"type\": \"response\",\n        \"command\": \"prompt\",\n        \"success\": true,\n        \"data\": {\n          \"disposition\": \"started\"\n        }\n      },\n      {\n        \"type\": \"tool_execution_start\",\n        \"toolName\": \"multica_spine_bind\",\n        \"args\": {\n          \"issueIdentifier\": \"PI-SDK-SMOKE-HAPPY\"\n        }\n      },\n      {\n        \"type\": \"tool_execution_end\",\n        \"toolName\": \"multica_spine_bind\",\n        \"isError\": false,\n        \"output\": [\n          \"status: BOUND\\nverified: no\\nissue: PI-SDK-SMOKE-HAPPY\\nevidence: 0\\nhandoff: no\\nmissing: PR URL, PR metadata: prNumber, PR metadata: prHeadSha, PR metadata: prBranch, PR issue reference, PR binding writeback, verification evidence, handoff\\nnext: multica_spine_link_pr - Link the PR URL and metadata. Include pr_number, pr_head_sha, pr_branch, and writebackRecorded=true after source issue metadata is updated or manually recorded.\\nrecommended_pr_body: Multica Issue: PI-SDK-SMOKE-HAPPY\"\n        ]\n      },\n      {\n        \"type\": \"agent_settled\",\n        \"aborted\": false\n      }\n    ]\n  ],\n  \"provider_requests\": [\n    {\n      \"model\": \"spine-smoke\",\n      \"bindToolAdvertised\": true\n    },\n    {\n      \"model\": \"spine-smoke\",\n      \"bindToolAdvertised\": true\n    }\n  ],\n  \"provider_errors\": [],\n  \"first_status\": {\n    \"method\": \"setStatus\",\n    \"statusKey\": \"multica-spine\",\n    \"statusText\": \"Multica spine ready\"\n  },\n  \"first_exit\": {\n    \"code\": 0,\n    \"signal\": null,\n    \"forced\": false\n  },\n  \"second_exit\": {\n    \"code\": 0,\n    \"signal\": null,\n    \"forced\": false\n  }\n}",
+      "assertions": [
+        {
+          "id": "reloaded_extension_registered",
+          "expected": "After the first Pi process exits, a second actual Pi process loads the extension and emits its session status.",
+          "observed": "{\"method\":\"setStatus\",\"statusKey\":\"multica-spine\",\"statusText\":\"Multica spine ready\"}",
+          "passed": true
+        },
+        {
+          "id": "reloaded_feature_response",
+          "expected": "The second process executes the real bind tool and persists the resulting issue binding.",
+          "observed": "\"{\\\"advertised\\\":true,\\\"providerErrors\\\":[],\\\"promptAccepted\\\":true,\\\"toolName\\\":\\\"multica_spine_bind\\\",\\\"isError\\\":false,\\\"output\\\":\\\"status: BOUND\\\\nverified: no\\\\nissue: PI-SDK-SMOKE-HAPPY\\\\nevidence: 0\\\\nhandoff: no\\\\nmissing: PR URL, PR metadata: prNumber, PR metadata: prHeadSha, PR metadata: prBranch, PR issue reference, PR binding writeback, verification evidence, handoff\\\\nnext: multica_spine_link_pr - Link the PR URL and metadata. Include pr_number, pr_head_sha, pr_branch, and writebackRecorded=true after source issue metadata is updated or manually recorded.\\\\nrecommended_pr_body: Multica Issue: PI-SDK-SMOKE-HAPPY\\\",\\\"persistedIssueIdentifier\\\":\\\"PI-SDK-SMOKE-HAPPY\\\"}\"",
+          "passed": true
+        },
+        {
+          "id": "clean_shutdown",
+          "expected": "Both actual Pi processes exit with status 0 after bounded stdin shutdown, without unhandled or shutdown errors.",
+          "observed": "{\"firstExitCode\":0,\"secondExitCode\":0,\"hasShutdownError\":false}",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "host_shell",
+      "command": "npm run smoke:pi",
+      "exit_code": 0,
+      "passed": true,
+      "evidence": "{\n  \"command\": \"npm run smoke:pi\",\n  \"shell\": \"PowerShell\",\n  \"output\": \"1.1.0\",\n  \"exit_code\": 0,\n  \"error\": null\n}",
+      "assertions": [
+        {
+          "id": "native_shell_boundary",
+          "expected": "The native host shell launches this checkout's local Pi CLI and prints exactly the pinned 1.1.0 version.",
+          "observed": "{\"shell\":\"PowerShell\",\"exitCode\":0,\"output\":\"1.1.0\",\"expectedVersion\":\"1.1.0\"}",
+          "passed": true
+        }
+      ]
+    }
+  ]
+}

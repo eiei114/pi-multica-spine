@@ -100,7 +100,7 @@ Replace `pi-multica-spine` with the exact `name` from `package.json` when you fo
 Pin a specific version when you want reproducible installs:
 
 ```bash
-pi install npm:pi-multica-spine@0.12.15
+pi install npm:pi-multica-spine@0.12.16
 ```
 
 ### Pi skill entry points
@@ -303,7 +303,7 @@ npm install
 npm run ci
 ```
 
-`npm run ci` runs build, typecheck, `check:coverage`, `check:changelog`, `check:readme`, `check:template`, `check:sandbox-checklist`, `check:sandbox-rehearsal`, `check:sandbox-evidence`, `check:idea-entry`, `check:vault-idea-entry`, `check:idea-status`, `check:idea-retention`, `check:live-sandbox-smoke`, `check:maintenance-live-smoke`, `check:maintenance-entry`, `check:maintenance-entry-docs`, `check:production-rehearsal`, `check:production-gate`, `pack:check`, `pack:smoke` (install tarball + digest CLI), both walkthrough smokes, and `npm pack --dry-run`.
+`npm run ci` runs build, typecheck, `npm test`, the actual Pi SDK host smoke (`smoke:pi`), `check:coverage`, `check:changelog`, `check:readme`, `check:template`, `check:sandbox-checklist`, `check:sandbox-rehearsal`, `check:sandbox-evidence`, `check:idea-entry`, `check:vault-idea-entry`, `check:idea-status`, `check:idea-retention`, `check:live-sandbox-smoke`, `check:maintenance-live-smoke`, `check:maintenance-entry`, `check:maintenance-entry-docs`, `check:production-rehearsal`, `check:production-gate`, `pack:check`, `pack:smoke` (install tarball + digest CLI), both walkthrough smokes, and `npm pack --dry-run`.
 
 Individual checks:
 

@@ -8,8 +8,8 @@
 
 | Item | Value |
 | --- | --- |
-| Published version | **0.12.15** (npm) |
-| Working-tree version | `0.12.15` |
+| Published version | **0.12.16** (npm) |
+| Working-tree version | `0.12.16` |
 | Roadmap freshness | Refreshed 2026-10-06 (2026-W41) |
 | Entry skills | `/skill:idea-to-build` · `/skill:maintenance-build` |
 | Vault entry | `scripts/workflow-vault-idea-entry.mjs` (offline check covered by `npm run ci`) |
