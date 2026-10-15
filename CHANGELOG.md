@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.12.18] - 2026-10-16
+
+### Changed
+
+- Pin the Pi SDK dev/test dependencies to 1.2.0 and verify the extension against the actual Pi host.
+
 ## [0.12.17] - 2026-10-15
 
 ### Fixed

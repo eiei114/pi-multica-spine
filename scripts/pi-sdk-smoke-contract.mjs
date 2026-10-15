@@ -1,9 +1,9 @@
 export const VERIFICATION_CONTRACT = "pi-sdk-behavior-v2";
 export const SDK_VERSIONS = {
-  "@earendil-works/pi-agent-core": "1.1.0",
-  "@earendil-works/pi-ai": "1.1.0",
-  "@earendil-works/pi-coding-agent": "1.1.0",
-  "@earendil-works/pi-tui": "1.1.0",
+  "@earendil-works/pi-agent-core": "1.2.0",
+  "@earendil-works/pi-ai": "1.2.0",
+  "@earendil-works/pi-coding-agent": "1.2.0",
+  "@earendil-works/pi-tui": "1.2.0",
 };
 
 export const UNHANDLED_ERROR_PATTERN = /UnhandledPromiseRejection|uncaught exception|shutdown error/i;
@@ -126,7 +126,7 @@ export function behaviorAssertions(name, observed) {
   if (name === "host_shell") {
     return [assertion(
       "native_shell_boundary",
-      "The native host shell launches this checkout's local Pi CLI and prints exactly the pinned 1.1.0 version.",
+      `The native host shell launches this checkout's local Pi CLI and prints exactly the pinned ${SDK_VERSIONS["@earendil-works/pi-coding-agent"]} version.`,
       {
         shell: observed.shell,
         exitCode: observed.exitCode,

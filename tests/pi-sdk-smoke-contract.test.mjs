@@ -19,7 +19,7 @@ const bindEvent = (text, isError = false) => ({
 
 test("Pi SDK behavior-v2 contract records all frozen versions and parses JSONL", () => {
   assert.equal(VERIFICATION_CONTRACT, "pi-sdk-behavior-v2");
-  assert.deepEqual(Object.values(SDK_VERSIONS), ["1.1.0", "1.1.0", "1.1.0", "1.1.0"]);
+  assert.deepEqual(Object.values(SDK_VERSIONS), ["1.2.0", "1.2.0", "1.2.0", "1.2.0"]);
   assert.deepEqual(parseJsonLines(`not-json\r\n${JSON.stringify({ type: "response" })}\n\n`), [{ type: "response" }]);
 });
 
@@ -77,10 +77,10 @@ test("reload_cleanup rejects missing second-process status, feature result, or c
 
 test("host_shell rejects a wrong local CLI version even with exit zero", () => {
   assert.equal(behaviorAssertions("host_shell", {
-    shell: "PowerShell", exitCode: 0, output: "1.1.0", expectedVersion: "1.1.0",
+    shell: "PowerShell", exitCode: 0, output: "1.2.0", expectedVersion: "1.2.0",
   })[0].passed, true);
   assert.equal(behaviorAssertions("host_shell", {
-    shell: "PowerShell", exitCode: 0, output: "0.99.1", expectedVersion: "1.1.0",
+    shell: "PowerShell", exitCode: 0, output: "0.99.1", expectedVersion: "1.2.0",
   })[0].passed, false);
 });
 

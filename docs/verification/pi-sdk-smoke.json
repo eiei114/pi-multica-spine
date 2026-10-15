@@ -2,10 +2,10 @@
   "schema_version": 1,
   "verification_contract": "pi-sdk-behavior-v2",
   "sdk_versions": {
-    "@earendil-works/pi-agent-core": "1.1.0",
-    "@earendil-works/pi-ai": "1.1.0",
-    "@earendil-works/pi-coding-agent": "1.1.0",
-    "@earendil-works/pi-tui": "1.1.0"
+    "@earendil-works/pi-agent-core": "1.2.0",
+    "@earendil-works/pi-ai": "1.2.0",
+    "@earendil-works/pi-coding-agent": "1.2.0",
+    "@earendil-works/pi-tui": "1.2.0"
   },
   "platform": "win32",
   "model_inference": "none; deterministic provider is local-only on 127.0.0.1 and returns a fixed Spine tool call",
@@ -89,12 +89,12 @@
       "command": "npm run smoke:pi",
       "exit_code": 0,
       "passed": true,
-      "evidence": "{\n  \"command\": \"npm run smoke:pi\",\n  \"shell\": \"PowerShell\",\n  \"output\": \"1.1.0\",\n  \"exit_code\": 0,\n  \"error\": null\n}",
+      "evidence": "{\n  \"command\": \"npm run smoke:pi\",\n  \"shell\": \"PowerShell\",\n  \"output\": \"1.2.0\",\n  \"exit_code\": 0,\n  \"error\": null\n}",
       "assertions": [
         {
           "id": "native_shell_boundary",
-          "expected": "The native host shell launches this checkout's local Pi CLI and prints exactly the pinned 1.1.0 version.",
-          "observed": "{\"shell\":\"PowerShell\",\"exitCode\":0,\"output\":\"1.1.0\",\"expectedVersion\":\"1.1.0\"}",
+          "expected": "The native host shell launches this checkout's local Pi CLI and prints exactly the pinned 1.2.0 version.",
+          "observed": "{\"shell\":\"PowerShell\",\"exitCode\":0,\"output\":\"1.2.0\",\"expectedVersion\":\"1.2.0\"}",
           "passed": true
         }
       ]
