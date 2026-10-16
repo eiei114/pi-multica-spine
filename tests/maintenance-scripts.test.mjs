@@ -230,6 +230,15 @@ test("validateRoadmapFreshness accepts aligned versions and three scoped seeds",
   assert.equal(result.scopedSeeds.length, 3);
 });
 
+test("validateRoadmapFreshness accepts a prepared package version newer than the published version", () => {
+  const roadmap = sampleRoadmap
+    .replace("| Published version | **0.12.7** (npm) |", "| Published version | **0.12.17** (npm; 0.12.18 prepared, publication pending) |")
+    .replace("| Working-tree version | `0.12.7` |", "| Working-tree version | `0.12.18` |");
+  const result = validateRoadmapFreshness(roadmap, "0.12.18");
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.versions, { published: "0.12.17", workingTree: "0.12.18" });
+});
+
 test("validateRoadmapFreshness rejects version drift", () => {
   const roadmap = sampleRoadmap.replace("| Working-tree version | `0.12.7` |", "| Working-tree version | `0.12.6` |");
   const result = validateRoadmapFreshness(roadmap, "0.12.7");

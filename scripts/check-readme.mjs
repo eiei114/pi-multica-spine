@@ -157,21 +157,17 @@ function hasRoadmapSeedScope(seed) {
 export function validateRoadmapFreshness(content, packageVersion, { minOpenSeeds = MIN_OPEN_ROADMAP_SEEDS } = {}) {
   const errors = [];
   const versions = extractRoadmapDocumentedVersions(content);
-  const versionLabels = [
-    ["published", "Published version"],
-    ["workingTree", "Working-tree version"],
-  ];
+  if (!versions.published) {
+    errors.push("ROADMAP Published version is missing or not a semantic version");
+  }
 
   if (!packageVersion) {
     errors.push("package.json version unavailable for ROADMAP freshness validation");
   }
-  for (const [key, label] of versionLabels) {
-    const documentedVersion = versions[key];
-    if (!documentedVersion) {
-      errors.push(`ROADMAP ${label} is missing or not a semantic version`);
-    } else if (packageVersion && documentedVersion !== packageVersion) {
-      errors.push(`ROADMAP ${label} ${documentedVersion} does not match package.json version ${packageVersion}`);
-    }
+  if (!versions.workingTree) {
+    errors.push("ROADMAP Working-tree version is missing or not a semantic version");
+  } else if (packageVersion && versions.workingTree !== packageVersion) {
+    errors.push(`ROADMAP Working-tree version ${versions.workingTree} does not match package.json version ${packageVersion}`);
   }
 
   const openSeeds = extractOpenRoadmapSeeds(content);

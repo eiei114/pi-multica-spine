@@ -8,7 +8,7 @@
 
 | Item | Value |
 | --- | --- |
-| Published version | **0.12.18** (release prepared; npm publication pending) |
+| Published version | **0.12.17** (npm; 0.12.18 prepared, publication pending) |
 | Working-tree version | `0.12.18` |
 | Roadmap freshness | Refreshed 2026-10-06 (2026-W41) |
 | Entry skills | `/skill:idea-to-build` · `/skill:maintenance-build` |
