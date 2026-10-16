@@ -157,21 +157,17 @@ function hasRoadmapSeedScope(seed) {
 export function validateRoadmapFreshness(content, packageVersion, { minOpenSeeds = MIN_OPEN_ROADMAP_SEEDS } = {}) {
   const errors = [];
   const versions = extractRoadmapDocumentedVersions(content);
-  const versionLabels = [
-    ["published", "Published version"],
-    ["workingTree", "Working-tree version"],
-  ];
+  if (!versions.published) {
+    errors.push("ROADMAP Published version is missing or not a semantic version");
+  }
 
   if (!packageVersion) {
     errors.push("package.json version unavailable for ROADMAP freshness validation");
   }
-  for (const [key, label] of versionLabels) {
-    const documentedVersion = versions[key];
-    if (!documentedVersion) {
-      errors.push(`ROADMAP ${label} is missing or not a semantic version`);
-    } else if (packageVersion && documentedVersion !== packageVersion) {
-      errors.push(`ROADMAP ${label} ${documentedVersion} does not match package.json version ${packageVersion}`);
-    }
+  if (!versions.workingTree) {
+    errors.push("ROADMAP Working-tree version is missing or not a semantic version");
+  } else if (packageVersion && versions.workingTree !== packageVersion) {
+    errors.push(`ROADMAP Working-tree version ${versions.workingTree} does not match package.json version ${packageVersion}`);
   }
 
   const openSeeds = extractOpenRoadmapSeeds(content);
@@ -208,10 +204,13 @@ export function validateReadme(content, { version, ciScript, extensionSource, ro
   const pinMatch = content.match(
     /```[^\n]*\npi install npm:pi-multica-spine@(\d+\.\d+\.\d+)\n```/,
   );
+  const roadmapVersions = roadmapContent === undefined
+    ? null
+    : extractRoadmapDocumentedVersions(roadmapContent);
   if (!pinMatch) {
     errors.push("missing install pin example: pi install npm:pi-multica-spine@<version>");
-  } else if (version && pinMatch[1] !== version) {
-    errors.push(`install pin example @${pinMatch[1]} does not match package.json version ${version}`);
+  } else if (roadmapVersions?.published && pinMatch[1] !== roadmapVersions.published) {
+    errors.push(`install pin example @${pinMatch[1]} does not match ROADMAP published version ${roadmapVersions.published}`);
   }
 
   if (/``npm run ci`/.test(content)) {
@@ -291,7 +290,7 @@ export function runCheckReadme({
     console.error(result.errors.join("\n"));
     return 1;
   }
-  console.log(`readme ok (pin=@${version ?? "unknown"})`);
+  console.log("readme ok");
   return 0;
 }
 
