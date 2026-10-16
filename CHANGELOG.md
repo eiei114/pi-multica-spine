@@ -9,6 +9,7 @@ This project follows semantic versioning.
 ### Changed
 
 - Pin the Pi SDK dev/test dependencies to 1.2.0 and verify the extension against the actual Pi host.
+- Keep the README install example pinned to the published npm version while 0.12.18 awaits publication.
 
 ## [0.12.17] - 2026-10-15
 

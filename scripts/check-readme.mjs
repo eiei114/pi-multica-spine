@@ -204,10 +204,13 @@ export function validateReadme(content, { version, ciScript, extensionSource, ro
   const pinMatch = content.match(
     /```[^\n]*\npi install npm:pi-multica-spine@(\d+\.\d+\.\d+)\n```/,
   );
+  const roadmapVersions = roadmapContent === undefined
+    ? null
+    : extractRoadmapDocumentedVersions(roadmapContent);
   if (!pinMatch) {
     errors.push("missing install pin example: pi install npm:pi-multica-spine@<version>");
-  } else if (version && pinMatch[1] !== version) {
-    errors.push(`install pin example @${pinMatch[1]} does not match package.json version ${version}`);
+  } else if (roadmapVersions?.published && pinMatch[1] !== roadmapVersions.published) {
+    errors.push(`install pin example @${pinMatch[1]} does not match ROADMAP published version ${roadmapVersions.published}`);
   }
 
   if (/``npm run ci`/.test(content)) {
@@ -287,7 +290,7 @@ export function runCheckReadme({
     console.error(result.errors.join("\n"));
     return 1;
   }
-  console.log(`readme ok (pin=@${version ?? "unknown"})`);
+  console.log("readme ok");
   return 0;
 }
 

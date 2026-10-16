@@ -84,6 +84,10 @@ const sampleRoadmap = [
   "## Completed seeds (reference)",
 ].join("\n");
 
+const samplePreparedRoadmap = sampleRoadmap
+  .replace("| Published version | **0.12.7** (npm) |", "| Published version | **0.12.17** (npm; 0.12.18 prepared, publication pending) |")
+  .replace("| Working-tree version | `0.12.7` |", "| Working-tree version | `0.12.18` |");
+
 test("extractCiCheckScripts returns check:* scripts from package ci", () => {
   assert.deepEqual(extractCiCheckScripts(sampleCiScript), [
     "check:coverage",
@@ -265,6 +269,27 @@ test("validateReadme accepts current README and roadmap shape", () => {
   assert.equal(result.ok, true);
 });
 
+test("validateReadme accepts a published pin distinct from package.json working version", () => {
+  const readme = sampleReadme.replace("pi-multica-spine@0.12.7", "pi-multica-spine@0.12.17");
+  const result = validateReadme(readme, {
+    version: "0.12.18",
+    ciScript: sampleCiScript,
+    roadmapContent: samplePreparedRoadmap,
+  });
+  assert.equal(result.ok, true);
+});
+
+test("validateReadme rejects a pin to an unpublished package version", () => {
+  const readme = sampleReadme.replace("pi-multica-spine@0.12.7", "pi-multica-spine@0.12.18");
+  const result = validateReadme(readme, {
+    version: "0.12.18",
+    ciScript: sampleCiScript,
+    roadmapContent: samplePreparedRoadmap,
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /install pin example @0\.12\.18 does not match ROADMAP published version 0\.12\.17/);
+});
+
 test("validateReadme rejects unbalanced fences and stale pin", () => {
   const content = [
     "```bash",
@@ -276,7 +301,7 @@ test("validateReadme rejects unbalanced fences and stale pin", () => {
     "```bash",
     "open block",
   ].join("\n");
-  const result = validateReadme(content, { version: "0.12.7" });
+  const result = validateReadme(content, { version: "0.12.7", roadmapContent: sampleRoadmap });
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /unbalanced/);
   assert.match(result.errors.join("\n"), /0\.8\.0/);
@@ -290,7 +315,7 @@ test("validateReadme rejects malformed npm run ci backticks", () => {
     "",
     "``npm run ci` runs build.",
   ].join("\n");
-  const result = validateReadme(content, { version: "0.12.7" });
+  const result = validateReadme(content, { version: "0.12.7", roadmapContent: sampleRoadmap });
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /malformed backticks around npm run ci/);
 });
@@ -307,7 +332,7 @@ test("validateReadme rejects stray fence closer after maintenance-build entry sk
     "",
     "Install into the current project",
   ].join("\n");
-  const result = validateReadme(content, { version: "0.12.7" });
+  const result = validateReadme(content, { version: "0.12.7", roadmapContent: sampleRoadmap });
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /stray fenced-code closer after maintenance-build entry skill/);
 });

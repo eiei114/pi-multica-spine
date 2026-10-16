@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { extractRoadmapDocumentedVersions } from "./check-readme.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packageJson = readJson(join(ROOT, "package.json"));
@@ -66,13 +67,18 @@ function checkReleaseState() {
   const escaped = releasePackage.version.replaceAll(".", "\\.");
   assert.match(changelog, new RegExp(`^## \\[${escaped}\\] - \\d{4}-\\d{2}-\\d{2}$`, "m"), "CHANGELOG must contain a dated current-version entry");
 
+  const publishedVersion = releasePackage === packageJson
+    ? extractRoadmapDocumentedVersions(readFileSync(join(ROOT, "ROADMAP.md"), "utf8")).published
+    : releasePackage.version;
+  assert.ok(publishedVersion, "ROADMAP must declare a published npm version");
+
   for (const path of [join(ROOT, "README.md"), ...walkMarkdown(join(ROOT, "docs"))]) {
     const content = readFileSync(path, "utf8");
     const installPattern = /pi install npm:([^\s`]+)@(\d+\.\d+\.\d+)/g;
     for (const match of content.matchAll(installPattern)) {
       const referencedName = match[1];
       if (referencedName === releasePackage.name) {
-        assert.equal(match[2], releasePackage.version, `${relative(ROOT, path)} pins stale package version ${match[2]}`);
+        assert.equal(match[2], publishedVersion, `${relative(ROOT, path)} pins unpublished package version ${match[2]}`);
       }
     }
   }
