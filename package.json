@@ -94,7 +94,7 @@
     "@earendil-works/pi-coding-agent": "1.1.0",
     "@earendil-works/pi-tui": "1.1.0",
     "@types/node": "^26.0.0",
-    "typebox": "latest",
+    "typebox": "1.4.3",
     "typescript": "^7.0.2"
   },
   "overrides": {
