@@ -290,6 +290,26 @@ test("validateReadme rejects a pin to an unpublished package version", () => {
   assert.match(result.errors.join("\n"), /install pin example @0\.12\.18 does not match ROADMAP published version 0\.12\.17/);
 });
 
+test("validateReadme rejects a stale pin when no roadmap is supplied", () => {
+  // Regression: validateReadme must not skip pin validation just because the
+  // caller omitted roadmapContent. Without a roadmap the package.json version
+  // is the reference, so a stale pin still has to fail.
+  const stale = ["```bash", "pi install npm:pi-multica-spine@0.0.1", "```"].join("\n");
+  const staleResult = validateReadme(stale, { version: "0.12.7" });
+  assert.equal(staleResult.ok, false);
+  assert.equal(
+    staleResult.errors.some((error) => error.includes("does not match package.json version 0.12.7")),
+    true,
+  );
+
+  const current = ["```bash", "pi install npm:pi-multica-spine@0.12.7", "```"].join("\n");
+  const currentResult = validateReadme(current, { version: "0.12.7" });
+  assert.equal(
+    currentResult.errors.some((error) => error.includes("install pin example")),
+    false,
+  );
+});
+
 test("validateReadme rejects unbalanced fences and stale pin", () => {
   const content = [
     "```bash",
