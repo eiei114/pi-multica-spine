@@ -209,8 +209,18 @@ export function validateReadme(content, { version, ciScript, extensionSource, ro
     : extractRoadmapDocumentedVersions(roadmapContent);
   if (!pinMatch) {
     errors.push("missing install pin example: pi install npm:pi-multica-spine@<version>");
-  } else if (roadmapVersions?.published && pinMatch[1] !== roadmapVersions.published) {
-    errors.push(`install pin example @${pinMatch[1]} does not match ROADMAP published version ${roadmapVersions.published}`);
+  } else {
+    // The install pin must match a version we can actually justify: prefer the
+    // ROADMAP "Published version" when a roadmap is supplied, otherwise fall
+    // back to the package.json version. Either way the check still runs, so a
+    // stale pin cannot pass merely because roadmapContent was omitted.
+    const expectedPin = roadmapVersions?.published ?? version;
+    if (expectedPin && pinMatch[1] !== expectedPin) {
+      const source = roadmapVersions?.published
+        ? `ROADMAP published version ${roadmapVersions.published}`
+        : `package.json version ${version}`;
+      errors.push(`install pin example @${pinMatch[1]} does not match ${source}`);
+    }
   }
 
   if (/``npm run ci`/.test(content)) {
