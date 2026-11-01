@@ -148,16 +148,43 @@ export function extractJsonlRecordStatus(line: string): string {
 }
 
 export function computeJsonlDigest(lines: readonly string[]): JsonlDigestResult {
+  return computeJsonlDigestFromLines(lines);
+}
+
+function computeJsonlDigestFromLines(lines: Iterable<string>): JsonlDigestResult {
   const counts: Record<string, number> = {};
+  let lineCount = 0;
   for (const line of lines) {
     const status = extractJsonlRecordStatus(line);
     counts[status] = (counts[status] ?? 0) + 1;
+    lineCount++;
   }
-  const lineCount = lines.length;
   const sortedCounts = Object.fromEntries(Object.keys(counts).sort().map((key) => [key, counts[key]]));
   const payload = { counts: sortedCounts, lineCount };
   const digest = sha256Hex(payload);
   return { counts: sortedCounts, lineCount, digest };
+}
+
+function* iterateJsonlLines(content: string): Generator<string> {
+  let lineStart = content.search(/\S/u);
+  if (lineStart === -1) return;
+
+  let contentEnd = content.length;
+  while (contentEnd > lineStart && /\s/u.test(content[contentEnd - 1])) {
+    contentEnd--;
+  }
+
+  while (lineStart < contentEnd) {
+    const lineEnd = content.indexOf("\n", lineStart);
+    if (lineEnd === -1 || lineEnd >= contentEnd) {
+      yield content.slice(lineStart, contentEnd);
+      return;
+    }
+    if (lineEnd > lineStart) yield content.slice(lineStart, lineEnd);
+
+    lineStart = lineEnd + 1;
+    while (lineStart < contentEnd && content[lineStart] === "\n") lineStart++;
+  }
 }
 
 export function formatJsonlDigestJson(result: JsonlDigestResult): string {
@@ -181,7 +208,7 @@ export function formatJsonlDigestHuman(
 }
 
 export function digestJsonlFileContent(content: string): JsonlDigestResult {
-  return computeJsonlDigest(parseJsonlLines(content));
+  return computeJsonlDigestFromLines(iterateJsonlLines(content));
 }
 
 /** Stable JSONL digest helpers for canary and tooling. */

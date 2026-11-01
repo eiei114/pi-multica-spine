@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   computeJsonlDigest,
+  digestJsonlFileContent,
   extractJsonlRecordStatus,
   formatJsonlDigestHuman,
   formatJsonlDigestJson,
@@ -34,6 +35,23 @@ test("formatJsonlDigestHuman supports plain and color modes", () => {
 
 test("parseJsonlLines ignores blank lines", () => {
   assert.equal(parseJsonlLines('{"status":"open"}\n\n').length, 1);
+});
+
+test("digestJsonlFileContent preserves parsing semantics when consuming lines lazily", () => {
+  const contents = [
+    "",
+    " \n\t",
+    '\n  {"status":"done"}\n\n{"status":"open"}\r\n',
+    '{"status":"done"}\n   \n{"status":"open"}\n',
+    '{"status":"open"}\r\n{"status":"done"}',
+  ];
+  for (const content of contents) {
+    assert.deepEqual(
+      digestJsonlFileContent(content),
+      computeJsonlDigest(parseJsonlLines(content)),
+      `digest differs for ${JSON.stringify(content)}`,
+    );
+  }
 });
 
 test("extractJsonlRecordStatus reads top-level status without nested false positives", () => {

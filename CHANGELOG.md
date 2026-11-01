@@ -31,6 +31,10 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+### Performance
+
+- Reduce temporary memory use when digesting large JSONL task files.
+
 ## [0.12.14] - 2026-09-27
 
 - chore: periodic patch bump after 7+ days without npm publish
