@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.12.19] - 2026-11-02
+
+### Performance
+
+- Reduce temporary memory use when digesting large JSONL task files.
+
 ## [0.12.18] - 2026-10-16
 
 ### Changed
