@@ -37,6 +37,10 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- `examples/minimal-walkthrough/README.md` no longer implies the offline example covers everything `multica_spine_verify` checks. It now names the two live-repository checks (`git completion`, `local import closure`) the example skips, and states that its `VERIFIED` result does not predict a live verify pass because the fixture stores the placeholder `prHeadSha` `abc123`.
+
 ## [0.12.14] - 2026-09-27
 
 - chore: periodic patch bump after 7+ days without npm publish
