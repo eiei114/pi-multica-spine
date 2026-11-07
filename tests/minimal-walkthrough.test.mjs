@@ -11,22 +11,29 @@ import { SpineStateStore } from "../lib/state-store.ts";
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const fixtureRoot = join(repoRoot, "examples/minimal-walkthrough/fixture");
 
-// Proves the fixture really sits inside a git work tree, independently of the
-// production checker under assertion. Deliberately not imported from
-// lib/git-completion-checker.ts: a guard that reuses the code it guards would
-// skip itself if that code regressed.
+// Proves the fixture really sits inside a git work tree with a resolvable HEAD,
+// independently of the production checker under assertion. Deliberately not
+// imported from lib/git-completion-checker.ts: a guard that reuses the code it
+// guards would skip itself if that code regressed.
+function gitOutput(cwd, args) {
+  return execFileSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    timeout: 2000,
+  }).trim();
+}
+
 function gitWorkTreeRoot(cwd) {
   try {
-    const topLevel = execFileSync("git", ["rev-parse", "--show-toplevel"], {
-      cwd,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      timeout: 2000,
-    }).trim();
+    const topLevel = gitOutput(cwd, ["rev-parse", "--show-toplevel"]);
     // A repository rooted at a filesystem root is also not a usable checkout for
     // git completion, so it does not count as one here.
-    if (!topLevel) return undefined;
-    return resolve(topLevel) === parse(resolve(topLevel)).root ? undefined : topLevel;
+    if (!topLevel || resolve(topLevel) === parse(resolve(topLevel)).root) return undefined;
+    // Right after `git init` there is no commit yet: HEAD cannot resolve, so the
+    // checker cannot compare prHeadSha against it and emits no stale-SHA blocker.
+    if (!gitOutput(cwd, ["rev-parse", "--verify", "--quiet", "HEAD"])) return undefined;
+    return topLevel;
   } catch {
     return undefined;
   }
@@ -70,11 +77,12 @@ test("minimal walkthrough README states that the example skips verify-only check
 test("fixture stores a placeholder prHeadSha, so SpineStateStore.verify reports it as stale", async (t) => {
   // `checkGitCompletion()` returns `{ checked: false, blockers: [] }` when git
   // cannot resolve a work tree (a source snapshot or installed tarball has no
-  // .git), so the stale-SHA blocker does not exist there. Only skip outside a
-  // checkout; inside one the assertion below still runs.
+  // .git), and it cannot compare prHeadSha when HEAD is unborn (`git init` with
+  // no commit yet), so the stale-SHA blocker does not exist there. Only skip in
+  // those cases; inside a checkout with a commit the assertion below still runs.
   const workTreeRoot = gitWorkTreeRoot(fixtureRoot);
   if (!workTreeRoot) {
-    t.skip(`skipped: ${fixtureRoot} is not inside a git checkout, so git completion is not checked`);
+    t.skip(`skipped: ${fixtureRoot} is not inside a git checkout with a resolvable HEAD, so the stale-SHA blocker cannot be emitted`);
     return;
   }
 
