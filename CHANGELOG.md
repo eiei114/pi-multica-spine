@@ -44,6 +44,11 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- `examples/minimal-walkthrough/README.md` no longer implies the offline example covers everything `multica_spine_verify` checks. It now names the two live-repository checks (`git completion`, `local import closure`) the example skips, and states that its `VERIFIED` result does not predict a live verify pass because the fixture stores the placeholder `prHeadSha` `abc123`.
+- `tests/minimal-walkthrough.test.mjs` skips its stale `prHeadSha` assertion when the fixture is not inside a git checkout, or is inside one whose `HEAD` cannot resolve yet (`git init` with no commit). `checkGitCompletion()` returns `{ checked: false, blockers: [] }` outside a checkout and cannot compare `prHeadSha` against an unborn `HEAD`, so the blocker cannot exist there; the assertion still runs inside a checkout with a commit.
+
 ## [0.12.14] - 2026-09-27
 
 - chore: periodic patch bump after 7+ days without npm publish
