@@ -31,6 +31,13 @@ Success prints JSON with `status: "VERIFIED"`, `verified: true`, and an empty `m
 }
 ```
 
-The fixture includes PR metadata (`prNumber`, `prHeadSha`, `prBranch`, `writebackRecorded: true`), verification evidence, and a handoff that references the issue and PR URL — the same fields `multica_spine_verify` checks in live sessions.
+The fixture carries the issue, PR metadata (`prNumber`, `prHeadSha`, `prBranch`, `writebackRecorded: true`), verification evidence, and a handoff that references the issue and PR URL. The script only calls `evaluateSpine(task)` on that stored state, so it answers one question: does the recorded state satisfy the spine contract?
+
+`multica_spine_verify` adds two checks that read live repository state, so this example skips them:
+
+- **git completion** — working tree clean, no leftover conflict markers, branch pushed to its upstream, and `prHeadSha` equal to the current `HEAD`.
+- **local import closure** — the linked local issue markdown (if any) no longer has `ready_for_multica: true`.
+
+A `VERIFIED` result here therefore does not mean `multica_spine_verify` will pass in a live session. The fixture's `prHeadSha` is the placeholder `abc123`, so running `SpineStateStore.verify()` on this fixture from inside a git checkout reports `git: PR head SHA metadata is stale`.
 
 See also [`../workflow-campaign-walkthrough/`](../workflow-campaign-walkthrough/) for an offline Hermes Campaign demo.
