@@ -11,16 +11,16 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(scriptDir, "..");
 
 export const TEMPLATE_RESYNC_BASELINE = {
-  templateRef: "pi-extension-template@0.3.2",
-  piPeerBaseline: "1.2.x",
+  templateRef: "pi-extension-template@0.3.4",
+  piPeerBaseline: "1.5.x",
   piPeerPackages: [
     "@earendil-works/pi-agent-core",
     "@earendil-works/pi-ai",
     "@earendil-works/pi-coding-agent",
     "@earendil-works/pi-tui",
   ],
-  expectedPeerMajor: "1.2",
-  lastReviewed: "2026-10-16",
+  expectedPeerMajor: "1.5",
+  lastReviewed: "2026-11-07",
 };
 
 export const TEMPLATE_RESYNC_RULES = [
@@ -95,6 +95,16 @@ function extractOnBlock(content) {
   return match?.[1] ?? "";
 }
 
+// A dev/test pin stays inside the baseline minor only when it is a single exact
+// version or a tilde/x range of that minor (e.g. 1.5.0, ~1.5.0, 1.5.x). Unions,
+// caret ranges, and longer minors such as 1.50.0 can resolve outside it.
+const DEV_RANGE_RE = /^(?:~|=)?(\d+)\.(\d+)\.(?:\d+|x|\*)(?:-[0-9A-Za-z.-]+)?$/;
+
+export function devRangeMatchesBaseline(devRange, expectedPeerMajor) {
+  const match = DEV_RANGE_RE.exec(String(devRange ?? "").trim());
+  return match !== null && `${match[1]}.${match[2]}` === expectedPeerMajor;
+}
+
 export function evaluatePiPeerVersions(packageJson, baseline = TEMPLATE_RESYNC_BASELINE) {
   const failures = [];
   const observed = {};
@@ -105,7 +115,7 @@ export function evaluatePiPeerVersions(packageJson, baseline = TEMPLATE_RESYNC_B
     if (peerRange !== "*") {
       failures.push(`${pkg}: peerDependencies expected "*" got ${JSON.stringify(peerRange)}`);
     }
-    if (!devRange || !String(devRange).includes(baseline.expectedPeerMajor)) {
+    if (!devRangeMatchesBaseline(devRange, baseline.expectedPeerMajor)) {
       failures.push(`${pkg}: devDependencies expected ${baseline.piPeerBaseline} range got ${JSON.stringify(devRange)}`);
     }
   }

@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.12.20] - 2026-11-07
+
+### Changed
+
+- Pin Pi SDK dev/test dependencies to 1.5.0 and verify the extension against the actual Pi host.
+- `check:template` validates the whole Pi dev-dependency range against the baseline minor instead of matching a substring, so `1.50.0` or `1.5.0 || 1.4.0` no longer pass.
+
 ## [0.12.19] - 2026-11-02
 
 ### Performance
