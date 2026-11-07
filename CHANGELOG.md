@@ -9,6 +9,7 @@ This project follows semantic versioning.
 ### Changed
 
 - Pin Pi SDK dev/test dependencies to 1.5.0 and verify the extension against the actual Pi host.
+- `check:template` validates the whole Pi dev-dependency range against the baseline minor instead of matching a substring, so `1.50.0` or `1.5.0 || 1.4.0` no longer pass.
 
 ## [0.12.19] - 2026-11-02
 

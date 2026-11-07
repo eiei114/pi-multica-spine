@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  devRangeMatchesBaseline,
   evaluatePiPeerVersions,
   evaluateTemplateResyncRule,
   runTemplateResyncCheck,
@@ -19,6 +20,24 @@ test("evaluatePiPeerVersions flags drift from template peer baseline", () => {
     peerDependencies: { "@earendil-works/pi-ai": "^0.79.0" },
     devDependencies: { "@earendil-works/pi-ai": "^0.79.0" },
   });
+  assert.equal(result.ok, false);
+});
+
+test("devRangeMatchesBaseline validates the whole dev range, not a substring", () => {
+  for (const range of ["1.5.0", "1.5.12", "~1.5.0", "1.5.x", "1.5.0-beta.1"]) {
+    assert.equal(devRangeMatchesBaseline(range, "1.5"), true, range);
+  }
+  for (const range of ["1.50.0", "1.5.0 || 1.4.0", "^1.5.0", ">=1.5.0", "11.5.0", "1.4.0", "", undefined]) {
+    assert.equal(devRangeMatchesBaseline(range, "1.5"), false, String(range));
+  }
+});
+
+test("evaluatePiPeerVersions rejects dev ranges that only contain the baseline minor", () => {
+  const pkg = "@earendil-works/pi-ai";
+  const result = evaluatePiPeerVersions(
+    { peerDependencies: { [pkg]: "*" }, devDependencies: { [pkg]: "1.50.0" } },
+    { piPeerBaseline: "1.5.x", piPeerPackages: [pkg], expectedPeerMajor: "1.5" },
+  );
   assert.equal(result.ok, false);
 });
 

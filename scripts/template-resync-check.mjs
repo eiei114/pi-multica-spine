@@ -95,6 +95,16 @@ function extractOnBlock(content) {
   return match?.[1] ?? "";
 }
 
+// A dev/test pin stays inside the baseline minor only when it is a single exact
+// version or a tilde/x range of that minor (e.g. 1.5.0, ~1.5.0, 1.5.x). Unions,
+// caret ranges, and longer minors such as 1.50.0 can resolve outside it.
+const DEV_RANGE_RE = /^(?:~|=)?(\d+)\.(\d+)\.(?:\d+|x|\*)(?:-[0-9A-Za-z.-]+)?$/;
+
+export function devRangeMatchesBaseline(devRange, expectedPeerMajor) {
+  const match = DEV_RANGE_RE.exec(String(devRange ?? "").trim());
+  return match !== null && `${match[1]}.${match[2]}` === expectedPeerMajor;
+}
+
 export function evaluatePiPeerVersions(packageJson, baseline = TEMPLATE_RESYNC_BASELINE) {
   const failures = [];
   const observed = {};
@@ -105,7 +115,7 @@ export function evaluatePiPeerVersions(packageJson, baseline = TEMPLATE_RESYNC_B
     if (peerRange !== "*") {
       failures.push(`${pkg}: peerDependencies expected "*" got ${JSON.stringify(peerRange)}`);
     }
-    if (!devRange || !String(devRange).includes(baseline.expectedPeerMajor)) {
+    if (!devRangeMatchesBaseline(devRange, baseline.expectedPeerMajor)) {
       failures.push(`${pkg}: devDependencies expected ${baseline.piPeerBaseline} range got ${JSON.stringify(devRange)}`);
     }
   }
