@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.12.21] - 2026-11-08
+
+### Changed
+
+- Bump `actions/setup-node` from v6 to v7 in `ci.yml` and `publish.yml` (Dependabot `github-actions-dependencies` group).
+- `check:template` and `tests/smoke.test.mjs` now guard the `setup-node@v7` major for both workflows instead of pinning the stale `@v6` string, so the dependency bump no longer fails the test job.
+
 ## [0.12.20] - 2026-11-07
 
 ### Changed

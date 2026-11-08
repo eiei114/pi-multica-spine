@@ -31,10 +31,16 @@ export const TEMPLATE_RESYNC_RULES = [
     note: "CI checkout major matches template",
   },
   {
-    id: "ci-setup-node-v6",
+    id: "ci-setup-node-v7",
     file: ".github/workflows/ci.yml",
-    pattern: /actions\/setup-node@v6/,
+    pattern: /actions\/setup-node@v7/,
     note: "CI setup-node major matches template",
+  },
+  {
+    id: "publish-setup-node-v7",
+    file: ".github/workflows/publish.yml",
+    pattern: /actions\/setup-node@v7/,
+    note: "Publish setup-node major matches template",
   },
   {
     id: "publish-checkout-v7",
