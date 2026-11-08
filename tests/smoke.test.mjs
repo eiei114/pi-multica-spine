@@ -27,5 +27,5 @@ test("package uses public publish config", () => {
 
 test("CI workflow pins supported GitHub Actions majors", () => {
   assert.match(ciWorkflow, /actions\/checkout@v7/);
-  assert.match(ciWorkflow, /actions\/setup-node@v6/);
+  assert.match(ciWorkflow, /actions\/setup-node@v7/);
 });
