@@ -7,12 +7,15 @@ import {
   extractCiCheckScripts,
   extractDevelopmentSection,
   extractOpenRoadmapSeeds,
+  extractReadmePackageContentsPaths,
   extractRegisteredToolNames,
   extractRoadmapDocumentedVersions,
+  normalizePackageContentsPath,
   README_DOCS_SECTION_ENTRIES,
   validateCiReadmeAlignment,
   validateReadme,
   validateReadmeDocsSectionAlignment,
+  validateReadmePackageContents,
   validateReadmeToolAlignment,
   validateRoadmapFreshness,
   runCheckReadme,
@@ -189,6 +192,92 @@ test("validateReadmeToolAlignment rejects missing registered tool references", (
   const result = validateReadmeToolAlignment("# README", extensionSource);
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /multica_workflow_telemetry_record/);
+});
+
+const samplePackageFiles = ["dist/", "extensions/", "lib/", "skills/", "README.md", "LICENSE", "SECURITY.md"];
+
+const samplePackageContentsReadme = [
+  "```bash",
+  "pi install npm:pi-multica-spine@0.12.7",
+  "```",
+  "",
+  "## Package contents",
+  "",
+  "| Path | Purpose |",
+  "|---|---|",
+  "| `dist/` | Compiled output |",
+  "| `extensions/` | Pi extension entrypoint |",
+  "| `lib/` | TypeScript sources |",
+  "| `skills/` | Entry skills |",
+  "| `README.md` | Public entrypoint |",
+  "| `LICENSE` | MIT license |",
+  "| `SECURITY.md` | Security policy |",
+  "",
+  "## Development",
+].join("\n");
+
+test("normalizePackageContentsPath treats trailing slash and bare names as equal", () => {
+  assert.equal(normalizePackageContentsPath("dist/"), "dist");
+  assert.equal(normalizePackageContentsPath("`dist/`"), "dist");
+  assert.equal(normalizePackageContentsPath("./SECURITY.md"), "SECURITY.md");
+  assert.equal(normalizePackageContentsPath("skills\\"), "skills");
+});
+
+test("extractReadmePackageContentsPaths returns first-column paths from the table", () => {
+  assert.deepEqual(extractReadmePackageContentsPaths(samplePackageContentsReadme), [
+    "dist",
+    "extensions",
+    "lib",
+    "skills",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md",
+  ]);
+  assert.equal(extractReadmePackageContentsPaths("# README\n\n## Development\n"), null);
+});
+
+test("validateReadmePackageContents accepts an aligned package contents table", () => {
+  const result = validateReadmePackageContents(samplePackageContentsReadme, samplePackageFiles);
+  assert.equal(result.ok, true);
+});
+
+test("validateReadmePackageContents rejects a missing skills/ row and names it", () => {
+  const readme = samplePackageContentsReadme.replace("| `skills/` | Entry skills |\n", "");
+  const result = validateReadmePackageContents(readme, samplePackageFiles);
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /skills/);
+  assert.deepEqual(result.missing, ["skills"]);
+});
+
+test("validateReadmePackageContents rejects a row that is not shipped", () => {
+  const readme = samplePackageContentsReadme.replace(
+    "| `LICENSE` | MIT license |",
+    "| `LICENSE` | MIT license |\n| `docs/` | Not actually shipped in this fixture |",
+  );
+  const result = validateReadmePackageContents(readme, samplePackageFiles);
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /not in package\.json files: docs/);
+  assert.deepEqual(result.extra, ["docs"]);
+});
+
+test("validateReadmePackageContents rejects a README without the section", () => {
+  const result = validateReadmePackageContents("# README\n\n## Development\n", samplePackageFiles);
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /Package contents section missing/);
+});
+
+test("validateReadmePackageContents fails closed without a files list", () => {
+  const result = validateReadmePackageContents(samplePackageContentsReadme, []);
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /files list unavailable/);
+});
+
+test("validateReadme wires package contents validation when asked", () => {
+  const result = validateReadme(samplePackageContentsReadme, {
+    packageFiles: samplePackageFiles,
+    validatePackageContents: true,
+  });
+  assert.equal(result.ok, true);
 });
 
 test("validateReadme fails when registered tool validation is required without extension source", () => {

@@ -292,9 +292,12 @@ See [`docs/production-workflow-binding.md`](docs/production-workflow-binding.md)
 | `lib/` | TypeScript sources for spine + workflow control plane |
 | `scripts/` | Workflow ops CLIs (`jsonl-digest`, sandbox canary, production binding/run) |
 | `docs/` | Release, workflow ops runbooks, and maintainer docs |
+| `skills/` | Entry skills (`idea-to-build`, `idea-status`, `maintenance-build`) |
 | `README.md` | Public entrypoint (this file) |
 | `LICENSE` | MIT license |
 | `CHANGELOG.md` | Version history |
+| `CONTEXT.md` | Project glossary and release context for contributors |
+| `SECURITY.md` | Security policy and vulnerability reporting |
 
 ## Development
 
