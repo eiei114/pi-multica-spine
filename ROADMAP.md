@@ -2,15 +2,15 @@
 
 > Maintenance context for `pi-multica-spine`. Repo-level only — **not** shipped in the npm tarball.
 >
-> Refreshed for 2026-W41 on 2026-10-06. `ROADMAP.md` is the authoritative roadmap source; no separate roadmap file is required.
+> Refreshed for 2026-W47 on 2026-11-16. `ROADMAP.md` is the authoritative roadmap source; no separate roadmap file is required.
 
 ## Current release status
 
 | Item | Value |
 | --- | --- |
-| Published version | **0.12.17** (npm; 0.12.18–0.12.22 prepared, publication pending) |
-| Working-tree version | `0.12.22` |
-| Roadmap freshness | Refreshed 2026-10-06 (2026-W41) |
+| Published version | **0.12.21** (npm) |
+| Working-tree version | `0.12.23` |
+| Roadmap freshness | Refreshed 2026-11-16 (2026-W47) |
 | Entry skills | `/skill:idea-to-build` · `/skill:maintenance-build` |
 | Vault entry | `scripts/workflow-vault-idea-entry.mjs` (offline check covered by `npm run ci`) |
 | Production gate | **CLOSED** (`productionAllowed=false`) |
