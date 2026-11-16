@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.12.23] - 2026-11-16
+
+### Changed
+
+- The README install pin now names `0.12.21`, the version actually published on npm (`npm view pi-multica-spine version`), instead of the stale `0.12.17`.
+- The ROADMAP `Published version` row drops the `publication pending` wording and records `0.12.21`, so the README pin and `review:guardrails` release-state check agree with npm, and the freshness row is refreshed to 2026-11-16 (2026-W47).
+
 ## [0.12.22] - 2026-11-15
 
 ### Changed
