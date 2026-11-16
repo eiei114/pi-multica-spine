@@ -64,6 +64,103 @@ export function validateReadmeToolAlignment(content, extensionSource = "") {
   return { ok: errors.length === 0, errors, registered, missing };
 }
 
+const PACKAGE_CONTENTS_SECTION_HEADING = /^## Package contents\b.*$/m;
+
+/**
+ * Normalize a `files` entry or a README table path so that `dist/`, `dist`,
+ * `./dist/` and `dist\\` all compare equal. npm `files` entries are
+ * directory-prefixes with a trailing slash, while README rows may use either
+ * form.
+ */
+export function normalizePackageContentsPath(path = "") {
+  return String(path)
+    .trim()
+    .replace(/\r/g, "")
+    .replace(/`/g, "")
+    .replace(/\\/g, "/")
+    .replace(/^\.\//, "")
+    .replace(/^\//, "")
+    .replace(/\/+$/, "");
+}
+
+function extractPackageContentsSection(content) {
+  const headingMatch = content.match(PACKAGE_CONTENTS_SECTION_HEADING);
+  if (!headingMatch) {
+    return null;
+  }
+  const rest = content.slice(headingMatch.index + headingMatch[0].length);
+  const nextHeading = rest.search(/^## /m);
+  return nextHeading === -1 ? rest : rest.slice(0, nextHeading);
+}
+
+/**
+ * Return the first-column paths of the `## Package contents` table, in order.
+ */
+export function extractReadmePackageContentsPaths(content = "") {
+  content = content.replace(/\r\n/g, "\n");
+  const section = extractPackageContentsSection(content);
+  if (section === null) {
+    return null;
+  }
+
+  return section.split("\n").flatMap((line) => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("|")) {
+      return [];
+    }
+    const cells = trimmed
+      .split("|")
+      .slice(1, trimmed.endsWith("|") ? -1 : undefined)
+      .map((cell) => cell.trim());
+    const first = cells[0] ?? "";
+    const path = normalizePackageContentsPath(first);
+    // Skip the header row and the `---` separator row, including GFM
+    // alignment colons such as `:---`, `---:`, and `:---:`.
+    if (!path || path === "Path" || /^:?-{2,}:?$/.test(path)) {
+      return [];
+    }
+    return [path];
+  });
+}
+
+/**
+ * Validate that the README `## Package contents` table lists exactly the
+ * `package.json` `files` entries: every shipped path documented, and no
+ * documented path that the package does not ship.
+ */
+export function validateReadmePackageContents(content = "", packageFiles = []) {
+  const errors = [];
+  const expected = (Array.isArray(packageFiles) ? packageFiles : [])
+    .map((entry) => normalizePackageContentsPath(entry))
+    .filter((entry) => entry.length > 0);
+
+  const documented = extractReadmePackageContentsPaths(content);
+  if (documented === null) {
+    errors.push("README Package contents section missing");
+    return { ok: false, errors, documented: [], missing: expected, extra: [] };
+  }
+  if (expected.length === 0) {
+    errors.push("package.json files list unavailable for README Package contents validation");
+    return { ok: false, errors, documented, missing: [], extra: [] };
+  }
+
+  const documentedSet = new Set(documented);
+  const expectedSet = new Set(expected);
+  const missing = expected.filter((entry) => !documentedSet.has(entry));
+  const extra = documented.filter((entry) => !expectedSet.has(entry));
+
+  if (missing.length > 0) {
+    errors.push(`README Package contents table omits files entries: ${missing.join(", ")}`);
+  }
+  if (extra.length > 0) {
+    errors.push(
+      `README Package contents table lists paths not in package.json files: ${extra.join(", ")}`,
+    );
+  }
+
+  return { ok: errors.length === 0, errors, documented, missing, extra };
+}
+
 export const README_DOCS_SECTION_ENTRIES = [
   {
     path: "docs/workflow-ops-checklist.md",
@@ -193,7 +290,7 @@ export function validateRoadmapFreshness(content, packageVersion, { minOpenSeeds
   return { ok: errors.length === 0, errors, versions, openSeeds, scopedSeeds };
 }
 
-export function validateReadme(content, { version, ciScript, extensionSource, roadmapContent, validateRegisteredTools = false, validateDocsSection = false } = {}) {
+export function validateReadme(content, { version, ciScript, extensionSource, roadmapContent, packageFiles, validateRegisteredTools = false, validateDocsSection = false, validatePackageContents = false } = {}) {
   content = content.replace(/\r\n/g, "\n");
   const errors = [];
   const fenceLines = content.split("\n").filter((line) => FENCE.test(line.trim()));
@@ -250,6 +347,11 @@ export function validateReadme(content, { version, ciScript, extensionSource, ro
     errors.push(...docsAlignment.errors);
   }
 
+  if (validatePackageContents) {
+    const packageContents = validateReadmePackageContents(content, packageFiles);
+    errors.push(...packageContents.errors);
+  }
+
   if (roadmapContent !== undefined) {
     const roadmapFreshness = validateRoadmapFreshness(roadmapContent, version);
     errors.push(...roadmapFreshness.errors);
@@ -267,14 +369,18 @@ export function runCheckReadme({
   const content = readFileSync(readmePath, "utf8");
   let version;
   let ciScript;
+  let packageFiles;
   let extensionSource;
   let roadmapContent;
   try {
     const pkg = JSON.parse(readFileSync(packageJsonPath, "utf8"));
     version = pkg.version;
     ciScript = pkg.scripts?.ci;
+    packageFiles = Array.isArray(pkg.files) ? pkg.files : [];
   } catch {
     // optional version alignment when package.json is unavailable
+    console.error(`unable to read package manifest: ${packageJsonPath}`);
+    return 1;
   }
   try {
     extensionSource = readFileSync(extensionPath, "utf8");
@@ -293,8 +399,10 @@ export function runCheckReadme({
     ciScript,
     extensionSource,
     roadmapContent,
+    packageFiles,
     validateRegisteredTools: true,
     validateDocsSection: true,
+    validatePackageContents: true,
   });
   if (!result.ok) {
     console.error(result.errors.join("\n"));

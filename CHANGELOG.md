@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.12.22] - 2026-11-15
+
+### Changed
+
+- `check:readme` now validates the README `## Package contents` table against the `package.json` `files` list (`validateReadmePackageContents`), so a shipped path that loses its row, or a documented path the package no longer ships, fails CI with the drifting path named.
+- The README `## Package contents` table lists the previously missing `skills/`, `CONTEXT.md` and `SECURITY.md` entries.
+- `extractReadmePackageContentsPaths` now skips a GFM separator row with alignment colons (`|:---|`, `|---:|`, `|:---:|`), so a colon-aligned table no longer reports the separator cell as a drifting documented path.
+
 ## [0.12.21] - 2026-11-08
 
 ### Changed
