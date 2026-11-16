@@ -114,8 +114,9 @@ export function extractReadmePackageContentsPaths(content = "") {
       .map((cell) => cell.trim());
     const first = cells[0] ?? "";
     const path = normalizePackageContentsPath(first);
-    // Skip the header row and the `---` separator row.
-    if (!path || path === "Path" || /^-{2,}$/.test(path)) {
+    // Skip the header row and the `---` separator row, including GFM
+    // alignment colons such as `:---`, `---:`, and `:---:`.
+    if (!path || path === "Path" || /^:?-{2,}:?$/.test(path)) {
       return [];
     }
     return [path];

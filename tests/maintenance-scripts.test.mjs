@@ -241,6 +241,36 @@ test("validateReadmePackageContents accepts an aligned package contents table", 
   assert.equal(result.ok, true);
 });
 
+test("extractReadmePackageContentsPaths skips a colon-aligned separator row", () => {
+  const readme = samplePackageContentsReadme.replace("|---|---|", "|:---|---:|");
+  assert.deepEqual(extractReadmePackageContentsPaths(readme), [
+    "dist",
+    "extensions",
+    "lib",
+    "skills",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md",
+  ]);
+});
+
+test("validateReadmePackageContents reports no extra path for a colon-aligned separator", () => {
+  const readme = samplePackageContentsReadme.replace("|---|---|", "|:---|---:|");
+  const result = validateReadmePackageContents(readme, samplePackageFiles);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.extra, []);
+  assert.deepEqual(result.documented, [
+    "dist",
+    "extensions",
+    "lib",
+    "skills",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md",
+  ]);
+  assert.doesNotMatch(result.errors.join("\n"), /:---/);
+});
+
 test("validateReadmePackageContents rejects a missing skills/ row and names it", () => {
   const readme = samplePackageContentsReadme.replace("| `skills/` | Entry skills |\n", "");
   const result = validateReadmePackageContents(readme, samplePackageFiles);
