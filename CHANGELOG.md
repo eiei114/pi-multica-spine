@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.12.24] - 2026-11-18
+
+### Changed
+
+- Pin the Pi SDK dev/test dependencies to 1.5.2 (Dependabot `pi-sdk` group, PR #147) and realign `scripts/pi-sdk-smoke-contract.mjs`, `tests/pi-sdk-smoke-contract.test.mjs` and `docs/verification/pi-sdk-smoke.json` with the installed 1.5.2 SDK so `smoke:pi` passes against the actual Pi host.
+
 ## [0.12.23] - 2026-11-16
 
 ### Changed
