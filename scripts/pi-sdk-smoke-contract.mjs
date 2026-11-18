@@ -1,9 +1,9 @@
 export const VERIFICATION_CONTRACT = "pi-sdk-behavior-v2";
 export const SDK_VERSIONS = {
-  "@earendil-works/pi-agent-core": "1.5.0",
-  "@earendil-works/pi-ai": "1.5.0",
-  "@earendil-works/pi-coding-agent": "1.5.0",
-  "@earendil-works/pi-tui": "1.5.0",
+  "@earendil-works/pi-agent-core": "1.5.2",
+  "@earendil-works/pi-ai": "1.5.2",
+  "@earendil-works/pi-coding-agent": "1.5.2",
+  "@earendil-works/pi-tui": "1.5.2",
 };
 
 export const UNHANDLED_ERROR_PATTERN = /UnhandledPromiseRejection|uncaught exception|shutdown error/i;
