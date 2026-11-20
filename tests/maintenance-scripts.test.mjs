@@ -43,6 +43,21 @@ test("validateChangelog rejects missing Unreleased", () => {
   assert.equal(result.ok, false);
 });
 
+test("validateChangelog requires a dated section for ROADMAP Published version", () => {
+  const matching = validateChangelog(
+    "## [Unreleased]\n\n## [0.12.21] - 2026-11-08\n",
+    { publishedVersion: "0.12.21" },
+  );
+  assert.equal(matching.ok, true);
+
+  const missing = validateChangelog(
+    "## [Unreleased]\n\n## [0.12.24] - 2026-11-18\n",
+    { publishedVersion: "0.12.21" },
+  );
+  assert.equal(missing.ok, false);
+  assert.match(missing.errors.join("\n"), /ROADMAP Published version 0\.12\.21 has no dated CHANGELOG entry/);
+});
+
 const sampleCiScript = [
   "npm run build",
   "npm run check:coverage",

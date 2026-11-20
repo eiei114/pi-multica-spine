@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+import { extractRoadmapDocumentedVersions } from "./check-readme.mjs";
 
 const HEADING = /^## \[/;
 
-export function validateChangelog(content) {
+export function validateChangelog(content, { publishedVersion } = {}) {
   const errors = [];
   if (!content.includes("## [Unreleased]")) {
     errors.push("missing ## [Unreleased] heading");
@@ -23,12 +24,27 @@ export function validateChangelog(content) {
   if (headings.length < 2) {
     errors.push("expected Unreleased plus at least one version heading");
   }
+  if (publishedVersion !== undefined) {
+    if (!publishedVersion) {
+      errors.push("ROADMAP Published version is missing or not a semantic version");
+    } else {
+      const escapedVersion = publishedVersion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const publishedHeading = new RegExp(`^## \\[${escapedVersion}\\] - \\d{4}-\\d{2}-\\d{2}$`, "m");
+      if (!publishedHeading.test(content)) {
+        errors.push(
+          `ROADMAP Published version ${publishedVersion} has no dated CHANGELOG entry (expected: ## [${publishedVersion}] - YYYY-MM-DD)`,
+        );
+      }
+    }
+  }
   return { ok: errors.length === 0, errors, releaseCount: dated.length };
 }
 
-export function runCheckChangelog(path = "CHANGELOG.md") {
+export function runCheckChangelog(path = "CHANGELOG.md", roadmapPath = "ROADMAP.md") {
   const content = readFileSync(path, "utf8");
-  const result = validateChangelog(content);
+  const roadmap = readFileSync(roadmapPath, "utf8");
+  const { published } = extractRoadmapDocumentedVersions(roadmap);
+  const result = validateChangelog(content, { publishedVersion: published });
   if (!result.ok) {
     console.error(result.errors.join("\n"));
     return 1;
