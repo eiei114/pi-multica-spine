@@ -31,15 +31,21 @@ test("validateMaintenanceBrief reports missing or malformed required fields and 
   });
 });
 
-test("runWorkflowMaintenanceEntry offline plan passes in CI", async () => {
+test("runWorkflowMaintenanceEntry offline plan never calls live adapters", async () => {
+  const calls = [];
   const report = await runWorkflowMaintenanceEntry({
     maintenanceBrief: "Refresh README workflow ops section and add maintenance slash entry smoke",
+    loadProductionRunState: async () => calls.push("loadProductionRunState"),
+    startProductionWorkflowRun: async () => calls.push("startProductionWorkflowRun"),
+    runProductionCampaign: async () => calls.push("runProductionCampaign"),
   });
+
   assert.equal(report.ok, true);
   assert.equal(report.mode, "offline-plan");
   assert.equal(report.repoPath, buildProductionRunPlan().repoPath);
   assert.equal(report.plan.deliveryPolicy.productionAllowed, false);
   assert.equal(report.skillCommand, "/skill:maintenance-build");
+  assert.deepEqual(calls, []);
 });
 
 test("runWorkflowMaintenanceEntry execute path supports smoke adapters", async () => {
