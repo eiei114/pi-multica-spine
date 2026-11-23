@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   computeJsonlDigest,
@@ -9,6 +14,37 @@ import {
   formatJsonlDigestJson,
   parseJsonlLines,
 } from "../lib/jsonl-digest.ts";
+
+const digestCli = fileURLToPath(new URL("../scripts/jsonl-digest.mjs", import.meta.url));
+
+function tempDigestInput(t, filename) {
+  const dir = mkdtempSync(join(tmpdir(), "jsonl-digest-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  return join(dir, filename);
+}
+
+test("digest CLI reports missing input on stderr without a stack trace", (t) => {
+  const input = tempDigestInput(t, "missing.jsonl");
+  const result = spawnSync(process.execPath, [digestCli, input], { encoding: "utf8" });
+  assert.ifError(result.error);
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /^jsonl-digest: [^\r\n]+\r?\n$/);
+  assert.ok(result.stderr.includes(JSON.stringify(input)));
+  assert.match(result.stderr, /ENOENT/);
+});
+
+test("digest CLI writes one JSON line by default for a valid input", (t) => {
+  const input = tempDigestInput(t, "tasks.jsonl");
+  const content = '{"id":"t1","status":"open"}\n';
+  writeFileSync(input, content);
+  const result = spawnSync(process.execPath, [digestCli, input], { encoding: "utf8" });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, "");
+  assert.match(result.stdout, /^[^\r\n]+\n$/);
+  assert.deepEqual(JSON.parse(result.stdout), digestJsonlFileContent(content));
+});
 
 test("computeJsonlDigest returns stable sorted digest", () => {
   const lines = ['{"id":"t1","status":"open"}', '{"id":"t2","status":"done"}', '{"id":"t3","status":"open"}'];

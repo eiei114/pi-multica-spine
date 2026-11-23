@@ -43,7 +43,13 @@ export function runJsonlDigestCli(argv = process.argv.slice(2)) {
     console.error("  --human: human-readable summary; --color when stdout is a TTY unless --no-color");
     return config.help ? 0 : 1;
   }
-  const content = readFileSync(config.path, "utf8");
+  let content;
+  try {
+    content = readFileSync(config.path, "utf8");
+  } catch (error) {
+    console.error(`jsonl-digest: Cannot read ${JSON.stringify(config.path)} (${error.code}). Check the path and read permissions.`);
+    return 1;
+  }
   const result = digestJsonlFileContent(content);
   const useHuman = config.human;
   const useColor = !config.noColor && (config.color || (useHuman && stdoutIsTty()));
