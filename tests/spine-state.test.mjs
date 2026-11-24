@@ -111,8 +111,8 @@ test("SpineStateMachine returns actionable missing items", () => {
   assert.deepEqual(evidenceReady.missing, ["handoff"]);
 });
 
-test("verified state requires issue, PR reference, writeback, evidence, and handoff", () => {
-  const task = {
+function completeTask() {
+  return {
     issue: { identifier: "TASK-45", boundAt: "2026-01-01T00:00:00.000Z" },
     pr: {
       prUrl: "https://github.com/eiei114/pi-multica-spine/pull/1",
@@ -130,15 +130,36 @@ test("verified state requires issue, PR reference, writeback, evidence, and hand
       verification: ["npm run ci passed for https://github.com/eiei114/pi-multica-spine/pull/1"],
       timestamp: "2026-01-01T00:00:00.000Z",
     },
-    verifiedAt: "2026-01-01T00:00:01.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
   };
+}
 
-  const evaluation = evaluateSpine(task);
+test("verified state requires issue, PR reference, writeback, evidence, and handoff", () => {
+  const evaluation = evaluateSpine({ ...completeTask(), verifiedAt: "2026-01-01T00:00:01.000Z" });
   assert.equal(evaluation.status, "VERIFIED");
   assert.equal(evaluation.verified, true);
   assert.deepEqual(evaluation.missing, []);
 });
+
+for (const [name, blocker, handoffOverride] of [
+  [
+    "stale PR URL",
+    "handoff PR URL",
+    { verification: ["npm run ci passed for https://github.com/eiei114/pi-multica-spine/pull/2"] },
+  ],
+  ["omitted issue identifier", "handoff issue identifier", { done: ["Implemented the change"] }],
+]) {
+  test(`evaluateSpine routes handoff reference failures to repair: ${name}`, () => {
+    const task = completeTask();
+    const evaluation = evaluateSpine({ ...task, handoff: { ...task.handoff, ...handoffOverride } });
+    assert.deepEqual(evaluation.missing, [blocker]);
+    assert.equal(evaluation.nextAction.tool, "multica_spine_handoff");
+
+    const repaired = evaluateSpine(task);
+    assert.deepEqual(repaired.missing, []);
+    assert.equal(repaired.nextAction.tool, "multica_spine_verify");
+  });
+}
 
 test("PrBindingChecker accepts issue identifier in branch, title, body, or metadata without DOT assumptions", () => {
   assert.equal(checkPrBinding("TASK-45", { prUrl: "u", prBranch: "TASK-45-work", linkedAt: "t" }).ok, true);
