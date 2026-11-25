@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { validateChangelog } from "../scripts/check-changelog.mjs";
 import {
@@ -503,6 +508,33 @@ test("parseCoverageSummary averages lib and extension ts files", () => {
   assert.equal(summary.fileCount, 2);
   assert.equal(summary.lines, 75);
 });
+
+const coverageGateScript = fileURLToPath(new URL("../scripts/coverage-gate.mjs", import.meta.url));
+
+for (const { name, report, stderr } of [
+  {
+    name: "missing",
+    stderr: 'coverage gate: cannot read "saved coverage.txt" (ENOENT); check the report path and permissions.',
+  },
+  {
+    name: "unrecognized",
+    report: "This is not a Node test coverage report.\n",
+    stderr: 'coverage gate: invalid coverage report "saved coverage.txt": could not parse lib/extensions TypeScript coverage rows; use output from node --experimental-test-coverage --test.',
+  },
+]) {
+  test(`coverage gate CLI reports a ${name} saved report without a stack trace`, (t) => {
+    const cwd = mkdtempSync(join(tmpdir(), "coverage-gate-"));
+    t.after(() => rmSync(cwd, { recursive: true, force: true }));
+    const reportPath = "saved coverage.txt";
+    if (report !== undefined) writeFileSync(join(cwd, reportPath), report);
+
+    const result = spawnSync(process.execPath, [coverageGateScript, reportPath], { cwd, encoding: "utf8" });
+    assert.ifError(result.error);
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, "");
+    assert.equal(result.stderr.trimEnd(), stderr);
+  });
+}
 
 test("evaluateCoverage enforces thresholds", () => {
   const pass = evaluateCoverage({ lines: 76, branches: 69, functions: 79 });

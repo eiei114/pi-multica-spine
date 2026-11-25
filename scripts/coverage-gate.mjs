@@ -3,6 +3,8 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
+const NO_COVERAGE_ROWS = "could not parse lib/extensions TypeScript coverage rows";
+
 const DEFAULT_THRESHOLDS = {
   lines: 75,
   branches: 68,
@@ -122,7 +124,7 @@ export function parseCoverageFileRows(output) {
 export function parseCoverageSummary(output) {
   const files = parseCoverageFileRows(output);
   if (files.length === 0) {
-    throw new Error("could not parse lib/extensions TypeScript coverage rows");
+    throw new Error(NO_COVERAGE_ROWS);
   }
   const totals = files.reduce(
     (acc, row) => ({
@@ -262,7 +264,12 @@ export function evaluateCoverageHotspots(files, hotspots = COVERAGE_HOTSPOTS, de
 export function runCoverageGate(inputPath) {
   let output;
   if (inputPath) {
-    output = readFileSync(inputPath, "utf8");
+    try {
+      output = readFileSync(inputPath, "utf8");
+    } catch (error) {
+      console.error(`coverage gate: cannot read ${JSON.stringify(inputPath)} (${error.code}); check the report path and permissions.`);
+      return 1;
+    }
   } else {
     const result = spawnSync(
       process.execPath,
@@ -275,7 +282,15 @@ export function runCoverageGate(inputPath) {
       return result.status ?? 1;
     }
   }
-  const summary = parseCoverageSummary(output);
+  let summary;
+  try {
+    summary = parseCoverageSummary(output);
+  } catch (error) {
+    if (error.message !== NO_COVERAGE_ROWS) throw error;
+    const report = inputPath ? `coverage report ${JSON.stringify(inputPath)}` : "coverage output";
+    console.error(`coverage gate: invalid ${report}: ${error.message}; use output from node --experimental-test-coverage --test.`);
+    return 1;
+  }
   const gate = evaluateCoverage(summary);
   const hotspots = evaluateCoverageHotspots(summary.files ?? parseCoverageFileRows(output));
   const sandboxBranches = evaluateCoverageSandboxBranches(summary.files ?? parseCoverageFileRows(output));
