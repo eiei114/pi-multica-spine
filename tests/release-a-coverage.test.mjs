@@ -98,9 +98,12 @@ test("operations view states and cursor", () => {
   assert.equal(complete.dataState, "CORRUPT_SOURCE");
   const noMatch = buildOperationsViewV1({ command: "idea-status", inventory: inv, workflowRunId: "missing" });
   assert.equal(noMatch.dataState, "NO_MATCHES");
-  const cursor = encodeOperationsCursor({ schemaVersion: 1, inventoryGeneration: 2, queryHash: "idea-status::status", lastSortKey: "2026-01-02T00:00:00.000Z:s1" });
-  const paged = buildOperationsViewV1({ command: "idea-status", inventory: inv, cursor: decodeOperationsCursor(cursor), pageSize: 1 });
+  const cursor = { schemaVersion: 1, inventoryGeneration: 2, queryHash: "idea-status::status", lastSortKey: "2026-01-02T00:00:00.000Z:s1" };
+  const decoded = decodeOperationsCursor(encodeOperationsCursor(cursor));
+  assert.deepEqual(decoded, cursor);
+  const paged = buildOperationsViewV1({ command: "idea-status", inventory: inv, cursor: decoded, pageSize: 1 });
   assert.equal(paged.truncated, true);
+  assert.deepEqual(decodeOperationsCursor(paged.nextCursor), { ...cursor, lastSortKey: "2026-01-03T00:00:00.000Z:s2" });
   const clean = buildOperationsViewV1({ command: "idea-status", inventory: emptyInventory([record({ lifecycleStatus: "active" })]), retentionDryRun: true });
   assert.equal(clean.nextAction.reasonCode, "RETENTION_REPORT");
   const emptyRetention = buildOperationsViewV1({ command: "idea-status --retention-dry-run", inventory: emptyInventory(), retentionDryRun: true });
@@ -115,7 +118,26 @@ test("operations view states and cursor", () => {
   assert.equal(err.exitCode, 64);
   const internal = mapWorkflowOperationsError(wrapUnknownOperationsError(new Error("boom")));
   assert.equal(internal.exitCode, 70);
-  assert.throws(() => decodeOperationsCursor(Buffer.from(JSON.stringify({ schemaVersion: 9 }), "utf8").toString("base64url")));
+});
+
+test("malformed operations cursors are reported as cursor errors", async (t) => {
+  for (const [label, payload] of [
+    ["non-JSON", "not JSON"],
+    ["JSON null", "null"],
+    ["missing required fields", '{"schemaVersion":1,"inventoryGeneration":2}'],
+    ["wrong field type", '{"schemaVersion":1,"inventoryGeneration":2,"queryHash":"idea-status::status","lastSortKey":5}'],
+    ["unsupported version", '{"schemaVersion":9,"inventoryGeneration":2,"queryHash":"idea-status::status","lastSortKey":"key"}'],
+  ]) {
+    await t.test(label, () => {
+      const encoded = Buffer.from(payload, "utf8").toString("base64url");
+      assert.throws(() => decodeOperationsCursor(encoded), (error) => {
+        const view = mapWorkflowOperationsError(wrapUnknownOperationsError(error));
+        assert.equal(view.exitCode, 2);
+        assert.equal(view.nextAction.reasonCode, "CURSOR_MISMATCH");
+        return true;
+      });
+    });
+  }
 });
 
 test("operations renderer", () => {

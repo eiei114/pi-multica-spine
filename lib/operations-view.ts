@@ -29,9 +29,25 @@ export class WorkflowOperationsError extends Error {
   }
 }
 export interface BuildOperationsViewInput { command: string; inventory: IdeaSessionInventorySnapshot; hydration?: HydrationSourceResult[]; workflowRunId?: string; retentionDryRun?: boolean; pageSize?: number; cursor?: OperationsCursorV1; now?: string }
-export interface OperationsCursorV1 { schemaVersion: 1; inventoryGeneration: number; queryHash: string; lastSortKey: string }
+const OperationsCursorV1Schema = Type.Object({
+  schemaVersion: Type.Literal(1),
+  inventoryGeneration: Type.Number(),
+  queryHash: Type.String(),
+  lastSortKey: Type.String(),
+});
+export type OperationsCursorV1 = Static<typeof OperationsCursorV1Schema>;
 export function encodeOperationsCursor(cursor: OperationsCursorV1): string { return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url"); }
-export function decodeOperationsCursor(encoded: string): OperationsCursorV1 { const parsed = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as OperationsCursorV1; if (parsed.schemaVersion !== 1) throw new WorkflowOperationsError("CURSOR_MISMATCH", "Unsupported cursor schema version"); return parsed; }
+export function decodeOperationsCursor(encoded: string): OperationsCursorV1 {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
+  } catch (cause) {
+    throw new WorkflowOperationsError("CURSOR_MISMATCH", "Could not decode cursor", undefined, cause);
+  }
+  const cursor = validateSchema(OperationsCursorV1Schema, parsed);
+  if (!cursor.ok) throw new WorkflowOperationsError("CURSOR_MISMATCH", "Invalid cursor shape or schema version");
+  return cursor.value;
+}
 const actionRequired = (record: IdeaSessionInventoryRecord) => record.corrupt || ["blocked","reviewed_cleanup_pending","starting_failed","terminal_failed","final_package"].includes(record.lifecycleStatus);
 const actionItem = (record: IdeaSessionInventoryRecord) => record.corrupt ? { sessionId: record.sessionId, workflowRunId: record.workflowRunId, what: "Session inventory source is corrupt", why: record.corruptReason ?? "Ledger or manifest failed validation", next: `/skill:idea-status --workflow-run-id ${record.workflowRunId ?? record.sessionId} --verbose`, reasonCode: "CORRUPT_LEDGER" as const, priority: 0 } : record.lifecycleStatus === "reviewed_cleanup_pending" ? { sessionId: record.sessionId, workflowRunId: record.workflowRunId, what: "Final review committed but stage cleanup is pending", why: "External stage closure did not complete", next: `/skill:idea-status --workflow-run-id ${record.workflowRunId ?? record.sessionId} --verbose`, reasonCode: "REVIEWED_CLEANUP_PENDING" as const, priority: 1 } : record.lifecycleStatus === "final_package" ? { sessionId: record.sessionId, workflowRunId: record.workflowRunId, what: "Workflow reached final package and needs human review", why: "Sandbox lane requires explicit final review", next: `/skill:idea-to-build --resume-run-id ${record.workflowRunId ?? record.sessionId}`, reasonCode: "READY_FOR_REVIEW" as const, priority: 3 } : { sessionId: record.sessionId, workflowRunId: record.workflowRunId, what: `Session is ${record.lifecycleStatus}`, why: "Recovery requires inspecting authoritative ledger state", next: `/skill:idea-status --workflow-run-id ${record.workflowRunId ?? record.sessionId} --verbose`, reasonCode: "ACTION_REQUIRED" as const, priority: 2 };
 const readyItem = (record: IdeaSessionInventoryRecord) => record.lifecycleStatus === "final_package" ? { sessionId: record.sessionId, workflowRunId: record.workflowRunId, label: record.parentIdentifier ?? record.sessionId, next: `/skill:idea-to-build --resume-run-id ${record.workflowRunId ?? record.sessionId}`, stateUpdatedAt: record.stateUpdatedAt, priority: 3 } : undefined;
