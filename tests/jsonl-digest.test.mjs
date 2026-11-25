@@ -34,6 +34,22 @@ test("digest CLI reports missing input on stderr without a stack trace", (t) => 
   assert.match(result.stderr, /ENOENT/);
 });
 
+test("digest CLI reports an unknown option with a help hint instead of a stack trace", () => {
+  const result = spawnSync(process.execPath, [digestCli, "--humna"], { encoding: "utf8" });
+  assert.ifError(result.error);
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /^jsonl-digest: [^\r\n]*--humna[^\r\n]*--help[^\r\n]*\r?\n$/);
+});
+
+test("digest CLI prints usage on stderr and exits successfully for --help", () => {
+  const result = spawnSync(process.execPath, [digestCli, "--help"], { encoding: "utf8" });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /^usage: jsonl-digest \[--human\] \[--color\|--no-color\] <tasks\.jsonl>\r?\n/);
+});
+
 test("digest CLI writes one JSON line by default for a valid input", (t) => {
   const input = tempDigestInput(t, "tasks.jsonl");
   const content = '{"id":"t1","status":"open"}\n';

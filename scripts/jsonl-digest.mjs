@@ -36,7 +36,13 @@ export function parseJsonlDigestCliArgs(argv = process.argv.slice(2)) {
 }
 
 export function runJsonlDigestCli(argv = process.argv.slice(2)) {
-  const config = parseJsonlDigestCliArgs(argv);
+  let config;
+  try {
+    config = parseJsonlDigestCliArgs(argv);
+  } catch (error) {
+    console.error(`jsonl-digest: ${error.message} See --help for usage.`);
+    return 1;
+  }
   if (config.help || !config.path) {
     console.error("usage: jsonl-digest [--human] [--color|--no-color] <tasks.jsonl>");
     console.error("  default: JSON output (stable, pipe-friendly)");
