@@ -64,7 +64,13 @@ function nextActionForMissing(missing: string[], localImportClosure?: LocalImpor
     return ACTIONS.linkPr;
   }
   if (missing.includes("verification evidence")) return ACTIONS.addEvidence;
-  if (missing.includes("handoff")) return ACTIONS.handoff;
+  if (
+    missing.includes("handoff") ||
+    missing.includes("handoff issue identifier") ||
+    missing.includes("handoff PR URL")
+  ) {
+    return ACTIONS.handoff;
+  }
   return ACTIONS.verify;
 }
 
